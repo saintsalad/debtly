@@ -432,6 +432,7 @@ Preferred:
 
 * sectioned groups
 * row separators with low contrast
+* row separators spanning the full width of the list container edge to edge, never inset by row padding or inner spacing
 * consistent tap height
 * left-aligned content
 * clear metadata hierarchy

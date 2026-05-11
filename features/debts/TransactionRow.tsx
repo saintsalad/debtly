@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Debt } from '@/features/debts/types';
 import { Avatar } from '@/components/ui/Avatar';
+import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
@@ -20,9 +22,10 @@ function createStyles(palette: ColorPalette) {
       paddingHorizontal: space[4],
       paddingVertical: space[4],
       gap: space[3],
+      minHeight: 68,
     },
     rowPressed: {
-      opacity: 0.88,
+      backgroundColor: palette.fill,
     },
     body: { flex: 1, gap: space[1] },
     topRow: {
@@ -63,10 +66,6 @@ function createStyles(palette: ColorPalette) {
     statusPaid: {
       color: palette.labelSecondary,
     },
-    separator: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: palette.separator,
-    },
   });
 }
 
@@ -80,12 +79,19 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
   const statusLabel =
     status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Pending';
 
+  const handlePress = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  }, [onPress]);
+
   return (
     <>
       <Pressable
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-        onPress={onPress}
+        onPress={handlePress}
         android_ripple={{ color: palette.fill, borderless: false }}
+        accessibilityRole="button"
+        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(debt.amount)}`}
       >
         <Avatar name={debt.personName} size={40} />
 
@@ -117,7 +123,7 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
           </View>
         </View>
       </Pressable>
-      {showSeparator && <View style={styles.separator} />}
+      {showSeparator ? <ListDivider /> : null}
     </>
   );
 }

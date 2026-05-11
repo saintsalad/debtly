@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
@@ -7,9 +7,9 @@ import { Receipt, SearchX } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TransactionRow } from '@/features/debts/TransactionRow';
-import { TransactionDetailSheet } from '@/features/debts/TransactionDetailSheet';
 import { useDebtStore } from '@/stores/debtStore';
 import { Debt } from '@/features/debts/types';
+import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
@@ -60,9 +60,8 @@ export default function TransactionsScreen() {
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const [search, setSearch] = useState('');
   const [segmentIndex, setSegmentIndex] = useState(0);
-  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
   const debts = useDebtStore((s) => s.debts);
+  const { open: openTransactionDetail } = useTransactionDetail();
 
   const filtered = useMemo(() => {
     let list = debts;
@@ -81,10 +80,12 @@ export default function TransactionsScreen() {
     );
   }, [debts, segmentIndex, search]);
 
-  const handleSelect = (debt: Debt) => {
-    setSelectedDebt(debt);
-    setDetailOpen(true);
-  };
+  const handleSelect = useCallback(
+    (debt: Debt) => {
+      openTransactionDetail(debt);
+    },
+    [openTransactionDetail]
+  );
   const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
 
   return (
@@ -119,6 +120,7 @@ export default function TransactionsScreen() {
           keyExtractor={(item) => item.id}
           onScroll={onScroll}
           scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             filtered.length === 0 && styles.listEmpty,
@@ -152,15 +154,6 @@ export default function TransactionsScreen() {
           }
         />
       </View>
-
-      <TransactionDetailSheet
-        debt={selectedDebt}
-        isOpen={detailOpen}
-        onOpenChange={(open) => {
-          setDetailOpen(open);
-          if (!open) setTimeout(() => setSelectedDebt(null), 300);
-        }}
-      />
     </AppScreen>
   );
 }

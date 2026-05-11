@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react-native';
 import { BillSplit } from '@/features/bill-split/types';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { ListDivider } from '@/components/ui/ListDivider';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface BillSplitCardProps {
@@ -87,10 +88,6 @@ function createStyles(palette: ColorPalette) {
     participantAmountPaid: {
       color: palette.labelTertiary,
     },
-    participantSep: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: palette.separator,
-    },
     cardGap: {
       height: space[3],
     },
@@ -155,7 +152,9 @@ export function BillSplitCard({ split, showSeparator = false }: BillSplitCardPro
                 {fmt(participant.amount)}
               </Text>
             </Pressable>
-            {index < split.participants.length - 1 ? <View style={styles.participantSep} /> : null}
+            {index < split.participants.length - 1 ? (
+              <ListDivider bleedHorizontal={space[4]} />
+            ) : null}
           </View>
         ))}
       </View>

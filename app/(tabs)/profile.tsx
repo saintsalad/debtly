@@ -6,6 +6,7 @@ import Animated from 'react-native-reanimated';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { ListDivider } from '@/components/ui/ListDivider';
 import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
@@ -48,7 +49,7 @@ function ToggleRow({ icon: Icon, label, value, onValueChange, last, palette, sty
           ios_backgroundColor={palette.fill}
         />
       </View>
-      {!last && <View style={styles.rowSeparator} />}
+      {!last ? <ListDivider /> : null}
     </>
   );
 }
@@ -75,7 +76,7 @@ function Row({ icon: Icon, label, value, onPress, destructive, last, palette, st
           ) : null}
         </View>
       </TouchableOpacity>
-      {!last && <View style={styles.rowSeparator} />}
+      {!last ? <ListDivider /> : null}
     </>
   );
 }
@@ -182,10 +183,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     rowLabel: { ...type.subheadline, color: palette.label, flex: 1 },
     rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     rowValue: { ...type.subheadline, color: palette.labelSecondary },
-    rowSeparator: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: palette.opaqueSeparator,
-    },
   });
 }
 

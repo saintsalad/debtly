@@ -9,13 +9,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Wallet } from 'lucide-react-native';
-import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { TransactionRow } from '@/features/debts/TransactionRow';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
-import { formatDate, getComputedStatus } from '@/lib/utils';
+import { getComputedStatus } from '@/lib/utils';
+import { useTransactionDetail } from '@/lib/transactionDetailContext';
 
 function useFadeUp(delay = 0) {
   const opacity = useSharedValue(0);
@@ -138,40 +139,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       overflow: 'hidden',
       ...shadow,
     },
-    recentItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: space[4],
-      paddingVertical: space[4],
-      gap: space[3],
-    },
-    recentBody: { flex: 1, gap: space[1] },
-    recentName: {
-      ...type.subheadline,
-      fontWeight: '500',
-      color: palette.label,
-    },
-    recentNote: {
-      ...type.footnote,
-      color: palette.labelSecondary,
-    },
-    recentRight: { alignItems: 'flex-end', gap: space[1] },
-    recentAmount: {
-      ...type.callout,
-      fontWeight: '600',
-      color: palette.label,
-    },
-    recentMeta: {
-      ...type.caption1,
-      color: palette.labelTertiary,
-    },
-    recentMetaOverdue: {
-      color: palette.negative,
-    },
-    recentSep: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: palette.separator,
-    },
   });
 }
 
@@ -210,6 +177,7 @@ export default function HomeScreen() {
   const heroStyle = useFadeUp(0);
   const overviewStyle = useFadeUp(50);
   const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
+  const { open: openTransactionDetail } = useTransactionDetail();
 
   return (
     <AppScreen>
@@ -260,50 +228,14 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent activity</Text>
             <View style={styles.recentCard}>
-              {recentDebts.map((debt, index) => {
-                const status = getComputedStatus(debt);
-                const isCredit = debt.type === 'owed_to_me';
-                const amountColor =
-                  status === 'paid'
-                    ? palette.labelTertiary
-                    : isCredit
-                    ? palette.positive
-                    : palette.negative;
-
-                return (
-                  <View key={debt.id}>
-                    <View style={styles.recentItem}>
-                      <Avatar name={debt.personName} size={40} />
-                      <View style={styles.recentBody}>
-                        <Text style={styles.recentName} numberOfLines={1}>
-                          {debt.personName}
-                        </Text>
-                        <Text style={styles.recentNote} numberOfLines={1}>
-                          {debt.note || (isCredit ? 'Owes you' : 'You owe')}
-                        </Text>
-                      </View>
-                      <View style={styles.recentRight}>
-                        <Text style={[styles.recentAmount, { color: amountColor }]}>
-                          {isCredit ? '+' : '−'}{fmt(debt.amount)}
-                        </Text>
-                        {status === 'paid' ? (
-                          <Text style={styles.recentMeta}>Paid</Text>
-                        ) : debt.dueDate ? (
-                          <Text
-                            style={[
-                              styles.recentMeta,
-                              status === 'overdue' && styles.recentMetaOverdue,
-                            ]}
-                          >
-                            {formatDate(debt.dueDate)}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                    {index < recentDebts.length - 1 && <View style={styles.recentSep} />}
-                  </View>
-                );
-              })}
+              {recentDebts.map((debt, index) => (
+                <TransactionRow
+                  key={debt.id}
+                  debt={debt}
+                  onPress={() => openTransactionDetail(debt)}
+                  showSeparator={index < recentDebts.length - 1}
+                />
+              ))}
             </View>
           </View>
         ) : (

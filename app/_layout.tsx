@@ -7,6 +7,7 @@ import '../global.css';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useSyncUniwindTheme } from '@/hooks/use-sync-uniwind-theme';
 import { AddDebtProvider } from '@/lib/addDebtContext';
+import { TransactionDetailProvider } from '@/lib/transactionDetailContext';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -25,10 +26,12 @@ export default function RootLayout() {
         <HeroUINativeProvider>
           <BottomSheetModalProvider>
             <AddDebtProvider>
-              <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-              </Stack>
+              <TransactionDetailProvider>
+                <Stack>
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                </Stack>
+              </TransactionDetailProvider>
             </AddDebtProvider>
           </BottomSheetModalProvider>
         </HeroUINativeProvider>
