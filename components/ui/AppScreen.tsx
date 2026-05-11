@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { layout, useColors } from '@/lib/platform';
 
@@ -13,10 +12,10 @@ export function AppScreen({ children, style }: AppScreenProps) {
   const palette = useColors();
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.bg }, style]} edges={['top']}>
-      <AppHeader />
+    <View style={[styles.safe, { backgroundColor: palette.bg }, style]}>
       <View style={styles.content}>{children}</View>
-    </SafeAreaView>
+      <AppHeader />
+    </View>
   );
 }
 
@@ -29,3 +28,5 @@ const styles = StyleSheet.create({
     paddingBottom: layout.screenPaddingBottom,
   },
 });
+
+export { useCollapsibleHeader } from '@/components/ui/collapsible-header-context';

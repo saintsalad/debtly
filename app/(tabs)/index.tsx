@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppScreen } from '@/components/ui/AppScreen';
+import { StyleSheet, Text, View } from 'react-native';
+import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -209,10 +209,16 @@ export default function HomeScreen() {
   const activeCount = owedToMe.length + iOwe.length;
   const heroStyle = useFadeUp(0);
   const overviewStyle = useFadeUp(50);
+  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
 
   return (
     <AppScreen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingTop: headerSpacerHeight }]}
+      >
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.name}>{name}</Text>
@@ -307,7 +313,7 @@ export default function HomeScreen() {
             icon={<Wallet size={40} color={palette.labelTertiary} />}
           />
         )}
-      </ScrollView>
+      </Animated.ScrollView>
     </AppScreen>
   );
 }

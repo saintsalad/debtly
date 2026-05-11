@@ -2,11 +2,13 @@ import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { LiquidTabBar } from '@/components/ui/LiquidTabBar';
 import { AndroidTabBar } from '@/components/ui/AndroidTabBar';
+import { CollapsibleHeaderProvider } from '@/components/ui/collapsible-header-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 const TabBar = Platform.OS === 'android' ? AndroidTabBar : LiquidTabBar;
 
 export default function TabLayout() {
   return (
+    <CollapsibleHeaderProvider>
       <Tabs
         tabBar={(props) => <TabBar {...props} />}
         screenOptions={{ headerShown: false }}
@@ -48,5 +50,6 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
+    </CollapsibleHeaderProvider>
   );
 }

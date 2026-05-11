@@ -1,8 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Bell } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { useCollapsibleHeader } from '@/components/ui/collapsible-header-context';
 import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useColors, space, type } from '@/lib/platform';
@@ -12,7 +16,18 @@ const APP_NAME = 'Debtly';
 
 export function AppHeader() {
   const palette = useColors();
+  const insets = useSafeAreaInsets();
+  const { headerTranslateY, registerHeaderHeight, resetHeader } = useCollapsibleHeader();
   const router = useRouter();
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  useFocusEffect(
+    useCallback(() => {
+      resetHeader();
+    }, [resetHeader])
+  );
   const name = useProfileStore((s) => s.name);
   const debts = useDebtStore((s) => s.debts);
 
@@ -38,7 +53,14 @@ export function AppHeader() {
   };
 
   return (
-    <View style={[styles.headerWrap, { backgroundColor: palette.surface }]}>
+    <Animated.View
+      onLayout={(event) => registerHeaderHeight(event.nativeEvent.layout.height)}
+      style={[
+        styles.headerWrap,
+        { backgroundColor: palette.surface, paddingTop: insets.top },
+        animatedStyle,
+      ]}
+    >
       <View style={styles.header}>
         <Text style={[styles.appName, { color: palette.label }]}>{APP_NAME}</Text>
         <View style={styles.actions}>
@@ -67,12 +89,17 @@ export function AppHeader() {
         </View>
       </View>
       <View style={[styles.headerBorder, { backgroundColor: palette.opaqueSeparator }]} />
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   headerWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     overflow: 'hidden',
   },
   header: {

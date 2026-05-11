@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { AppScreen } from '@/components/ui/AppScreen';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import { SearchField } from 'heroui-native';
 import { Receipt, SearchX } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -84,10 +85,11 @@ export default function TransactionsScreen() {
     setSelectedDebt(debt);
     setDetailOpen(true);
   };
+  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
 
   return (
     <AppScreen>
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: headerSpacerHeight }]}>
         <View style={styles.header}>
           <Text style={styles.title}>Transactions</Text>
           <Text style={styles.subtitle}>{filtered.length} records</Text>
@@ -111,10 +113,12 @@ export default function TransactionsScreen() {
           />
         </View>
 
-        <FlatList
+        <Animated.FlatList
           style={styles.list}
           data={filtered}
           keyExtractor={(item) => item.id}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             filtered.length === 0 && styles.listEmpty,

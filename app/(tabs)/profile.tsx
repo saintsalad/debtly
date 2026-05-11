@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Pressable,
+  Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Pressable,
 } from 'react-native';
-import { AppScreen } from '@/components/ui/AppScreen';
+import Animated from 'react-native-reanimated';
+import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
@@ -227,10 +228,16 @@ export default function ProfileScreen() {
       { text: 'Delete all', style: 'destructive', onPress: clearAll },
     ]);
   };
+  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
 
   return (
     <AppScreen style={{ backgroundColor: palette.bg }}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[styles.content, { paddingTop: headerSpacerHeight }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Profile</Text>
         </View>
@@ -316,7 +323,7 @@ export default function ProfileScreen() {
             last
           />
         </Section>
-      </ScrollView>
+      </Animated.ScrollView>
     </AppScreen>
   );
 }
