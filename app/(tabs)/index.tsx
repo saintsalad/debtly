@@ -1,98 +1,136 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React, { useMemo, useRef, useState } from 'react';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AddDebtSheet, AddDebtSheetHandle } from '@/features/debts/AddDebtSheet';
+import { DebtCard } from '@/features/debts/DebtCard';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FAB } from '@/components/ui/FAB';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { SummaryCard } from '@/components/ui/SummaryCard';
+import { useDebtSummary } from '@/stores/debtStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [segmentIndex, setSegmentIndex] = useState(0);
+  const addDebtRef = useRef<AddDebtSheetHandle>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const { owedToMe, iOwe, totalOwedToMe, totalIOwe } = useDebtSummary();
+  const name = useProfileStore((s) => s.name);
+
+  const activeList = segmentIndex === 0 ? owedToMe : iOwe;
+
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <FlatList
+        data={activeList}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View>
+            {/* Greeting */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.greeting}>{greeting},</Text>
+                <Text style={styles.name}>{name} 👋</Text>
+              </View>
+            </View>
+
+            {/* Summary Cards */}
+            <View style={styles.summaryRow}>
+              <SummaryCard
+                label="Owed to You"
+                amount={totalOwedToMe}
+                count={owedToMe.length}
+                accentColor="#16A34A"
+                bgColor="#F0FDF4"
+              />
+              <View style={styles.cardGap} />
+              <SummaryCard
+                label="You Owe"
+                amount={totalIOwe}
+                count={iOwe.length}
+                accentColor="#DC2626"
+                bgColor="#FEF2F2"
+              />
+            </View>
+
+            {/* Segmented Control */}
+            <View style={styles.segmentWrapper}>
+              <SegmentedControl
+                options={['Owed To You', 'You Owe']}
+                selectedIndex={segmentIndex}
+                onChange={setSegmentIndex}
+              />
+            </View>
+
+            {activeList.length > 0 && (
+              <Text style={styles.sectionMeta}>
+                {activeList.length} {activeList.length === 1 ? 'debt' : 'debts'}
+              </Text>
+            )}
+          </View>
+        }
+        renderItem={({ item, index }) => <DebtCard debt={item} index={index} />}
+        ListEmptyComponent={
+          <EmptyState
+            emoji={segmentIndex === 0 ? '🤝' : '🎉'}
+            title={segmentIndex === 0 ? 'All clear!' : 'Nothing owed'}
+            subtitle={
+              segmentIndex === 0
+                ? "Nobody owes you anything right now."
+                : "You don't owe anyone. You're free!"
+            }
+          />
+        }
+      />
+
+      <FAB onPress={() => addDebtRef.current?.present()} bottom={100} />
+      <AddDebtSheet ref={addDebtRef} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  safe: { flex: 1, backgroundColor: '#F8F9FA' },
+  listContent: { paddingBottom: 130 },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  greeting: { fontSize: 15, color: '#9CA3AF', fontWeight: '500' },
+  name: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
+    marginTop: 2,
+  },
+  summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  cardGap: { width: 12 },
+  segmentWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  sectionMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
 });

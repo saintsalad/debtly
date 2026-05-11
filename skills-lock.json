@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "building-native-ui": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/expo/skills/building-native-ui/SKILL.md",
+      "computedHash": "a0316d2ce842d2dd8067a144e339cf502329dc7701f9f5122268fdb3d4c980f7"
+    },
+    "migrate-nativewind-to-uniwind": {
+      "source": "uni-stack/uniwind",
+      "sourceType": "github",
+      "skillPath": "skills/migrate-nativewind-to-uniwind/SKILL.md",
+      "computedHash": "d3570bc395e5c9f12eddf4fcb613d92e7f4b1fbdb5692b20309fa87b70ff0718"
+    }
+  }
+}
