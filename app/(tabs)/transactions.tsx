@@ -1,10 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SearchField } from 'heroui-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { AddDebtSheet, AddDebtSheetHandle } from '@/features/debts/AddDebtSheet';
-import { FAB } from '@/components/ui/FAB';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TransactionRow } from '@/features/debts/TransactionRow';
@@ -18,8 +16,6 @@ export default function TransactionsScreen() {
   const [segmentIndex, setSegmentIndex] = useState(0);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const addDebtRef = useRef<AddDebtSheetHandle>(null);
-
   const debts = useDebtStore((s) => s.debts);
 
   const filtered = useMemo(() => {
@@ -107,9 +103,6 @@ export default function TransactionsScreen() {
           />
         }
       />
-
-      <FAB onPress={() => addDebtRef.current?.present()} bottom={96} />
-      <AddDebtSheet ref={addDebtRef} />
 
       <TransactionDetailSheet
         debt={selectedDebt}

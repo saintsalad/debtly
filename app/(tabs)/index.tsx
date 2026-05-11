@@ -1,9 +1,7 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { AddDebtSheet, AddDebtSheetHandle } from '@/features/debts/AddDebtSheet';
-import { FAB } from '@/components/ui/FAB';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -12,7 +10,6 @@ import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 
 export default function HomeScreen() {
-  const addDebtRef = useRef<AddDebtSheetHandle>(null);
   const { debts, owedToMe, iOwe, totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const { fmt } = useCurrency();
@@ -175,8 +172,6 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={() => addDebtRef.current?.present()} bottom={96} />
-      <AddDebtSheet ref={addDebtRef} />
     </SafeAreaView>
   );
 }

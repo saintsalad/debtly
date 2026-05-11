@@ -5,6 +5,8 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AddDebtProvider } from '@/lib/addDebtContext';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -19,10 +21,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <HeroUINativeProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-          </Stack>
+          <BottomSheetModalProvider>
+            <AddDebtProvider>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              </Stack>
+            </AddDebtProvider>
+          </BottomSheetModalProvider>
         </HeroUINativeProvider>
         <StatusBar style="auto" />
       </ThemeProvider>

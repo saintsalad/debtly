@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, type } from '@/lib/platform';
+import { useAddDebt } from '@/lib/addDebtContext';
 
 function TabItem({
   isFocused,
@@ -28,7 +30,6 @@ function TabItem({
           onPress();
         }}
         hitSlop={8}
-        android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true, radius: 32 }}
       >
         {options.tabBarIcon?.({
           focused: isFocused,
@@ -43,37 +44,57 @@ function TabItem({
   );
 }
 
-export function LiquidTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+function CreateButton() {
+  const { present } = useAddDebt();
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const rows = (
-    <View style={styles.tabRow}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const isFocused = state.index === index;
-
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-        };
-
-        return <TabItem key={route.key} isFocused={isFocused} options={options} onPress={onPress} />;
-      })}
+  return (
+    <View style={styles.createContainer}>
+      <Animated.View style={animStyle}>
+        <Pressable
+          style={styles.createButton}
+          onPressIn={() => { scale.value = withSpring(0.88, { damping: 12, stiffness: 400 }); }}
+          onPressOut={() => {
+            scale.value = withSpring(1, { damping: 12, stiffness: 400 });
+            present();
+          }}
+          hitSlop={8}
+        >
+          <MaterialIcons name="add" size={24} color="#fff" />
+        </Pressable>
+      </Animated.View>
+      <Text style={styles.createLabel}>Create</Text>
     </View>
   );
+}
+
+export function LiquidTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const routes = state.routes;
+  const mid = Math.floor(routes.length / 2);
+
+  const renderTab = (route: typeof routes[0]) => {
+    const index = routes.indexOf(route);
+    const { options } = descriptors[route.key];
+    const isFocused = state.index === index;
+    const onPress = () => {
+      const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+      if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+    };
+    return <TabItem key={route.key} isFocused={isFocused} options={options} onPress={onPress} />;
+  };
 
   return (
     <View style={[styles.wrapper, { bottom: insets.bottom + 10 }]}>
-      {Platform.OS === 'ios' ? (
-        <BlurView intensity={72} tint="systemUltraThinMaterial" style={styles.surface}>
-          <View style={styles.border} />
-          {rows}
-        </BlurView>
-      ) : (
-        <View style={[styles.surface, styles.androidSurface]}>
-          {rows}
+      <BlurView intensity={72} tint="systemUltraThinMaterial" style={styles.surface}>
+        <View style={styles.topBorder} />
+        <View style={styles.tabRow}>
+          {routes.slice(0, mid).map(renderTab)}
+          <CreateButton />
+          {routes.slice(mid).map(renderTab)}
         </View>
-      )}
+      </BlurView>
     </View>
   );
 }
@@ -94,19 +115,20 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'hidden',
   },
-  androidSurface: {
-    backgroundColor: 'rgba(255,255,255,0.97)',
-  },
-  border: {
+  topBorder: {
     position: 'absolute',
-    top: 0, left: 0, right: 0,
+    top: 0,
+    left: 0,
+    right: 0,
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255,255,255,0.5)',
   },
   tabRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
   tabItem: { flex: 1 },
   tabPressable: {
@@ -118,5 +140,29 @@ const styles = StyleSheet.create({
   tabLabel: {
     ...type.caption2,
     fontWeight: '500',
+  },
+  createContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingBottom: 4,
+  },
+  createButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.tint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -18,
+    marginBottom: 4,
+    shadowColor: colors.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  createLabel: {
+    ...type.caption2,
+    fontWeight: '600',
+    color: colors.tint,
   },
 });
