@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSyncUniwindTheme } from '@/hooks/use-sync-uniwind-theme';
 import { AddDebtProvider } from '@/lib/addDebtContext';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
@@ -15,7 +16,8 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const colorScheme = useAppColorScheme();
+  useSyncUniwindTheme();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -30,7 +32,7 @@ export default function RootLayout() {
             </AddDebtProvider>
           </BottomSheetModalProvider>
         </HeroUINativeProvider>
-        <StatusBar style="auto" />
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

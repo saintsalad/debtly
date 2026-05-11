@@ -31,7 +31,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WHEEL_HEIGHT, WHEEL_ITEM_SIZE } from '@/components/ui/carousel';
 import { IosDatePickerItem } from '@/components/ui/ios-datepicker-item';
-import { colors, radius, space } from '@/lib/platform';
+import { useColors, radius, space, type ColorPalette } from '@/lib/platform';
 
 const SHOW_DATE = 'd MMMM yyyy';
 
@@ -50,6 +50,150 @@ function isYearRange(value: YearRange | number): value is YearRange {
   return typeof value === 'object' && value !== null;
 }
 
+function createStyles(palette: ColorPalette) {
+  return StyleSheet.create({
+    trigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      alignSelf: 'stretch',
+      paddingHorizontal: space[4],
+      paddingVertical: 12,
+      borderRadius: radius.md,
+      backgroundColor: palette.fill,
+    },
+    triggerDisabled: {
+      opacity: 0.5,
+    },
+    triggerPressed: {
+      opacity: 0.85,
+    },
+    triggerText: {
+      flex: 1,
+      fontSize: 17,
+      color: palette.label,
+    },
+    triggerPlaceholder: {
+      flex: 1,
+      fontSize: 17,
+      color: palette.placeholder,
+    },
+    modalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    backdropPressable: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    sheet: {
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
+      backgroundColor: palette.surface,
+      paddingHorizontal: space[4],
+      paddingTop: space[2],
+    },
+    dragArea: {
+      paddingBottom: space[1],
+    },
+    handle: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: radius.pill,
+      backgroundColor: palette.opaqueSeparator,
+      marginBottom: space[2],
+    },
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingBottom: space[3],
+    },
+    headerIconButton: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerIconButtonSecondary: {
+      backgroundColor: palette.fill,
+    },
+    headerIconButtonPrimary: {
+      backgroundColor: palette.positiveSoft,
+    },
+    headerIconButtonPressed: {
+      opacity: 0.75,
+    },
+    title: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '600',
+      color: palette.label,
+      textAlign: 'center',
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.opaqueSeparator,
+    },
+    wheels: {
+      position: 'relative',
+      height: WHEEL_HEIGHT,
+      overflow: 'visible',
+    },
+    wheelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: WHEEL_HEIGHT,
+      zIndex: 1,
+      overflow: 'visible',
+    },
+    dayColumn: {
+      flex: 0.7,
+    },
+    monthColumn: {
+      flex: 1.35,
+    },
+    yearColumn: {
+      flex: 0.95,
+    },
+    selection: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: (WHEEL_HEIGHT - WHEEL_ITEM_SIZE) / 2,
+      height: WHEEL_ITEM_SIZE,
+      borderRadius: radius.md,
+      backgroundColor: palette.fillSecondary,
+      zIndex: 0,
+    },
+    fadeTop: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 56,
+      backgroundColor: palette.surface,
+      opacity: 0.94,
+      zIndex: 2,
+    },
+    fadeBottom: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 56,
+      backgroundColor: palette.surface,
+      opacity: 0.94,
+      zIndex: 2,
+    },
+  });
+}
+
 export function IosDatePicker({
   value,
   placeholder = 'Select a date',
@@ -58,6 +202,8 @@ export function IosDatePicker({
   onChange,
   yearRange = 25,
 }: Readonly<IosDatePickerProps>) {
+  const palette = useColors();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const today = new Date();
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
@@ -203,7 +349,7 @@ export function IosDatePicker({
           pressed && !disabled && styles.triggerPressed,
         ]}
       >
-        <Calendar size={18} color={colors.labelSecondary} />
+        <Calendar size={18} color={palette.labelSecondary} />
         <Text style={value ? styles.triggerText : styles.triggerPlaceholder} numberOfLines={1}>
           {value ? format(value, SHOW_DATE) : placeholder}
         </Text>
@@ -244,7 +390,7 @@ export function IosDatePicker({
                       pressed && styles.headerIconButtonPressed,
                     ]}
                   >
-                    <X size={20} color={colors.label} />
+                    <X size={20} color={palette.label} />
                   </Pressable>
 
                   <Text style={styles.title}>Select a date</Text>
@@ -260,7 +406,7 @@ export function IosDatePicker({
                       pressed && styles.headerIconButtonPressed,
                     ]}
                   >
-                    <Check size={20} color={colors.positive} />
+                    <Check size={20} color={palette.positive} />
                   </Pressable>
                 </View>
               </View>
@@ -301,144 +447,3 @@ export function IosDatePicker({
   );
 }
 
-const styles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    alignSelf: 'stretch',
-    paddingHorizontal: space[4],
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.fill,
-  },
-  triggerDisabled: {
-    opacity: 0.5,
-  },
-  triggerPressed: {
-    opacity: 0.85,
-  },
-  triggerText: {
-    flex: 1,
-    fontSize: 17,
-    color: colors.label,
-  },
-  triggerPlaceholder: {
-    flex: 1,
-    fontSize: 17,
-    color: colors.placeholder,
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdropPressable: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  sheet: {
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    backgroundColor: colors.surface,
-    paddingHorizontal: space[4],
-    paddingTop: space[2],
-  },
-  dragArea: {
-    paddingBottom: space[1],
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.opaqueSeparator,
-    marginBottom: space[2],
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: space[3],
-  },
-  headerIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconButtonSecondary: {
-    backgroundColor: colors.fill,
-  },
-  headerIconButtonPrimary: {
-    backgroundColor: colors.positiveSoft,
-  },
-  headerIconButtonPressed: {
-    opacity: 0.75,
-  },
-  title: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.label,
-    textAlign: 'center',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.opaqueSeparator,
-  },
-  wheels: {
-    position: 'relative',
-    height: WHEEL_HEIGHT,
-    overflow: 'visible',
-  },
-  wheelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: WHEEL_HEIGHT,
-    zIndex: 1,
-    overflow: 'visible',
-  },
-  dayColumn: {
-    flex: 0.7,
-  },
-  monthColumn: {
-    flex: 1.35,
-  },
-  yearColumn: {
-    flex: 0.95,
-  },
-  selection: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: (WHEEL_HEIGHT - WHEEL_ITEM_SIZE) / 2,
-    height: WHEEL_ITEM_SIZE,
-    borderRadius: radius.md,
-    backgroundColor: colors.fillSecondary,
-    zIndex: 0,
-  },
-  fadeTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 56,
-    backgroundColor: colors.surface,
-    opacity: 0.94,
-    zIndex: 2,
-  },
-  fadeBottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 56,
-    backgroundColor: colors.surface,
-    opacity: 0.94,
-    zIndex: 2,
-  },
-});

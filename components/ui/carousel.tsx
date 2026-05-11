@@ -23,7 +23,7 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
-import { colors } from '@/lib/platform';
+import { useColors } from '@/lib/platform';
 
 export const WHEEL_HEIGHT = 216;
 export const WHEEL_ITEM_SIZE = 44;
@@ -348,6 +348,7 @@ type CarouselItemProps = {
 };
 
 export function CarouselItem({ children, index = 0, style }: CarouselItemProps) {
+  const palette = useColors();
   const { itemSize, orientation, scrollOffset } = useCarousel();
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -381,7 +382,7 @@ export function CarouselItem({ children, index = 0, style }: CarouselItemProps) 
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.85}
-        style={[styles.itemLabel, labelStyle]}
+        style={[styles.itemLabel, { color: palette.label }, labelStyle]}
       >
         {children}
       </Animated.Text>
@@ -402,7 +403,6 @@ const styles = StyleSheet.create({
   itemLabel: {
     width: '100%',
     fontSize: 16,
-    color: colors.label,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },

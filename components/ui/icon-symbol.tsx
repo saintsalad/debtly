@@ -15,6 +15,7 @@ import {
   Send,
   Trash2,
   User,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -24,6 +25,7 @@ const MAPPING = {
   'house.fill': Home,
   'bell.fill': Bell,
   'person.fill': User,
+  'person.2.fill': Users,
   'doc.text.fill': FileText,
   plus: Plus,
   xmark: X,

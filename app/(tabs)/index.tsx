@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppScreen } from '@/components/ui/AppScreen';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { colors, type, space, radius, cardShadow } from '@/lib/platform';
+import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 
 function useFadeUp(delay = 0) {
@@ -32,7 +32,151 @@ function useFadeUp(delay = 0) {
   }));
 }
 
+function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+  return StyleSheet.create({
+    content: {},
+
+    header: {
+      paddingHorizontal: space[4],
+      paddingTop: space[4],
+      paddingBottom: space[6],
+    },
+    greeting: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      marginBottom: space[1],
+    },
+    name: {
+      ...type.largeTitle,
+      fontWeight: '600',
+      color: palette.label,
+    },
+
+    netCard: {
+      marginHorizontal: space[4],
+      marginBottom: space[6],
+      backgroundColor: palette.surface,
+      borderRadius: radius.xl,
+      paddingHorizontal: space[5],
+      paddingVertical: space[6],
+      alignItems: 'center',
+      ...shadow,
+    },
+    netLabel: {
+      ...type.subheadline,
+      color: palette.labelSecondary,
+      marginBottom: space[2],
+    },
+    netAmount: {
+      ...type.title1,
+      fontWeight: '600',
+      marginBottom: space[2],
+    },
+    netSub: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      textAlign: 'center',
+      lineHeight: 18,
+      maxWidth: 280,
+    },
+
+    overviewCard: {
+      marginHorizontal: space[4],
+      marginBottom: space[3],
+      backgroundColor: palette.surface,
+      borderRadius: radius.lg,
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      paddingVertical: space[5],
+      ...shadow,
+    },
+    overviewHalf: {
+      flex: 1,
+      alignItems: 'center',
+      paddingHorizontal: space[3],
+      gap: space[1],
+    },
+    overviewDivider: {
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: palette.separator,
+      marginVertical: space[1],
+    },
+    overviewLabel: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+    },
+    overviewAmount: {
+      ...type.title3,
+      fontWeight: '600',
+    },
+    overviewMeta: {
+      ...type.caption1,
+      color: palette.labelTertiary,
+    },
+
+    statusLine: {
+      ...type.caption1,
+      color: palette.labelSecondary,
+      textAlign: 'center',
+      marginBottom: space[8],
+      paddingHorizontal: space[4],
+    },
+
+    section: {
+      paddingHorizontal: space[4],
+    },
+    sectionTitle: {
+      ...type.headline,
+      color: palette.label,
+      marginBottom: space[3],
+    },
+    recentCard: {
+      backgroundColor: palette.surface,
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      ...shadow,
+    },
+    recentItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: space[4],
+      paddingVertical: space[4],
+      gap: space[3],
+    },
+    recentBody: { flex: 1, gap: space[1] },
+    recentName: {
+      ...type.subheadline,
+      fontWeight: '500',
+      color: palette.label,
+    },
+    recentNote: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+    },
+    recentRight: { alignItems: 'flex-end', gap: space[1] },
+    recentAmount: {
+      ...type.callout,
+      fontWeight: '600',
+      color: palette.label,
+    },
+    recentMeta: {
+      ...type.caption1,
+      color: palette.labelTertiary,
+    },
+    recentMetaOverdue: {
+      color: palette.negative,
+    },
+    recentSep: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.separator,
+    },
+  });
+}
+
 export default function HomeScreen() {
+  const palette = useColors();
+  const shadow = useCardShadow();
+  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const { debts, owedToMe, iOwe, totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const { fmt } = useCurrency();
@@ -65,7 +209,7 @@ export default function HomeScreen() {
   const overviewStyle = useFadeUp(50);
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <AppScreen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting}</Text>
@@ -74,7 +218,7 @@ export default function HomeScreen() {
 
         <Animated.View style={[styles.netCard, heroStyle]}>
           <Text style={styles.netLabel}>Net balance</Text>
-          <Text style={[styles.netAmount, { color: isPositive ? colors.positive : colors.negative }]}>
+          <Text style={[styles.netAmount, { color: isPositive ? palette.positive : palette.negative }]}>
             {isPositive ? '+' : '−'}{fmt(Math.abs(netBalance))}
           </Text>
           <Text style={styles.netSub}>
@@ -85,7 +229,7 @@ export default function HomeScreen() {
         <Animated.View style={[styles.overviewCard, overviewStyle]}>
           <View style={styles.overviewHalf}>
             <Text style={styles.overviewLabel}>Receivable</Text>
-            <Text style={[styles.overviewAmount, { color: colors.positive }]}>
+            <Text style={[styles.overviewAmount, { color: palette.positive }]}>
               {fmt(totalOwedToMe)}
             </Text>
             <Text style={styles.overviewMeta}>{owedToMe.length} pending</Text>
@@ -93,7 +237,7 @@ export default function HomeScreen() {
           <View style={styles.overviewDivider} />
           <View style={styles.overviewHalf}>
             <Text style={styles.overviewLabel}>Payable</Text>
-            <Text style={[styles.overviewAmount, { color: colors.negative }]}>
+            <Text style={[styles.overviewAmount, { color: palette.negative }]}>
               {fmt(totalIOwe)}
             </Text>
             <Text style={styles.overviewMeta}>{iOwe.length} pending</Text>
@@ -113,10 +257,10 @@ export default function HomeScreen() {
                 const isCredit = debt.type === 'owed_to_me';
                 const amountColor =
                   status === 'paid'
-                    ? colors.labelTertiary
+                    ? palette.labelTertiary
                     : isCredit
-                    ? colors.positive
-                    : colors.negative;
+                    ? palette.positive
+                    : palette.negative;
 
                 return (
                   <View key={debt.id}>
@@ -158,151 +302,11 @@ export default function HomeScreen() {
           <EmptyState
             title="No transactions yet"
             subtitle="Tap + to add your first debt."
-            icon={<Wallet size={40} color={colors.labelTertiary} />}
+            icon={<Wallet size={40} color={palette.labelTertiary} />}
           />
         )}
       </ScrollView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingBottom: 120 },
-
-  header: {
-    paddingHorizontal: space[4],
-    paddingTop: space[4],
-    paddingBottom: space[6],
-  },
-  greeting: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-    marginBottom: space[1],
-  },
-  name: {
-    ...type.largeTitle,
-    fontWeight: '600',
-    color: colors.label,
-  },
-
-  netCard: {
-    marginHorizontal: space[4],
-    marginBottom: space[6],
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    paddingHorizontal: space[5],
-    paddingVertical: space[6],
-    alignItems: 'center',
-    ...cardShadow,
-  },
-  netLabel: {
-    ...type.subheadline,
-    color: colors.labelSecondary,
-    marginBottom: space[2],
-  },
-  netAmount: {
-    ...type.title1,
-    fontWeight: '600',
-    marginBottom: space[2],
-  },
-  netSub: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
-    maxWidth: 280,
-  },
-
-  overviewCard: {
-    marginHorizontal: space[4],
-    marginBottom: space[3],
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingVertical: space[5],
-    ...cardShadow,
-  },
-  overviewHalf: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: space[3],
-    gap: space[1],
-  },
-  overviewDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: colors.separator,
-    marginVertical: space[1],
-  },
-  overviewLabel: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-  },
-  overviewAmount: {
-    ...type.title3,
-    fontWeight: '600',
-  },
-  overviewMeta: {
-    ...type.caption1,
-    color: colors.labelTertiary,
-  },
-
-  statusLine: {
-    ...type.caption1,
-    color: colors.labelSecondary,
-    textAlign: 'center',
-    marginBottom: space[8],
-    paddingHorizontal: space[4],
-  },
-
-  section: {
-    paddingHorizontal: space[4],
-  },
-  sectionTitle: {
-    ...type.headline,
-    color: colors.label,
-    marginBottom: space[3],
-  },
-  recentCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    ...cardShadow,
-  },
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[4],
-    paddingVertical: space[4],
-    gap: space[3],
-  },
-  recentBody: { flex: 1, gap: space[1] },
-  recentName: {
-    ...type.subheadline,
-    fontWeight: '500',
-    color: colors.label,
-  },
-  recentNote: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-  },
-  recentRight: { alignItems: 'flex-end', gap: space[1] },
-  recentAmount: {
-    ...type.callout,
-    fontWeight: '600',
-    color: colors.label,
-  },
-  recentMeta: {
-    ...type.caption1,
-    color: colors.labelTertiary,
-  },
-  recentMetaOverdue: {
-    color: colors.negative,
-  },
-  recentSep: {
-    marginLeft: space[4] + 40 + space[3],
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.separator,
-  },
-});

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, {
@@ -10,14 +10,82 @@ import { Avatar } from '@/components/ui/Avatar';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { colors, type, space, radius, cardShadow } from '@/lib/platform';
+import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 
 interface DebtCardProps {
   debt: Debt;
   index: number;
 }
 
+function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+  return StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: palette.surface,
+      marginHorizontal: space[5],
+      marginBottom: 1,
+      paddingHorizontal: space[4],
+      paddingVertical: 14,
+      gap: space[3],
+      ...shadow,
+    },
+    body: { flex: 1, gap: 4 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: space[2],
+    },
+    name: {
+      ...type.subheadline,
+      fontWeight: '500',
+      color: palette.label,
+      flex: 1,
+    },
+    amount: {
+      fontSize: 15,
+      fontWeight: '600',
+      letterSpacing: -0.3,
+    },
+    note: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      flex: 1,
+    },
+    notePlaceholder: { flex: 1 },
+    metaRight: { alignItems: 'flex-end' },
+    dueDate: {
+      ...type.caption1,
+    },
+    actionsContainer: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      marginRight: space[5],
+      marginBottom: 1,
+      gap: 4,
+      borderRadius: radius.card,
+      overflow: 'hidden',
+    },
+    swipeAction: {
+      width: 68,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingBottom: Platform.OS === 'ios' ? 2 : 0,
+    },
+    swipeLabel: {
+      ...type.caption2,
+      color: '#fff',
+      fontWeight: '600',
+    },
+  });
+}
+
 export function DebtCard({ debt, index }: DebtCardProps) {
+  const palette = useColors();
+  const shadow = useCardShadow();
+  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const { markPaid, deleteDebt } = useDebtStore();
   const { fmt } = useCurrency();
   const swipeableRef = useRef<Swipeable>(null);
@@ -30,22 +98,22 @@ export function DebtCard({ debt, index }: DebtCardProps) {
   const isCredit = debt.type === 'owed_to_me';
 
   const amountColor = status === 'paid'
-    ? colors.labelTertiary
+    ? palette.labelTertiary
     : isCredit
-      ? colors.positive
-      : colors.negative;
+      ? palette.positive
+      : palette.negative;
 
   const dueColor = status === 'overdue'
-    ? colors.negative
+    ? palette.negative
     : status === 'paid'
-      ? colors.labelTertiary
-      : colors.labelSecondary;
+      ? palette.labelTertiary
+      : palette.labelSecondary;
 
   useEffect(() => {
     const delay = index * 48;
     opacity.value = withDelay(delay, withTiming(1, { duration: 260 }));
     translateY.value = withDelay(delay, withSpring(0, { damping: 20, stiffness: 220 }));
-  }, []);
+  }, [index, opacity, translateY]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -68,7 +136,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
     <View style={styles.actionsContainer}>
       {debt.status === 'pending' && (
         <Pressable
-          style={[styles.swipeAction, { backgroundColor: colors.positive }]}
+          style={[styles.swipeAction, { backgroundColor: palette.positive }]}
           onPress={handleMarkPaid}
           android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
         >
@@ -77,7 +145,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
         </Pressable>
       )}
       <Pressable
-        style={[styles.swipeAction, { backgroundColor: colors.negative }]}
+        style={[styles.swipeAction, { backgroundColor: palette.negative }]}
         onPress={handleDelete}
         android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
       >
@@ -123,7 +191,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
                   </Text>
                 ) : null}
                 {status === 'paid' ? (
-                  <Text style={[styles.dueDate, { color: colors.positive }]}>Paid</Text>
+                  <Text style={[styles.dueDate, { color: palette.positive }]}>Paid</Text>
                 ) : null}
               </View>
             </View>
@@ -133,66 +201,3 @@ export function DebtCard({ debt, index }: DebtCardProps) {
     </Swipeable>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: space[5],
-    marginBottom: 1,
-    paddingHorizontal: space[4],
-    paddingVertical: 14,
-    gap: space[3],
-    ...cardShadow,
-  },
-  body: { flex: 1, gap: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space[2],
-  },
-  name: {
-    ...type.subheadline,
-    fontWeight: '500',
-    color: colors.label,
-    flex: 1,
-  },
-  amount: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.3,
-  },
-  note: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-    flex: 1,
-  },
-  notePlaceholder: { flex: 1 },
-  metaRight: { alignItems: 'flex-end' },
-  dueDate: {
-    ...type.caption1,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginRight: space[5],
-    marginBottom: 1,
-    gap: 4,
-    borderRadius: radius.card,
-    overflow: 'hidden',
-  },
-  swipeAction: {
-    width: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingBottom: Platform.OS === 'ios' ? 2 : 0,
-  },
-  swipeLabel: {
-    ...type.caption2,
-    color: '#fff',
-    fontWeight: '600',
-  },
-});

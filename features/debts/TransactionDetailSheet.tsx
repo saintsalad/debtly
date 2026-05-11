@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet, Button, Chip } from 'heroui-native';
 import { Calendar, Clock, StickyNote } from 'lucide-react-native';
@@ -7,7 +7,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useDebtStore } from '@/stores/debtStore';
 import { formatDate, getComputedStatus } from '@/lib/utils';
-import { colors, space, type } from '@/lib/platform';
+import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface TransactionDetailSheetProps {
   debt: Debt | null;
@@ -15,11 +15,68 @@ interface TransactionDetailSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function createStyles(palette: ColorPalette) {
+  return StyleSheet.create({
+    personHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      marginBottom: space[4],
+    },
+    personInfo: { flex: 1, gap: space[2] },
+    personName: {
+      ...type.title3,
+      color: palette.label,
+    },
+    chips: {
+      flexDirection: 'row',
+      gap: space[2],
+      flexWrap: 'wrap',
+    },
+
+    amountSection: {
+      marginBottom: space[4],
+    },
+    amount: {
+      fontSize: 38,
+      fontWeight: '700',
+      letterSpacing: -1.5,
+    },
+
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.opaqueSeparator,
+      marginBottom: space[4],
+    },
+
+    details: {
+      gap: space[3],
+      marginBottom: space[5],
+    },
+    detailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+    },
+    detailText: {
+      ...type.body,
+      color: palette.labelSecondary,
+      flex: 1,
+    },
+
+    actions: {
+      gap: space[3],
+    },
+  });
+}
+
 export function TransactionDetailSheet({
   debt,
   isOpen,
   onOpenChange,
 }: TransactionDetailSheetProps) {
+  const palette = useColors();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const { fmt } = useCurrency();
   const { markPaid, deleteDebt } = useDebtStore();
 
@@ -31,10 +88,10 @@ export function TransactionDetailSheet({
 
   const amountColor =
     status === 'paid'
-      ? colors.labelTertiary
+      ? palette.labelTertiary
       : isCredit
-      ? colors.positive
-      : colors.negative;
+      ? palette.positive
+      : palette.negative;
 
   const statusChipColor: 'success' | 'danger' | 'default' =
     status === 'paid' ? 'success' : status === 'overdue' ? 'danger' : 'default';
@@ -63,7 +120,6 @@ export function TransactionDetailSheet({
       <BottomSheet.Portal>
         <BottomSheet.Overlay />
         <BottomSheet.Content snapPoints={['65%']}>
-          {/* Person header */}
           <View style={styles.personHeader}>
             <Avatar name={debt.personName} size={56} />
             <View style={styles.personInfo}>
@@ -91,31 +147,28 @@ export function TransactionDetailSheet({
             </View>
           </View>
 
-          {/* Amount */}
           <View style={styles.amountSection}>
             <Text style={[styles.amount, { color: amountColor }]}>
               {isCredit ? '+' : '−'}{fmt(debt.amount)}
             </Text>
           </View>
 
-          {/* Divider */}
           <View style={styles.divider} />
 
-          {/* Details */}
           <View style={styles.details}>
             {debt.note && (
               <View style={styles.detailRow}>
-                <StickyNote size={18} color={colors.labelSecondary} />
+                <StickyNote size={18} color={palette.labelSecondary} />
                 <Text style={styles.detailText}>{debt.note}</Text>
               </View>
             )}
             {debt.dueDate && (
               <View style={styles.detailRow}>
-                <Calendar size={18} color={colors.labelSecondary} />
+                <Calendar size={18} color={palette.labelSecondary} />
                 <Text
                   style={[
                     styles.detailText,
-                    status === 'overdue' && isPending && { color: colors.negative },
+                    status === 'overdue' && isPending && { color: palette.negative },
                   ]}
                 >
                   Due {formatDate(debt.dueDate)}
@@ -124,7 +177,7 @@ export function TransactionDetailSheet({
               </View>
             )}
             <View style={styles.detailRow}>
-              <Clock size={18} color={colors.labelSecondary} />
+              <Clock size={18} color={palette.labelSecondary} />
               <Text style={styles.detailText}>
                 Added{' '}
                 {new Date(debt.createdAt).toLocaleDateString('en-US', {
@@ -136,7 +189,6 @@ export function TransactionDetailSheet({
             </View>
           </View>
 
-          {/* Actions */}
           <View style={styles.actions}>
             {isPending && (
               <Button
@@ -162,56 +214,3 @@ export function TransactionDetailSheet({
     </BottomSheet>
   );
 }
-
-const styles = StyleSheet.create({
-  personHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    marginBottom: space[4],
-  },
-  personInfo: { flex: 1, gap: space[2] },
-  personName: {
-    ...type.title3,
-    color: colors.label,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: space[2],
-    flexWrap: 'wrap',
-  },
-
-  amountSection: {
-    marginBottom: space[4],
-  },
-  amount: {
-    fontSize: 38,
-    fontWeight: '700',
-    letterSpacing: -1.5,
-  },
-
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.opaqueSeparator,
-    marginBottom: space[4],
-  },
-
-  details: {
-    gap: space[3],
-    marginBottom: space[5],
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-  },
-  detailText: {
-    ...type.body,
-    color: colors.labelSecondary,
-    flex: 1,
-  },
-
-  actions: {
-    gap: space[3],
-  },
-});

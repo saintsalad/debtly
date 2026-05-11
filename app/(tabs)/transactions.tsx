@@ -1,27 +1,64 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppScreen } from '@/components/ui/AppScreen';
 import { SearchField } from 'heroui-native';
 import { Receipt, SearchX } from 'lucide-react-native';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TransactionRow } from '@/features/debts/TransactionRow';
 import { TransactionDetailSheet } from '@/features/debts/TransactionDetailSheet';
 import { useDebtStore } from '@/stores/debtStore';
 import { Debt } from '@/features/debts/types';
-import { cardShadow, colors, radius, space, type } from '@/lib/platform';
+import { useCardShadow, useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
+
+function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+  return StyleSheet.create({
+    header: {
+      paddingHorizontal: space[4],
+      paddingTop: space[4],
+      paddingBottom: space[6],
+    },
+    title: {
+      ...type.largeTitle,
+      fontWeight: '600',
+      color: palette.label,
+    },
+    subtitle: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      marginTop: space[1],
+    },
+
+    searchWrap: {
+      paddingHorizontal: space[4],
+      marginBottom: space[6],
+    },
+
+    listContent: {
+      paddingHorizontal: space[4],
+    },
+    listGroup: {
+      backgroundColor: palette.surface,
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      ...shadow,
+    },
+    listEmpty: {
+      flexGrow: 1,
+    },
+  });
+}
 
 export default function TransactionsScreen() {
+  const palette = useColors();
+  const shadow = useCardShadow();
+  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const [search, setSearch] = useState('');
-  const [segmentIndex, setSegmentIndex] = useState(0);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const debts = useDebtStore((s) => s.debts);
 
   const filtered = useMemo(() => {
     let list = debts;
-    if (segmentIndex === 1) list = list.filter((d) => d.type === 'owed_to_me');
-    if (segmentIndex === 2) list = list.filter((d) => d.type === 'i_owe');
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -33,7 +70,7 @@ export default function TransactionsScreen() {
     return [...list].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [debts, segmentIndex, search]);
+  }, [debts, search]);
 
   const handleSelect = (debt: Debt) => {
     setSelectedDebt(debt);
@@ -41,7 +78,7 @@ export default function TransactionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <AppScreen>
       <View style={styles.header}>
         <Text style={styles.title}>Transactions</Text>
         <Text style={styles.subtitle}>{filtered.length} records</Text>
@@ -55,14 +92,6 @@ export default function TransactionsScreen() {
             <SearchField.ClearButton />
           </SearchField.Group>
         </SearchField>
-      </View>
-
-      <View style={styles.segmentWrap}>
-        <SegmentedControl
-          options={['All', 'Receivable', 'Payable']}
-          selectedIndex={segmentIndex}
-          onChange={setSegmentIndex}
-        />
       </View>
 
       <FlatList
@@ -87,17 +116,13 @@ export default function TransactionsScreen() {
             subtitle={
               search
                 ? 'Try a different name or note.'
-                : segmentIndex === 1
-                ? 'Debts owed to you will appear here.'
-                : segmentIndex === 2
-                ? 'Debts you owe will appear here.'
                 : 'Tap + to add your first debt.'
             }
             icon={
               search ? (
-                <SearchX size={40} color={colors.labelTertiary} />
+                <SearchX size={40} color={palette.labelTertiary} />
               ) : (
-                <Receipt size={40} color={colors.labelTertiary} />
+                <Receipt size={40} color={palette.labelTertiary} />
               )
             }
           />
@@ -112,49 +137,7 @@ export default function TransactionsScreen() {
           if (!open) setTimeout(() => setSelectedDebt(null), 300);
         }}
       />
-    </SafeAreaView>
+    </AppScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-
-  header: {
-    paddingHorizontal: space[4],
-    paddingTop: space[4],
-    paddingBottom: space[6],
-  },
-  title: {
-    ...type.largeTitle,
-    fontWeight: '600',
-    color: colors.label,
-  },
-  subtitle: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-    marginTop: space[1],
-  },
-
-  searchWrap: {
-    paddingHorizontal: space[4],
-    marginBottom: space[3],
-  },
-  segmentWrap: {
-    paddingHorizontal: space[4],
-    marginBottom: space[6],
-  },
-
-  listContent: {
-    paddingHorizontal: space[4],
-    paddingBottom: 120,
-  },
-  listGroup: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    ...cardShadow,
-  },
-  listEmpty: {
-    flexGrow: 1,
-  },
-});

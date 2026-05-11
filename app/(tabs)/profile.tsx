@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Pressable,
+  Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, Info, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
+import { AppScreen } from '@/components/ui/AppScreen';
+import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
-import { colors, type, space, radius, cardShadow } from '@/lib/platform';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 
 interface RowProps {
   icon: LucideIcon;
@@ -18,9 +19,40 @@ interface RowProps {
   onPress?: () => void;
   destructive?: boolean;
   last?: boolean;
+  palette: ColorPalette;
+  styles: ReturnType<typeof createStyles>;
 }
 
-function Row({ icon: Icon, label, value, onPress, destructive, last }: RowProps) {
+interface ToggleRowProps {
+  icon: LucideIcon;
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  last?: boolean;
+  palette: ColorPalette;
+  styles: ReturnType<typeof createStyles>;
+}
+
+function ToggleRow({ icon: Icon, label, value, onValueChange, last, palette, styles }: ToggleRowProps) {
+  return (
+    <>
+      <View style={styles.row}>
+        <Icon size={20} color={palette.labelSecondary} style={styles.rowIcon} />
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: palette.fill, true: palette.tintMuted }}
+          thumbColor={palette.surface}
+          ios_backgroundColor={palette.fill}
+        />
+      </View>
+      {!last && <View style={styles.rowSeparator} />}
+    </>
+  );
+}
+
+function Row({ icon: Icon, label, value, onPress, destructive, last, palette, styles }: RowProps) {
   return (
     <>
       <TouchableOpacity
@@ -31,14 +63,14 @@ function Row({ icon: Icon, label, value, onPress, destructive, last }: RowProps)
       >
         <Icon
           size={20}
-          color={destructive ? colors.negative : colors.labelSecondary}
+          color={destructive ? palette.negative : palette.labelSecondary}
           style={styles.rowIcon}
         />
-        <Text style={[styles.rowLabel, destructive && { color: colors.negative }]}>{label}</Text>
+        <Text style={[styles.rowLabel, destructive && { color: palette.negative }]}>{label}</Text>
         <View style={styles.rowRight}>
           {value ? <Text style={styles.rowValue}>{value}</Text> : null}
           {onPress ? (
-            <ChevronRight size={20} color={colors.labelTertiary} />
+            <ChevronRight size={20} color={palette.labelTertiary} />
           ) : null}
         </View>
       </TouchableOpacity>
@@ -47,7 +79,15 @@ function Row({ icon: Icon, label, value, onPress, destructive, last }: RowProps)
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  styles,
+}: {
+  title: string;
+  children: React.ReactNode;
+  styles: ReturnType<typeof createStyles>;
+}) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -56,11 +96,109 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+  return StyleSheet.create({
+    content: {},
+    header: {
+      paddingHorizontal: space[5],
+      paddingTop: space[4],
+      paddingBottom: space[5],
+    },
+    pageTitle: { ...type.title1, color: palette.label },
+
+    identityCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[4],
+      backgroundColor: palette.surface,
+      marginHorizontal: space[5],
+      borderRadius: radius.card,
+      padding: space[4],
+      marginBottom: space[3],
+      ...shadow,
+    },
+    identityBody: { flex: 1 },
+    identityName: { ...type.title3, color: palette.label },
+    identityHint: { ...type.caption1, color: palette.labelTertiary, marginTop: 2 },
+    nameInput: {
+      ...type.title3,
+      color: palette.label,
+      borderBottomWidth: 1.5,
+      borderBottomColor: palette.tint,
+      paddingBottom: 1,
+    },
+    offlineTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: space[2] + 2,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: palette.positiveSoft,
+    },
+    offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.positive },
+    offlineLabel: { ...type.caption2, color: palette.positive, fontWeight: '500' },
+
+    statsRow: {
+      flexDirection: 'row',
+      backgroundColor: palette.surface,
+      marginHorizontal: space[5],
+      borderRadius: radius.card,
+      paddingVertical: space[4],
+      marginBottom: space[5],
+      ...shadow,
+    },
+    statCell: { flex: 1, alignItems: 'center', gap: 3 },
+    statValue: { fontSize: 18, fontWeight: '600', letterSpacing: -0.4 },
+    statLabel: { ...type.caption2, color: palette.labelSecondary, fontWeight: '500' },
+    statDivider: {
+      width: StyleSheet.hairlineWidth,
+      backgroundColor: palette.opaqueSeparator,
+      marginVertical: space[1],
+    },
+
+    section: { marginBottom: space[4], paddingHorizontal: space[5] },
+    sectionTitle: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      marginBottom: space[2],
+      paddingLeft: space[1],
+    },
+    sectionCard: {
+      backgroundColor: palette.surface,
+      borderRadius: radius.card,
+      overflow: 'hidden',
+      ...shadow,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: space[4],
+      paddingVertical: 14,
+      gap: space[3],
+    },
+    rowIcon: { width: 22, textAlign: 'center' },
+    rowLabel: { ...type.subheadline, color: palette.label, flex: 1 },
+    rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    rowValue: { ...type.subheadline, color: palette.labelSecondary },
+    rowSeparator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.opaqueSeparator,
+    },
+  });
+}
+
 export default function ProfileScreen() {
+  const colorScheme = useAppColorScheme();
+  const palette = useColors();
+  const shadow = useCardShadow();
+  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+
   const { totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
+  const setAppearance = useProfileStore((s) => s.setAppearance);
   const clearAll = useDebtStore((s) => s.clearAll);
   const { currency, fmt } = useCurrency();
 
@@ -91,13 +229,12 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <AppScreen style={{ backgroundColor: palette.bg }}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.pageTitle}>Profile</Text>
         </View>
 
-        {/* Identity card */}
         <View style={styles.identityCard}>
           <Avatar name={name} size={60} />
           <View style={styles.identityBody}>
@@ -111,6 +248,8 @@ export default function ProfileScreen() {
                 autoFocus
                 returnKeyType="done"
                 selectTextOnFocus
+                placeholderTextColor={palette.placeholder}
+                keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
               />
             ) : (
               <Pressable onPress={() => { setEditName(name); setEditing(true); }} hitSlop={4}>
@@ -125,141 +264,59 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: colors.positive }]}>{fmt(totalOwedToMe)}</Text>
+            <Text style={[styles.statValue, { color: palette.positive }]}>{fmt(totalOwedToMe)}</Text>
             <Text style={styles.statLabel}>Receivable</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: colors.negative }]}>{fmt(totalIOwe)}</Text>
+            <Text style={[styles.statValue, { color: palette.negative }]}>{fmt(totalIOwe)}</Text>
             <Text style={styles.statLabel}>Payable</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: colors.tint }]}>{settledCount}</Text>
+            <Text style={[styles.statValue, { color: palette.tint }]}>{settledCount}</Text>
             <Text style={styles.statLabel}>Settled</Text>
           </View>
         </View>
 
-        {/* Settings */}
-        <Section title="Preferences">
+        <Section title="Preferences" styles={styles}>
+          <ToggleRow
+            icon={Moon}
+            label="Dark appearance"
+            value={colorScheme === 'dark'}
+            onValueChange={(enabled) => setAppearance(enabled ? 'dark' : 'light')}
+            palette={palette}
+            styles={styles}
+          />
           <Row
             icon={Wallet}
             label="Currency"
             value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
             onPress={pickCurrency}
+            palette={palette}
+            styles={styles}
             last
           />
         </Section>
 
-        <Section title="About">
-          <Row icon={Info} label="Version" value="1.0.0" last />
+        <Section title="About" styles={styles}>
+          <Row icon={Info} label="Version" value="1.0.0" palette={palette} styles={styles} last />
         </Section>
 
-        <Section title="Data">
+        <Section title="Data" styles={styles}>
           <Row
             icon={Trash2}
             label="Clear all data"
             onPress={confirmClearAll}
             destructive
+            palette={palette}
+            styles={styles}
             last
           />
         </Section>
       </ScrollView>
-    </SafeAreaView>
+    </AppScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingBottom: 120 },
-  header: {
-    paddingHorizontal: space[5],
-    paddingTop: space[4],
-    paddingBottom: space[5],
-  },
-  pageTitle: { ...type.title1, color: colors.label },
-
-  identityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[4],
-    backgroundColor: colors.surface,
-    marginHorizontal: space[5],
-    borderRadius: radius.card,
-    padding: space[4],
-    marginBottom: space[3],
-    ...cardShadow,
-  },
-  identityBody: { flex: 1 },
-  identityName: { ...type.title3, color: colors.label },
-  identityHint: { ...type.caption1, color: colors.labelTertiary, marginTop: 2 },
-  nameInput: {
-    ...type.title3,
-    color: colors.label,
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.tint,
-    paddingBottom: 1,
-  },
-  offlineTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: space[2] + 2,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.positiveSoft,
-  },
-  offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.positive },
-  offlineLabel: { ...type.caption2, color: colors.positive, fontWeight: '500' },
-
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    marginHorizontal: space[5],
-    borderRadius: radius.card,
-    paddingVertical: space[4],
-    marginBottom: space[5],
-    ...cardShadow,
-  },
-  statCell: { flex: 1, alignItems: 'center', gap: 3 },
-  statValue: { fontSize: 18, fontWeight: '600', letterSpacing: -0.4 },
-  statLabel: { ...type.caption2, color: colors.labelSecondary, fontWeight: '500' },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: colors.opaqueSeparator,
-    marginVertical: space[1],
-  },
-
-  section: { marginBottom: space[4], paddingHorizontal: space[5] },
-  sectionTitle: {
-    ...type.footnote,
-    color: colors.labelSecondary,
-    marginBottom: space[2],
-    paddingLeft: space[1],
-  },
-  sectionCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    overflow: 'hidden',
-    ...cardShadow,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space[4],
-    paddingVertical: 14,
-    gap: space[3],
-  },
-  rowIcon: { width: 22, textAlign: 'center' },
-  rowLabel: { ...type.subheadline, color: colors.label, flex: 1 },
-  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  rowValue: { ...type.subheadline, color: colors.labelSecondary },
-  rowSeparator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.opaqueSeparator,
-    marginLeft: space[4] + 22 + space[3],
-  },
-});

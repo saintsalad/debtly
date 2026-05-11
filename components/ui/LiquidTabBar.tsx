@@ -1,21 +1,22 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
-import { colors, type } from '@/lib/platform';
+import { useColors, type, type ColorPalette } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
 function TabItem({
   isFocused,
   options,
   onPress,
+  palette,
 }: {
   isFocused: boolean;
   options: any;
   onPress: () => void;
+  palette: ColorPalette;
 }) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -33,10 +34,10 @@ function TabItem({
       >
         {options.tabBarIcon?.({
           focused: isFocused,
-          color: isFocused ? colors.tabActive : colors.tabInactive,
+          color: isFocused ? palette.tabActive : palette.tabInactive,
           size: 23,
         })}
-        <Text style={[styles.tabLabel, { color: isFocused ? colors.tabActive : colors.tabInactive }]}>
+        <Text style={[styles.tabLabel, { color: isFocused ? palette.tabActive : palette.tabInactive }]}>
           {options.title}
         </Text>
       </Pressable>
@@ -44,7 +45,7 @@ function TabItem({
   );
 }
 
-function CreateButton() {
+function CreateButton({ palette }: { palette: ColorPalette }) {
   const { present } = useAddDebt();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -53,7 +54,13 @@ function CreateButton() {
     <View style={styles.createContainer}>
       <Animated.View style={animStyle}>
         <Pressable
-          style={styles.createButton}
+          style={[
+            styles.createButton,
+            {
+              backgroundColor: palette.tint,
+              shadowColor: palette.tint,
+            },
+          ]}
           onPressIn={() => { scale.value = withSpring(0.88, { damping: 12, stiffness: 400 }); }}
           onPressOut={() => {
             scale.value = withSpring(1, { damping: 12, stiffness: 400 });
@@ -64,12 +71,13 @@ function CreateButton() {
           <Plus size={24} color="#fff" />
         </Pressable>
       </Animated.View>
-      <Text style={styles.createLabel}>Create</Text>
+      <Text style={[styles.createLabel, { color: palette.tint }]}>Create</Text>
     </View>
   );
 }
 
 export function LiquidTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const palette = useColors();
   const insets = useSafeAreaInsets();
   const routes = state.routes;
   const mid = Math.floor(routes.length / 2);
@@ -82,46 +90,44 @@ export function LiquidTabBar({ state, descriptors, navigation }: BottomTabBarPro
       const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
       if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
     };
-    return <TabItem key={route.key} isFocused={isFocused} options={options} onPress={onPress} />;
+    return (
+      <TabItem
+        key={route.key}
+        isFocused={isFocused}
+        options={options}
+        onPress={onPress}
+        palette={palette}
+      />
+    );
   };
 
   return (
-    <View style={[styles.wrapper, { bottom: insets.bottom + 10 }]}>
-      <BlurView intensity={72} tint="systemUltraThinMaterial" style={styles.surface}>
-        <View style={styles.topBorder} />
-        <View style={styles.tabRow}>
-          {routes.slice(0, mid).map(renderTab)}
-          <CreateButton />
-          {routes.slice(mid).map(renderTab)}
-        </View>
-      </BlurView>
+    <View
+      style={[
+        styles.bar,
+        {
+          backgroundColor: palette.surface,
+          borderTopColor: palette.opaqueSeparator,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      <View style={styles.tabRow}>
+        {routes.slice(0, mid).map(renderTab)}
+        <CreateButton palette={palette} />
+        {routes.slice(mid).map(renderTab)}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  bar: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    borderRadius: 26,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  surface: {
-    borderRadius: 26,
-    overflow: 'hidden',
-  },
-  topBorder: {
-    position: 'absolute',
-    top: 0,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   tabRow: {
     flexDirection: 'row',
@@ -150,12 +156,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.tint,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -18,
     marginBottom: 4,
-    shadowColor: colors.tint,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -163,6 +167,5 @@ const styles = StyleSheet.create({
   createLabel: {
     ...type.caption2,
     fontWeight: '600',
-    color: colors.tint,
   },
 });

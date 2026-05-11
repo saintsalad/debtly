@@ -30,11 +30,11 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="reminders"
+          name="bill-split"
           options={{
-            title: 'Reminders',
+            title: 'Bill split',
             tabBarIcon: ({ color, size }) => (
-              <IconSymbol name="bell.fill" size={size} color={color} />
+              <IconSymbol name="person.2.fill" size={size} color={color} />
             ),
           }}
         />

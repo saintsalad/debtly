@@ -1,4 +1,5 @@
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
@@ -13,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
 import { useDebtStore } from '@/stores/debtStore';
 import { DebtType } from '@/features/debts/types';
-import { colors } from '@/lib/platform';
+import { useColors, type ColorPalette } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
@@ -34,6 +35,9 @@ interface AddDebtFormProps {
   dueDate?: Date;
   setDueDate: (value?: Date) => void;
   onSubmit: () => void;
+  palette: ColorPalette;
+  styles: ReturnType<typeof createSheetStyles>;
+  keyboardAppearance: 'light' | 'dark';
 }
 
 function AddDebtForm({
@@ -48,6 +52,9 @@ function AddDebtForm({
   dueDate,
   setDueDate,
   onSubmit,
+  palette,
+  styles,
+  keyboardAppearance,
 }: AddDebtFormProps) {
   const { symbol } = useCurrency();
   const accentForeground = useThemeColor('accent-foreground');
@@ -66,7 +73,7 @@ function AddDebtForm({
         >
           <ArrowDown
             size={18}
-            color={debtType === 'owed_to_me' ? accentForeground : colors.positive}
+            color={debtType === 'owed_to_me' ? accentForeground : palette.positive}
           />
           <Button.Label>Owes Me</Button.Label>
         </Button>
@@ -77,7 +84,7 @@ function AddDebtForm({
         >
           <ArrowUp
             size={18}
-            color={debtType === 'i_owe' ? accentForeground : colors.negative}
+            color={debtType === 'i_owe' ? accentForeground : palette.negative}
           />
           <Button.Label>I Owe</Button.Label>
         </Button>
@@ -88,11 +95,12 @@ function AddDebtForm({
         <BottomSheetTextInput
           style={styles.input}
           placeholder="Full name"
-          placeholderTextColor={colors.placeholder}
+          placeholderTextColor={palette.placeholder}
           value={personName}
           onChangeText={setPersonName}
           returnKeyType="next"
           autoCapitalize="words"
+          keyboardAppearance={keyboardAppearance}
         />
       </TextField>
 
@@ -103,11 +111,12 @@ function AddDebtForm({
           <BottomSheetTextInput
             style={[styles.input, styles.amountInput]}
             placeholder="0.00"
-            placeholderTextColor={colors.placeholder}
+            placeholderTextColor={palette.placeholder}
             value={amount}
             onChangeText={setAmount}
             keyboardType="decimal-pad"
             returnKeyType="next"
+            keyboardAppearance={keyboardAppearance}
           />
         </View>
       </TextField>
@@ -117,10 +126,11 @@ function AddDebtForm({
         <BottomSheetTextInput
           style={styles.input}
           placeholder="What's it for?"
-          placeholderTextColor={colors.placeholder}
+          placeholderTextColor={palette.placeholder}
           value={note}
           onChangeText={setNote}
           returnKeyType="next"
+          keyboardAppearance={keyboardAppearance}
         />
         <Description>Optional</Description>
       </TextField>
@@ -143,7 +153,78 @@ function AddDebtForm({
   );
 }
 
+function createSheetStyles(palette: ColorPalette) {
+  return StyleSheet.create({
+    sheet: {
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      backgroundColor: palette.surface,
+    },
+    handle: {
+      width: 40,
+      backgroundColor: palette.opaqueSeparator,
+    },
+    contentContainer: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingBottom: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: palette.opaqueSeparator,
+    },
+    title: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: palette.label,
+    },
+    formContent: {
+      flexGrow: 1,
+      gap: 16,
+      paddingHorizontal: 20,
+      paddingTop: 16,
+      paddingBottom: 32,
+    },
+    typeRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    amountRow: {
+      width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    currencySymbol: {
+      position: 'absolute',
+      left: 14,
+      fontSize: 15,
+      color: palette.labelSecondary,
+      zIndex: 1,
+    },
+    input: {
+      alignSelf: 'stretch',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: palette.fill,
+      color: palette.label,
+      fontSize: 17,
+    },
+    amountInput: {
+      flex: 1,
+      paddingLeft: 32,
+    },
+  });
+}
+
 export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
+  const palette = useColors();
+  const colorScheme = useAppColorScheme();
+  const styles = useMemo(() => createSheetStyles(palette), [palette]);
+  const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
   const { addDebt } = useDebtStore();
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
@@ -242,6 +323,9 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
             dueDate={dueDate}
             setDueDate={setDueDate}
             onSubmit={handleSubmit}
+            palette={palette}
+            styles={styles}
+            keyboardAppearance={keyboardAppearance}
           />
         </BottomSheetView>
       </HeroUINativeProvider>
@@ -251,67 +335,3 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
 
 AddDebtSheet.displayName = 'AddDebtSheet';
 
-const styles = StyleSheet.create({
-  sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: colors.surface,
-  },
-  handle: {
-    width: 40,
-    backgroundColor: colors.opaqueSeparator,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.opaqueSeparator,
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.label,
-  },
-  formContent: {
-    flexGrow: 1,
-    gap: 16,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  amountRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currencySymbol: {
-    position: 'absolute',
-    left: 14,
-    fontSize: 15,
-    color: colors.labelSecondary,
-    zIndex: 1,
-  },
-  input: {
-    alignSelf: 'stretch',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: colors.fill,
-    color: colors.label,
-    fontSize: 17,
-  },
-  amountInput: {
-    flex: 1,
-    paddingLeft: 32,
-  },
-});
