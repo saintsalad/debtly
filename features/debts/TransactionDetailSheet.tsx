@@ -22,7 +22,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { Button, HeroUINativeProvider } from 'heroui-native';
 import * as Haptics from 'expo-haptics';
-import { Bell, MessageSquare, Printer } from 'lucide-react-native';
+import { Bell, MessageSquare, Printer, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Debt } from '@/features/debts/types';
 import { Avatar } from '@/components/ui/Avatar';
@@ -65,11 +65,11 @@ function createStyles(palette: ColorPalette) {
       paddingHorizontal: space[4],
       paddingTop: space[2],
       paddingBottom: space[10],
+      gap: space[6],
     },
     hero: {
       alignItems: 'center',
       paddingTop: space[2],
-      paddingBottom: space[6],
       gap: space[3],
     },
     personName: {
@@ -92,7 +92,6 @@ function createStyles(palette: ColorPalette) {
       backgroundColor: palette.fillSecondary,
       borderRadius: radius.lg,
       overflow: 'hidden',
-      marginBottom: space[8],
     },
     detailRow: {
       flexDirection: 'row',
@@ -114,7 +113,7 @@ function createStyles(palette: ColorPalette) {
       textAlign: 'right',
     },
     actions: {
-      gap: space[4],
+      gap: space[6],
     },
     actionGroup: {
       backgroundColor: palette.fillSecondary,
@@ -141,6 +140,9 @@ function createStyles(palette: ColorPalette) {
     },
     actionLabelDisabled: {
       color: palette.labelTertiary,
+    },
+    actionLabelDestructive: {
+      color: palette.negative,
     },
   });
 }
@@ -174,10 +176,18 @@ interface ActionRowProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  destructive?: boolean;
   showSeparator?: boolean;
 }
 
-function ActionRow({ icon, label, onPress, disabled = false, showSeparator = false }: ActionRowProps) {
+function ActionRow({
+  icon,
+  label,
+  onPress,
+  disabled = false,
+  destructive = false,
+  showSeparator = false,
+}: ActionRowProps) {
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -195,7 +205,15 @@ function ActionRow({ icon, label, onPress, disabled = false, showSeparator = fal
         android_ripple={{ color: palette.fill, borderless: false }}
       >
         {icon}
-        <Text style={[styles.actionLabel, disabled && styles.actionLabelDisabled]}>{label}</Text>
+        <Text
+          style={[
+            styles.actionLabel,
+            destructive && styles.actionLabelDestructive,
+            disabled && styles.actionLabelDisabled,
+          ]}
+        >
+          {label}
+        </Text>
       </Pressable>
     </>
   );
@@ -205,7 +223,7 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { fmt } = useCurrency();
-  const { markPaid } = useDebtStore();
+  const { markPaid, deleteDebt } = useDebtStore();
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const [debt, setDebt] = useState<Debt | null>(null);
@@ -294,6 +312,22 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
   const handleSmsReminder = () => {
     if (!debt) return;
     void openSmsReminder(debt, fmt);
+  };
+
+  const handleDelete = () => {
+    if (!debt) return;
+
+    Alert.alert('Delete transaction?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteDebt(debt.id);
+          dismiss();
+        },
+      },
+    ]);
   };
 
   return (
@@ -387,6 +421,13 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
                   label="Text reminder"
                   onPress={handleSmsReminder}
                   disabled={!canRemind}
+                  showSeparator
+                />
+                <ActionRow
+                  icon={<Trash2 size={18} color={palette.negative} />}
+                  label="Delete"
+                  onPress={handleDelete}
+                  destructive
                   showSeparator
                 />
               </View>
