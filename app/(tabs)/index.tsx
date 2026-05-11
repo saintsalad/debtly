@@ -1,20 +1,36 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ArrowDown,
-  ArrowUp,
-  CircleCheck,
-  TriangleAlert,
-  Users,
-  Wallet,
-} from 'lucide-react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { Wallet } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 import { formatDate, getComputedStatus } from '@/lib/utils';
+
+function useFadeUp(delay = 0) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(8);
+
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 240 }));
+    translateY.value = withDelay(delay, withSpring(0, { damping: 24, stiffness: 190 }));
+  }, [delay, opacity, translateY]);
+
+  return useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+}
 
 export default function HomeScreen() {
   const { debts, owedToMe, iOwe, totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
@@ -44,82 +60,53 @@ export default function HomeScreen() {
     [debts]
   );
 
+  const activeCount = owedToMe.length + iOwe.length;
+  const heroStyle = useFadeUp(0);
+  const overviewStyle = useFadeUp(50);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting}</Text>
-            <Text style={styles.name}>{name}</Text>
-          </View>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <Text style={styles.name}>{name}</Text>
         </View>
 
-        {/* Net Balance */}
-        <View style={[styles.netCard, { borderTopColor: isPositive ? colors.positive : colors.negative }]}>
-          <Text style={styles.netLabel}>Net Balance</Text>
+        <Animated.View style={[styles.netCard, heroStyle]}>
+          <Text style={styles.netLabel}>Net balance</Text>
           <Text style={[styles.netAmount, { color: isPositive ? colors.positive : colors.negative }]}>
             {isPositive ? '+' : '−'}{fmt(Math.abs(netBalance))}
           </Text>
           <Text style={styles.netSub}>
             {isPositive ? "You're receiving more than you owe" : "You owe more than you're owed"}
           </Text>
-        </View>
+        </Animated.View>
 
-        {/* Summary Row */}
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, styles.summaryReceivable]}>
-            <View style={styles.summaryIconWrap}>
-              <ArrowDown size={16} color={colors.positive} />
-            </View>
-            <Text style={styles.summaryLabel}>Receivable</Text>
-            <Text style={[styles.summaryAmount, { color: colors.positive }]}>
+        <Animated.View style={[styles.overviewCard, overviewStyle]}>
+          <View style={styles.overviewHalf}>
+            <Text style={styles.overviewLabel}>Receivable</Text>
+            <Text style={[styles.overviewAmount, { color: colors.positive }]}>
               {fmt(totalOwedToMe)}
             </Text>
-            <Text style={styles.summaryCount}>{owedToMe.length} pending</Text>
+            <Text style={styles.overviewMeta}>{owedToMe.length} pending</Text>
           </View>
-          <View style={[styles.summaryCard, styles.summaryPayable]}>
-            <View style={styles.summaryIconWrap}>
-              <ArrowUp size={16} color={colors.negative} />
-            </View>
-            <Text style={styles.summaryLabel}>Payable</Text>
-            <Text style={[styles.summaryAmount, { color: colors.negative }]}>
+          <View style={styles.overviewDivider} />
+          <View style={styles.overviewHalf}>
+            <Text style={styles.overviewLabel}>Payable</Text>
+            <Text style={[styles.overviewAmount, { color: colors.negative }]}>
               {fmt(totalIOwe)}
             </Text>
-            <Text style={styles.summaryCount}>{iOwe.length} pending</Text>
+            <Text style={styles.overviewMeta}>{iOwe.length} pending</Text>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <CircleCheck size={22} color={colors.positive} />
-            <Text style={styles.statValue}>{settledCount}</Text>
-            <Text style={styles.statLabel}>Settled</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <TriangleAlert
-              size={22}
-              color={overdueCount > 0 ? colors.warning : colors.labelTertiary}
-            />
-            <Text style={[styles.statValue, overdueCount > 0 && { color: colors.warning }]}>
-              {overdueCount}
-            </Text>
-            <Text style={styles.statLabel}>Overdue</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Users size={22} color={colors.tint} />
-            <Text style={styles.statValue}>{owedToMe.length + iOwe.length}</Text>
-            <Text style={styles.statLabel}>Active</Text>
-          </View>
-        </View>
+        <Text style={styles.statusLine}>
+          {settledCount} settled · {overdueCount} overdue · {activeCount} active
+        </Text>
 
-        {/* Recent Activity */}
         {recentDebts.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <Text style={styles.sectionTitle}>Recent activity</Text>
             <View style={styles.recentCard}>
               {recentDebts.map((debt, index) => {
                 const status = getComputedStatus(debt);
@@ -134,7 +121,7 @@ export default function HomeScreen() {
                 return (
                   <View key={debt.id}>
                     <View style={styles.recentItem}>
-                      <Avatar name={debt.personName} size={38} />
+                      <Avatar name={debt.personName} size={40} />
                       <View style={styles.recentBody}>
                         <Text style={styles.recentName} numberOfLines={1}>
                           {debt.personName}
@@ -148,14 +135,12 @@ export default function HomeScreen() {
                           {isCredit ? '+' : '−'}{fmt(debt.amount)}
                         </Text>
                         {status === 'paid' ? (
-                          <Text style={[styles.recentMeta, { color: colors.positive }]}>
-                            Paid
-                          </Text>
+                          <Text style={styles.recentMeta}>Paid</Text>
                         ) : debt.dueDate ? (
                           <Text
                             style={[
                               styles.recentMeta,
-                              { color: status === 'overdue' ? colors.negative : colors.labelTertiary },
+                              status === 'overdue' && styles.recentMetaOverdue,
                             ]}
                           >
                             {formatDate(debt.dueDate)}
@@ -170,14 +155,13 @@ export default function HomeScreen() {
             </View>
           </View>
         ) : (
-          <View style={styles.emptyState}>
-            <Wallet size={52} color={colors.labelTertiary} />
-            <Text style={styles.emptyTitle}>No transactions yet</Text>
-            <Text style={styles.emptySubtitle}>Tap + to add your first debt</Text>
-          </View>
+          <EmptyState
+            title="No transactions yet"
+            subtitle="Tap + to add your first debt."
+            icon={<Wallet size={40} color={colors.labelTertiary} />}
+          />
         )}
       </ScrollView>
-
     </SafeAreaView>
   );
 }
@@ -187,130 +171,93 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 120 },
 
   header: {
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
     paddingTop: space[4],
-    paddingBottom: space[5],
+    paddingBottom: space[6],
   },
   greeting: {
     ...type.footnote,
     color: colors.labelSecondary,
-    marginBottom: 2,
+    marginBottom: space[1],
   },
   name: {
-    ...type.title1,
+    ...type.largeTitle,
+    fontWeight: '600',
     color: colors.label,
   },
 
-  // Net balance card
   netCard: {
-    marginHorizontal: space[5],
-    marginBottom: space[4],
+    marginHorizontal: space[4],
+    marginBottom: space[6],
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: space[5],
+    borderRadius: radius.xl,
+    paddingHorizontal: space[5],
+    paddingVertical: space[6],
     alignItems: 'center',
-    borderTopWidth: 3,
     ...cardShadow,
   },
   netLabel: {
-    ...type.caption1,
+    ...type.subheadline,
     color: colors.labelSecondary,
-    marginBottom: space[1],
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  netAmount: {
-    fontSize: 42,
-    fontWeight: '700',
-    letterSpacing: -1.5,
-    marginBottom: 6,
-  },
-  netSub: {
-    ...type.caption1,
-    color: colors.labelTertiary,
-    textAlign: 'center',
-  },
-
-  // Summary row
-  summaryRow: {
-    flexDirection: 'row',
-    paddingHorizontal: space[5],
-    gap: space[3],
-    marginBottom: space[4],
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    padding: space[4],
-    ...cardShadow,
-  },
-  summaryReceivable: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.positive,
-  },
-  summaryPayable: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.negative,
-  },
-  summaryIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: colors.fill,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: space[2],
   },
-  summaryLabel: {
-    ...type.caption1,
+  netAmount: {
+    ...type.title1,
+    fontWeight: '600',
+    marginBottom: space[2],
+  },
+  netSub: {
+    ...type.footnote,
     color: colors.labelSecondary,
-    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
   },
-  summaryAmount: {
-    fontSize: 19,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: 2,
+
+  overviewCard: {
+    marginHorizontal: space[4],
+    marginBottom: space[3],
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    paddingVertical: space[5],
+    ...cardShadow,
   },
-  summaryCount: {
-    ...type.caption2,
+  overviewHalf: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: space[3],
+    gap: space[1],
+  },
+  overviewDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: colors.separator,
+    marginVertical: space[1],
+  },
+  overviewLabel: {
+    ...type.footnote,
+    color: colors.labelSecondary,
+  },
+  overviewAmount: {
+    ...type.title3,
+    fontWeight: '600',
+  },
+  overviewMeta: {
+    ...type.caption1,
     color: colors.labelTertiary,
   },
 
-  // Quick stats
-  statsCard: {
-    marginHorizontal: space[5],
-    marginBottom: space[5],
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: space[4],
-    ...cardShadow,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 44,
-    backgroundColor: colors.opaqueSeparator,
-  },
-  statValue: {
-    ...type.title3,
-    color: colors.label,
-  },
-  statLabel: {
-    ...type.caption2,
+  statusLine: {
+    ...type.caption1,
     color: colors.labelSecondary,
+    textAlign: 'center',
+    marginBottom: space[8],
+    paddingHorizontal: space[4],
   },
 
-  // Recent activity
   section: {
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
   },
   sectionTitle: {
     ...type.headline,
@@ -319,7 +266,7 @@ const styles = StyleSheet.create({
   },
   recentCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.card,
+    borderRadius: radius.lg,
     overflow: 'hidden',
     ...cardShadow,
   },
@@ -327,48 +274,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space[4],
-    paddingVertical: 13,
+    paddingVertical: space[4],
     gap: space[3],
   },
-  recentBody: { flex: 1, gap: 3 },
+  recentBody: { flex: 1, gap: space[1] },
   recentName: {
     ...type.subheadline,
     fontWeight: '500',
     color: colors.label,
   },
   recentNote: {
-    ...type.caption1,
+    ...type.footnote,
     color: colors.labelSecondary,
   },
-  recentRight: { alignItems: 'flex-end', gap: 3 },
+  recentRight: { alignItems: 'flex-end', gap: space[1] },
   recentAmount: {
-    fontSize: 15,
+    ...type.callout,
     fontWeight: '600',
-    letterSpacing: -0.3,
+    color: colors.label,
   },
   recentMeta: {
-    ...type.caption2,
+    ...type.caption1,
+    color: colors.labelTertiary,
+  },
+  recentMetaOverdue: {
+    color: colors.negative,
   },
   recentSep: {
-    marginLeft: space[4] + 38 + space[3],
+    marginLeft: space[4] + 40 + space[3],
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.opaqueSeparator,
-  },
-
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: space[12],
-    paddingBottom: space[8],
-    gap: space[2],
-  },
-  emptyTitle: {
-    ...type.headline,
-    color: colors.labelSecondary,
-    marginTop: space[2],
-  },
-  emptySubtitle: {
-    ...type.footnote,
-    color: colors.labelTertiary,
+    backgroundColor: colors.separator,
   },
 });

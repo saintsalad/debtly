@@ -66,13 +66,14 @@ export const space = {
   12: 48,
 } as const;
 
-/** Radius tokens — tighter on Android to match Material. */
+/** Soft corner radii — consistent across platforms. */
 export const radius = {
-  sm:   IOS ? 8  : 6,
-  md:   IOS ? 12 : 8,
-  card: IOS ? 14 : 10,
-  lg:   IOS ? 18 : 14,
-  xl:   IOS ? 26 : 20,
+  sm: 10,
+  md: 16,
+  card: 22,
+  lg: 22,
+  xl: 28,
+  xxl: 36,
   pill: 9999,
 } as const;
 

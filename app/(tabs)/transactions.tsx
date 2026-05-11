@@ -9,7 +9,7 @@ import { TransactionRow } from '@/features/debts/TransactionRow';
 import { TransactionDetailSheet } from '@/features/debts/TransactionDetailSheet';
 import { useDebtStore } from '@/stores/debtStore';
 import { Debt } from '@/features/debts/types';
-import { colors, space, type } from '@/lib/platform';
+import { cardShadow, colors, radius, space, type } from '@/lib/platform';
 
 export default function TransactionsScreen() {
   const [search, setSearch] = useState('');
@@ -30,7 +30,6 @@ export default function TransactionsScreen() {
           (d.note ?? '').toLowerCase().includes(q)
       );
     }
-    // Most recent first
     return [...list].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -43,24 +42,21 @@ export default function TransactionsScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Transactions</Text>
         <Text style={styles.subtitle}>{filtered.length} records</Text>
       </View>
 
-      {/* Search */}
       <View style={styles.searchWrap}>
         <SearchField value={search} onChange={setSearch}>
           <SearchField.Group>
             <SearchField.SearchIcon />
-            <SearchField.Input placeholder="Search by name or note..." />
+            <SearchField.Input placeholder="Search by name or note" />
             <SearchField.ClearButton />
           </SearchField.Group>
         </SearchField>
       </View>
 
-      {/* Filter tabs */}
       <View style={styles.segmentWrap}>
         <SegmentedControl
           options={['All', 'Receivable', 'Payable']}
@@ -76,10 +72,14 @@ export default function TransactionsScreen() {
         contentContainerStyle={[
           styles.listContent,
           filtered.length === 0 && styles.listEmpty,
+          filtered.length > 0 && styles.listGroup,
         ]}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        renderItem={({ item }) => (
-          <TransactionRow debt={item} onPress={() => handleSelect(item)} />
+        renderItem={({ item, index }) => (
+          <TransactionRow
+            debt={item}
+            onPress={() => handleSelect(item)}
+            showSeparator={index < filtered.length - 1}
+          />
         )}
         ListEmptyComponent={
           <EmptyState
@@ -120,39 +120,41 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
 
   header: {
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
     paddingTop: space[4],
-    paddingBottom: space[3],
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: space[2],
+    paddingBottom: space[6],
   },
   title: {
-    ...type.title1,
+    ...type.largeTitle,
+    fontWeight: '600',
     color: colors.label,
   },
   subtitle: {
     ...type.footnote,
-    color: colors.labelTertiary,
+    color: colors.labelSecondary,
+    marginTop: space[1],
   },
 
   searchWrap: {
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
     marginBottom: space[3],
   },
   segmentWrap: {
-    paddingHorizontal: space[5],
-    marginBottom: space[4],
+    paddingHorizontal: space[4],
+    marginBottom: space[6],
   },
 
   listContent: {
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
     paddingBottom: 120,
+  },
+  listGroup: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    ...cardShadow,
   },
   listEmpty: {
     flexGrow: 1,
-  },
-  separator: {
-    height: space[2],
   },
 });
