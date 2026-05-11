@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet, Button, Chip } from 'heroui-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Calendar, Clock, StickyNote } from 'lucide-react-native';
 import { Debt } from '@/features/debts/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -105,13 +105,13 @@ export function TransactionDetailSheet({
           <View style={styles.details}>
             {debt.note && (
               <View style={styles.detailRow}>
-                <MaterialIcons name="notes" size={18} color={colors.labelSecondary} />
+                <StickyNote size={18} color={colors.labelSecondary} />
                 <Text style={styles.detailText}>{debt.note}</Text>
               </View>
             )}
             {debt.dueDate && (
               <View style={styles.detailRow}>
-                <MaterialIcons name="event" size={18} color={colors.labelSecondary} />
+                <Calendar size={18} color={colors.labelSecondary} />
                 <Text
                   style={[
                     styles.detailText,
@@ -124,7 +124,7 @@ export function TransactionDetailSheet({
               </View>
             )}
             <View style={styles.detailRow}>
-              <MaterialIcons name="schedule" size={18} color={colors.labelSecondary} />
+              <Clock size={18} color={colors.labelSecondary} />
               <Text style={styles.detailText}>
                 Added{' '}
                 {new Date(debt.createdAt).toLocaleDateString('en-US', {

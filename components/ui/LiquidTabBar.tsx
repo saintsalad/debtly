@@ -4,7 +4,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Plus } from 'lucide-react-native';
 import { colors, type } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
@@ -61,7 +61,7 @@ function CreateButton() {
           }}
           hitSlop={8}
         >
-          <MaterialIcons name="add" size={24} color="#fff" />
+          <Plus size={24} color="#fff" />
         </Pressable>
       </Animated.View>
       <Text style={styles.createLabel}>Create</Text>

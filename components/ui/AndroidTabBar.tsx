@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Plus } from 'lucide-react-native';
 import { Button, useThemeColor } from 'heroui-native';
 import { colors } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
@@ -63,7 +63,7 @@ function CreateButton() {
         className="-mt-5 mb-1 self-center shadow-lg"
         onPress={present}
       >
-        <MaterialIcons name="add" size={26} color={accentForeground} />
+        <Plus size={26} color={accentForeground} />
       </Button>
       <Text
         className="text-[11px] font-semibold tracking-[0.07px]"

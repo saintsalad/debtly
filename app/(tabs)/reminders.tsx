@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Bell } from 'lucide-react-native';
 import { isBefore, isToday, startOfDay } from 'date-fns';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -52,7 +52,7 @@ export default function RemindersScreen() {
         <EmptyState
           title="All clear"
           subtitle="No pending debts to track."
-          icon={<MaterialIcons name="notifications-none" size={40} color={colors.labelTertiary} />}
+          icon={<Bell size={40} color={colors.labelTertiary} />}
         />
       </SafeAreaView>
     );

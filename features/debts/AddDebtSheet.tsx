@@ -8,13 +8,14 @@ import {
   BottomSheetView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { ArrowDown, ArrowUp } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
 import { useDebtStore } from '@/stores/debtStore';
 import { DebtType } from '@/features/debts/types';
 import { colors } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
+import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
 export interface AddDebtSheetHandle {
   present: () => void;
@@ -30,8 +31,8 @@ interface AddDebtFormProps {
   setAmount: (value: string) => void;
   note: string;
   setNote: (value: string) => void;
-  dueDate: string;
-  setDueDate: (value: string) => void;
+  dueDate?: Date;
+  setDueDate: (value?: Date) => void;
   onSubmit: () => void;
 }
 
@@ -53,7 +54,7 @@ function AddDebtForm({
 
   return (
     <BottomSheetScrollView
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.formContent}
     >
@@ -63,8 +64,7 @@ function AddDebtForm({
           className="flex-1"
           onPress={() => setDebtType('owed_to_me')}
         >
-          <MaterialIcons
-            name="arrow-downward"
+          <ArrowDown
             size={18}
             color={debtType === 'owed_to_me' ? accentForeground : colors.positive}
           />
@@ -75,8 +75,7 @@ function AddDebtForm({
           className="flex-1"
           onPress={() => setDebtType('i_owe')}
         >
-          <MaterialIcons
-            name="arrow-upward"
+          <ArrowUp
             size={18}
             color={debtType === 'i_owe' ? accentForeground : colors.negative}
           />
@@ -128,16 +127,16 @@ function AddDebtForm({
 
       <TextField>
         <Label>Due date</Label>
-        <BottomSheetTextInput
-          style={styles.input}
-          placeholder="MM/DD/YYYY"
-          placeholderTextColor={colors.placeholder}
+        <IosDatePicker
           value={dueDate}
-          onChangeText={setDueDate}
-          keyboardType="numbers-and-punctuation"
-          returnKeyType="done"
-          onSubmitEditing={onSubmit}
+          onChange={setDueDate}
+          placeholder="Select due date"
         />
+        {dueDate && (
+          <Button variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
+            <Button.Label>Clear due date</Button.Label>
+          </Button>
+        )}
         <Description>Optional</Description>
       </TextField>
     </BottomSheetScrollView>
@@ -154,14 +153,14 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
   const [amount, setAmount] = useState('');
   const [debtType, setDebtType] = useState<DebtType>('owed_to_me');
   const [note, setNote] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [dueDate, setDueDate] = useState<Date | undefined>();
 
   const reset = () => {
     setPersonName('');
     setAmount('');
     setDebtType('owed_to_me');
     setNote('');
-    setDueDate('');
+    setDueDate(undefined);
   };
 
   useImperativeHandle(ref, () => ({
@@ -186,22 +185,12 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
       return;
     }
 
-    let dueDateISO: string | undefined;
-    if (dueDate.trim()) {
-      const d = new Date(dueDate);
-      if (isNaN(d.getTime())) {
-        Alert.alert('Invalid date', 'Use MM/DD/YYYY format.');
-        return;
-      }
-      dueDateISO = d.toISOString();
-    }
-
     addDebt({
       personName: personName.trim(),
       amount: parsed,
       type: debtType,
       note: note.trim() || undefined,
-      dueDate: dueDateISO,
+      dueDate: dueDate?.toISOString(),
     });
     close();
   };

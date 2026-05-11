@@ -1,7 +1,14 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import {
+  ArrowDown,
+  ArrowUp,
+  CircleCheck,
+  TriangleAlert,
+  Users,
+  Wallet,
+} from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -63,7 +70,7 @@ export default function HomeScreen() {
         <View style={styles.summaryRow}>
           <View style={[styles.summaryCard, styles.summaryReceivable]}>
             <View style={styles.summaryIconWrap}>
-              <MaterialIcons name="arrow-downward" size={16} color={colors.positive} />
+              <ArrowDown size={16} color={colors.positive} />
             </View>
             <Text style={styles.summaryLabel}>Receivable</Text>
             <Text style={[styles.summaryAmount, { color: colors.positive }]}>
@@ -73,7 +80,7 @@ export default function HomeScreen() {
           </View>
           <View style={[styles.summaryCard, styles.summaryPayable]}>
             <View style={styles.summaryIconWrap}>
-              <MaterialIcons name="arrow-upward" size={16} color={colors.negative} />
+              <ArrowUp size={16} color={colors.negative} />
             </View>
             <Text style={styles.summaryLabel}>Payable</Text>
             <Text style={[styles.summaryAmount, { color: colors.negative }]}>
@@ -86,14 +93,13 @@ export default function HomeScreen() {
         {/* Quick Stats */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <MaterialIcons name="check-circle-outline" size={22} color={colors.positive} />
+            <CircleCheck size={22} color={colors.positive} />
             <Text style={styles.statValue}>{settledCount}</Text>
             <Text style={styles.statLabel}>Settled</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <MaterialIcons
-              name="warning-amber"
+            <TriangleAlert
               size={22}
               color={overdueCount > 0 ? colors.warning : colors.labelTertiary}
             />
@@ -104,7 +110,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <MaterialIcons name="people-outline" size={22} color={colors.tint} />
+            <Users size={22} color={colors.tint} />
             <Text style={styles.statValue}>{owedToMe.length + iOwe.length}</Text>
             <Text style={styles.statLabel}>Active</Text>
           </View>
@@ -165,7 +171,7 @@ export default function HomeScreen() {
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <MaterialIcons name="account-balance-wallet" size={52} color={colors.labelTertiary} />
+            <Wallet size={52} color={colors.labelTertiary} />
             <Text style={styles.emptyTitle}>No transactions yet</Text>
             <Text style={styles.emptySubtitle}>Tap + to add your first debt</Text>
           </View>

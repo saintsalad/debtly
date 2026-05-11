@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Platform, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Plus } from 'lucide-react-native';
 import { colors, radius } from '@/lib/platform';
 
 interface FABProps {
@@ -25,7 +25,7 @@ export function FAB({ onPress, bottom = 100 }: FABProps) {
         hitSlop={8}
         android_ripple={{ color: 'rgba(255,255,255,0.25)', radius: 28 }}
       >
-        <MaterialIcons name="add" size={26} color="#fff" />
+        <Plus size={26} color="#fff" />
       </Pressable>
     </Animated.View>
   );

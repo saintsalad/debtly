@@ -1,34 +1,45 @@
-// Fallback for using MaterialIcons on Android and web.
-
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { SymbolWeight, SymbolViewProps } from 'expo-symbols';
-import { ComponentProps } from 'react';
-import { OpaqueColorValue, type StyleProp, type TextStyle } from 'react-native';
-
-type IconMapping = Record<string, ComponentProps<typeof MaterialIcons>['name']>;
-type IconSymbolName = keyof typeof MAPPING;
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Code,
+  FileText,
+  HelpCircle,
+  Home,
+  Pencil,
+  Plus,
+  Send,
+  Trash2,
+  User,
+  X,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { OpaqueColorValue, type StyleProp, type ViewStyle } from 'react-native';
 
 const MAPPING = {
-  // Navigation
-  'house.fill': 'home',
-  'bell.fill': 'notifications',
-  'person.fill': 'person',
-  'doc.text.fill': 'receipt-long',
-  // Actions
-  'plus': 'add',
-  'xmark': 'close',
-  'trash': 'delete',
-  'checkmark': 'check',
-  'checkmark.circle.fill': 'check-circle',
-  'pencil': 'edit',
-  'arrow.right': 'arrow-forward',
-  'arrow.left': 'arrow-back',
-  'chevron.right': 'chevron-right',
-  'chevron.left': 'chevron-left',
-  // Misc (keeping originals)
-  'paperplane.fill': 'send',
-  'chevron.left.forwardslash.chevron.right': 'code',
-} as IconMapping;
+  'house.fill': Home,
+  'bell.fill': Bell,
+  'person.fill': User,
+  'doc.text.fill': FileText,
+  plus: Plus,
+  xmark: X,
+  trash: Trash2,
+  checkmark: Check,
+  'checkmark.circle.fill': CircleCheck,
+  pencil: Pencil,
+  'arrow.right': ArrowRight,
+  'arrow.left': ArrowLeft,
+  'chevron.right': ChevronRight,
+  'chevron.left': ChevronLeft,
+  'paperplane.fill': Send,
+  'chevron.left.forwardslash.chevron.right': Code,
+} satisfies Record<string, LucideIcon>;
+
+export type IconSymbolName = keyof typeof MAPPING;
 
 export function IconSymbol({
   name,
@@ -39,15 +50,9 @@ export function IconSymbol({
   name: IconSymbolName;
   size?: number;
   color: string | OpaqueColorValue;
-  style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
+  style?: StyleProp<ViewStyle>;
 }) {
-  return (
-    <MaterialIcons
-      color={color}
-      size={size}
-      name={MAPPING[name] ?? 'help-outline'}
-      style={style}
-    />
-  );
+  const Icon = MAPPING[name] ?? HelpCircle;
+
+  return <Icon size={size} color={color as string} style={style} />;
 }

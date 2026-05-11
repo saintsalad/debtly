@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SearchField } from 'heroui-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Receipt, SearchX } from 'lucide-react-native';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TransactionRow } from '@/features/debts/TransactionRow';
@@ -94,11 +94,11 @@ export default function TransactionsScreen() {
                 : 'Tap + to add your first debt.'
             }
             icon={
-              <MaterialIcons
-                name={search ? 'search-off' : 'receipt-long'}
-                size={40}
-                color={colors.labelTertiary}
-              />
+              search ? (
+                <SearchX size={40} color={colors.labelTertiary} />
+              ) : (
+                <Receipt size={40} color={colors.labelTertiary} />
+              )
             }
           />
         }

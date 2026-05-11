@@ -3,7 +3,7 @@ import {
   Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { ChevronRight, Info, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -11,10 +11,8 @@ import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 
-type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
-
 interface RowProps {
-  icon: MaterialIconName;
+  icon: LucideIcon;
   label: string;
   value?: string;
   onPress?: () => void;
@@ -22,7 +20,7 @@ interface RowProps {
   last?: boolean;
 }
 
-function Row({ icon, label, value, onPress, destructive, last }: RowProps) {
+function Row({ icon: Icon, label, value, onPress, destructive, last }: RowProps) {
   return (
     <>
       <TouchableOpacity
@@ -31,8 +29,7 @@ function Row({ icon, label, value, onPress, destructive, last }: RowProps) {
         activeOpacity={onPress ? 0.5 : 1}
         disabled={!onPress}
       >
-        <MaterialIcons
-          name={icon}
+        <Icon
           size={20}
           color={destructive ? colors.negative : colors.labelSecondary}
           style={styles.rowIcon}
@@ -41,7 +38,7 @@ function Row({ icon, label, value, onPress, destructive, last }: RowProps) {
         <View style={styles.rowRight}>
           {value ? <Text style={styles.rowValue}>{value}</Text> : null}
           {onPress ? (
-            <MaterialIcons name="chevron-right" size={20} color={colors.labelTertiary} />
+            <ChevronRight size={20} color={colors.labelTertiary} />
           ) : null}
         </View>
       </TouchableOpacity>
@@ -149,7 +146,7 @@ export default function ProfileScreen() {
         {/* Settings */}
         <Section title="Preferences">
           <Row
-            icon="account-balance-wallet"
+            icon={Wallet}
             label="Currency"
             value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
             onPress={pickCurrency}
@@ -158,12 +155,12 @@ export default function ProfileScreen() {
         </Section>
 
         <Section title="About">
-          <Row icon="info-outline" label="Version" value="1.0.0" last />
+          <Row icon={Info} label="Version" value="1.0.0" last />
         </Section>
 
         <Section title="Data">
           <Row
-            icon="delete-forever"
+            icon={Trash2}
             label="Clear all data"
             onPress={confirmClearAll}
             destructive

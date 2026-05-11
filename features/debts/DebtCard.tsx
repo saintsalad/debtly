@@ -4,7 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming,
 } from 'react-native-reanimated';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Check, Trash2 } from 'lucide-react-native';
 import { Debt } from '@/features/debts/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatDate, getComputedStatus } from '@/lib/utils';
@@ -72,7 +72,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
           onPress={handleMarkPaid}
           android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
         >
-          <MaterialIcons name="check" size={20} color="#fff" />
+          <Check size={20} color="#fff" />
           <Text style={styles.swipeLabel}>Paid</Text>
         </Pressable>
       )}
@@ -81,7 +81,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
         onPress={handleDelete}
         android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
       >
-        <MaterialIcons name="delete-outline" size={20} color="#fff" />
+        <Trash2 size={20} color="#fff" />
         <Text style={styles.swipeLabel}>Delete</Text>
       </Pressable>
     </View>
