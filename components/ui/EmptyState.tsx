@@ -1,16 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors, type, space } from '@/lib/platform';
 
 interface EmptyStateProps {
-  emoji: string;
   title: string;
   subtitle: string;
+  icon?: React.ReactNode;
 }
 
-export function EmptyState({ emoji, title, subtitle }: EmptyStateProps) {
+export function EmptyState({ title, subtitle, icon }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>{emoji}</Text>
+      {icon ? <View style={styles.iconWrap}>{icon}</View> : null}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
     </View>
@@ -22,22 +23,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 72,
-    paddingHorizontal: 40,
+    paddingVertical: space[12],
+    paddingHorizontal: space[8],
   },
-  emoji: { fontSize: 56, marginBottom: 20 },
+  iconWrap: { marginBottom: space[5] },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    ...type.title3,
+    color: colors.label,
     textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
+    marginBottom: space[2],
   },
   subtitle: {
-    fontSize: 14,
-    color: '#9CA3AF',
+    ...type.subheadline,
+    color: colors.labelSecondary,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 22,
   },
 });

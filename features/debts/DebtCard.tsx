@@ -1,26 +1,16 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert, Platform } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-  withTiming,
+  useSharedValue, useAnimatedStyle, withSpring, withDelay, withTiming,
 } from 'react-native-reanimated';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Debt } from '@/features/debts/types';
 import { Avatar } from '@/components/ui/Avatar';
-import { Badge } from '@/components/ui/Badge';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 
 interface DebtCardProps {
   debt: Debt;
@@ -32,28 +22,41 @@ export function DebtCard({ debt, index }: DebtCardProps) {
   const { fmt } = useCurrency();
   const swipeableRef = useRef<Swipeable>(null);
 
-  const scale = useSharedValue(1);
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(16);
+  const translateY = useSharedValue(12);
+  const scale = useSharedValue(1);
 
   const status = getComputedStatus(debt);
   const isCredit = debt.type === 'owed_to_me';
 
+  const amountColor = status === 'paid'
+    ? colors.labelTertiary
+    : isCredit
+      ? colors.positive
+      : colors.negative;
+
+  const dueColor = status === 'overdue'
+    ? colors.negative
+    : status === 'paid'
+      ? colors.labelTertiary
+      : colors.labelSecondary;
+
   useEffect(() => {
-    opacity.value = withDelay(index * 55, withTiming(1, { duration: 280 }));
-    translateY.value = withDelay(index * 55, withSpring(0, { damping: 18, stiffness: 200 }));
+    const delay = index * 48;
+    opacity.value = withDelay(delay, withTiming(1, { duration: 260 }));
+    translateY.value = withDelay(delay, withSpring(0, { damping: 20, stiffness: 220 }));
   }, []);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.975, { damping: 15 });
-  };
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
+  const handleDelete = () => {
+    Alert.alert('Delete debt?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteDebt(debt.id) },
+    ]);
   };
 
   const handleMarkPaid = () => {
@@ -61,25 +64,26 @@ export function DebtCard({ debt, index }: DebtCardProps) {
     markPaid(debt.id);
   };
 
-  const handleDelete = () => {
-    Alert.alert('Delete Debt', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteDebt(debt.id) },
-    ]);
-  };
-
   const renderRightActions = () => (
-    <View style={styles.actionsRow}>
+    <View style={styles.actionsContainer}>
       {debt.status === 'pending' && (
-        <TouchableOpacity style={[styles.action, styles.paidAction]} onPress={handleMarkPaid}>
-          <Text style={styles.actionEmoji}>✓</Text>
-          <Text style={styles.actionLabel}>Paid</Text>
-        </TouchableOpacity>
+        <Pressable
+          style={[styles.swipeAction, { backgroundColor: colors.positive }]}
+          onPress={handleMarkPaid}
+          android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+        >
+          <MaterialIcons name="check" size={20} color="#fff" />
+          <Text style={styles.swipeLabel}>Paid</Text>
+        </Pressable>
       )}
-      <TouchableOpacity style={[styles.action, styles.deleteAction]} onPress={handleDelete}>
-        <Text style={styles.actionEmoji}>🗑</Text>
-        <Text style={styles.actionLabel}>Delete</Text>
-      </TouchableOpacity>
+      <Pressable
+        style={[styles.swipeAction, { backgroundColor: colors.negative }]}
+        onPress={handleDelete}
+        android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+      >
+        <MaterialIcons name="delete-outline" size={20} color="#fff" />
+        <Text style={styles.swipeLabel}>Delete</Text>
+      </Pressable>
     </View>
   );
 
@@ -88,35 +92,40 @@ export function DebtCard({ debt, index }: DebtCardProps) {
       ref={swipeableRef}
       renderRightActions={renderRightActions}
       friction={2}
-      rightThreshold={40}
+      rightThreshold={44}
       overshootRight={false}
     >
       <Animated.View style={cardStyle}>
         <Pressable
           style={styles.card}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
+          onPressIn={() => { scale.value = withSpring(0.978, { damping: 18 }); }}
+          onPressOut={() => { scale.value = withSpring(1, { damping: 18 }); }}
         >
-          <Avatar name={debt.personName} size={46} />
-          <View style={styles.content}>
-            <View style={styles.topRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {debt.personName}
-              </Text>
-              <Text style={[styles.amount, { color: isCredit ? '#16A34A' : '#DC2626' }]}>
+          <Avatar name={debt.personName} size={42} />
+
+          <View style={styles.body}>
+            <View style={styles.row}>
+              <Text style={styles.name} numberOfLines={1}>{debt.personName}</Text>
+              <Text style={[styles.amount, { color: amountColor }]}>
                 {isCredit ? '+' : '−'}{fmt(debt.amount)}
               </Text>
             </View>
-            {!!debt.note && (
-              <Text style={styles.note} numberOfLines={1}>{debt.note}</Text>
-            )}
-            <View style={styles.bottomRow}>
-              {debt.dueDate ? (
-                <Text style={styles.dueDate}>Due {formatDate(debt.dueDate)}</Text>
+            <View style={styles.row}>
+              {debt.note ? (
+                <Text style={styles.note} numberOfLines={1}>{debt.note}</Text>
               ) : (
-                <View />
+                <View style={styles.notePlaceholder} />
               )}
-              <Badge status={status} />
+              <View style={styles.metaRight}>
+                {debt.dueDate && status !== 'paid' ? (
+                  <Text style={[styles.dueDate, { color: dueColor }]}>
+                    {formatDate(debt.dueDate)}
+                  </Text>
+                ) : null}
+                {status === 'paid' ? (
+                  <Text style={[styles.dueDate, { color: colors.positive }]}>Paid</Text>
+                ) : null}
+              </View>
             </View>
           </View>
         </Pressable>
@@ -129,52 +138,61 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    gap: 14,
-    marginHorizontal: 20,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: colors.surface,
+    marginHorizontal: space[5],
+    marginBottom: 1,
+    paddingHorizontal: space[4],
+    paddingVertical: 14,
+    gap: space[3],
+    ...cardShadow,
   },
-  content: { flex: 1, gap: 4 },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  name: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827' },
-  amount: { fontSize: 15, fontWeight: '700', letterSpacing: -0.3 },
-  note: { fontSize: 12, color: '#9CA3AF' },
-  bottomRow: {
+  body: { flex: 1, gap: 4 },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    gap: space[2],
   },
-  dueDate: { fontSize: 11, color: '#6B7280', fontWeight: '500' },
-  actionsRow: {
+  name: {
+    ...type.subheadline,
+    fontWeight: '500',
+    color: colors.label,
+    flex: 1,
+  },
+  amount: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  note: {
+    ...type.footnote,
+    color: colors.labelSecondary,
+    flex: 1,
+  },
+  notePlaceholder: { flex: 1 },
+  metaRight: { alignItems: 'flex-end' },
+  dueDate: {
+    ...type.caption1,
+  },
+  actionsContainer: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingRight: 20,
-    paddingBottom: 10,
-    gap: 8,
+    marginRight: space[5],
+    marginBottom: 1,
+    gap: 4,
+    borderRadius: radius.card,
+    overflow: 'hidden',
   },
-  action: {
-    width: 72,
+  swipeAction: {
+    width: 68,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
-    gap: 2,
-    paddingVertical: 8,
+    gap: 3,
+    paddingBottom: Platform.OS === 'ios' ? 2 : 0,
   },
-  paidAction: { backgroundColor: '#16A34A' },
-  deleteAction: { backgroundColor: '#DC2626' },
-  actionEmoji: { fontSize: 16 },
-  actionLabel: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  swipeLabel: {
+    ...type.caption2,
+    color: '#fff',
+    fontWeight: '600',
+  },
 });

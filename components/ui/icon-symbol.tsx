@@ -13,6 +13,7 @@ const MAPPING = {
   'house.fill': 'home',
   'bell.fill': 'notifications',
   'person.fill': 'person',
+  'doc.text.fill': 'receipt-long',
   // Actions
   'plus': 'add',
   'xmark': 'close',

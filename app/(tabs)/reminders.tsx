@@ -1,143 +1,174 @@
 import React from 'react';
 import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { isBefore, isToday, startOfDay } from 'date-fns';
-import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useDebtStore } from '@/stores/debtStore';
 import { Debt } from '@/features/debts/types';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
+import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 
 interface DebtSection {
   title: string;
-  color: string;
+  accent: string;
   data: Debt[];
 }
 
 export default function RemindersScreen() {
   const debts = useDebtStore((s) => s.debts);
   const unpaid = debts.filter((d) => d.status === 'pending');
+  const { fmt } = useCurrency();
 
   const overdue: Debt[] = [];
   const dueToday: Debt[] = [];
   const upcoming: Debt[] = [];
-  const noDueDate: Debt[] = [];
+  const later: Debt[] = [];
   const today = startOfDay(new Date());
 
   unpaid.forEach((d) => {
-    if (!d.dueDate) { noDueDate.push(d); return; }
+    if (!d.dueDate) { later.push(d); return; }
     const due = startOfDay(new Date(d.dueDate));
     if (isToday(new Date(d.dueDate))) dueToday.push(d);
     else if (isBefore(due, today)) overdue.push(d);
     else upcoming.push(d);
   });
 
-  const { fmt } = useCurrency();
-
   const sections: DebtSection[] = [
-    overdue.length > 0 && { title: 'Overdue', color: '#DC2626', data: overdue },
-    dueToday.length > 0 && { title: 'Due Today', color: '#D97706', data: dueToday },
-    upcoming.length > 0 && { title: 'Upcoming', color: '#2563EB', data: upcoming },
-    noDueDate.length > 0 && { title: 'No Due Date', color: '#6B7280', data: noDueDate },
+    overdue.length > 0   && { title: 'Overdue',   accent: colors.negative, data: overdue },
+    dueToday.length > 0  && { title: 'Due today',  accent: colors.warning,  data: dueToday },
+    upcoming.length > 0  && { title: 'Upcoming',   accent: colors.tint,     data: upcoming },
+    later.length > 0     && { title: 'No due date', accent: colors.labelSecondary, data: later },
   ].filter(Boolean) as DebtSection[];
+
+  if (sections.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>Reminders</Text>
+        </View>
+        <EmptyState
+          title="All clear"
+          subtitle="No pending debts to track."
+          icon={<MaterialIcons name="notifications-none" size={40} color={colors.labelTertiary} />}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {sections.length === 0 ? (
-        <>
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        stickySectionHeadersEnabled={false}
+        ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.title}>Reminders</Text>
+            <Text style={styles.pageTitle}>Reminders</Text>
+            <Text style={styles.pageSubtitle}>{unpaid.length} pending</Text>
           </View>
-          <EmptyState
-            emoji="🎉"
-            title="All caught up!"
-            subtitle="No pending debts to track. Keep it up!"
-          />
-        </>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          stickySectionHeadersEnabled={false}
-          ListHeaderComponent={
-            <View style={styles.header}>
-              <Text style={styles.title}>Reminders</Text>
-              <Text style={styles.subtitle}>{unpaid.length} pending</Text>
-            </View>
-          }
-          renderSectionHeader={({ section }) => (
+        }
+        renderSectionHeader={({ section }) => {
+          const sec = section as DebtSection;
+          return (
             <View style={styles.sectionHeader}>
-              <View style={[styles.sectionDot, { backgroundColor: (section as DebtSection).color }]} />
-              <Text style={[styles.sectionLabel, { color: (section as DebtSection).color }]}>
-                {section.title}
-              </Text>
+              <Text style={[styles.sectionTitle, { color: sec.accent }]}>{sec.title}</Text>
             </View>
-          )}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <Avatar name={item.personName} size={42} />
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardName}>{item.personName}</Text>
-                {item.note ? (
-                  <Text style={styles.cardNote} numberOfLines={1}>{item.note}</Text>
-                ) : null}
-                {item.dueDate ? (
-                  <Text style={styles.cardDue}>Due {formatDate(item.dueDate)}</Text>
-                ) : null}
+          );
+        }}
+        renderSectionFooter={() => <View style={styles.sectionFooter} />}
+        renderItem={({ item, index, section }) => {
+          const sec = section as DebtSection;
+          const isFirst = index === 0;
+          const isLast = index === sec.data.length - 1;
+          const status = getComputedStatus(item);
+          const isCredit = item.type === 'owed_to_me';
+          const amountColor = isCredit ? colors.positive : colors.negative;
+          const dueDateColor = status === 'overdue' ? colors.negative : colors.labelSecondary;
+
+          return (
+            <>
+              <View style={[
+                styles.card,
+                isFirst && styles.cardFirst,
+                isLast && styles.cardLast,
+              ]}>
+                <Avatar name={item.personName} size={38} />
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardName}>{item.personName}</Text>
+                  {item.note ? <Text style={styles.cardNote} numberOfLines={1}>{item.note}</Text> : null}
+                </View>
+                <View style={styles.cardRight}>
+                  <Text style={[styles.cardAmount, { color: amountColor }]}>
+                    {isCredit ? '+' : '−'}{fmt(item.amount)}
+                  </Text>
+                  {item.dueDate ? (
+                    <Text style={[styles.cardDue, { color: dueDateColor }]}>
+                      {formatDate(item.dueDate)}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-              <View style={styles.cardRight}>
-                <Text style={[styles.cardAmount, { color: item.type === 'owed_to_me' ? '#16A34A' : '#DC2626' }]}>
-                  {item.type === 'owed_to_me' ? '+' : '−'}{fmt(item.amount)}
-                </Text>
-                <Badge status={getComputedStatus(item)} />
-              </View>
-            </View>
-          )}
-        />
-      )}
+              {!isLast && (
+                <View style={[styles.rowSeparator, { marginLeft: space[5] + 38 + space[3] }]} />
+              )}
+            </>
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FA' },
+  safe: { flex: 1, backgroundColor: colors.bg },
   listContent: { paddingBottom: 120 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, color: '#9CA3AF', marginTop: 2 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 10,
+  header: {
+    paddingHorizontal: space[5],
+    paddingTop: space[4],
+    paddingBottom: space[5],
   },
-  sectionDot: { width: 7, height: 7, borderRadius: 4 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  pageTitle: { ...type.title1, color: colors.label },
+  pageSubtitle: { ...type.footnote, color: colors.labelSecondary, marginTop: 2 },
+  sectionHeader: {
+    paddingHorizontal: space[5],
+    paddingBottom: space[2],
+  },
+  sectionTitle: {
+    ...type.footnote,
+    fontWeight: '500',
+  },
+  sectionFooter: { height: space[4] },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 10,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    backgroundColor: colors.surface,
+    paddingHorizontal: space[5],
+    paddingVertical: 13,
+    gap: space[3],
+    ...cardShadow,
   },
-  cardInfo: { flex: 1, gap: 2 },
-  cardName: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  cardNote: { fontSize: 12, color: '#9CA3AF' },
-  cardDue: { fontSize: 11, color: '#6B7280', marginTop: 2 },
-  cardRight: { alignItems: 'flex-end', gap: 6 },
-  cardAmount: { fontSize: 14, fontWeight: '700', letterSpacing: -0.3 },
+  cardFirst: {
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
+  },
+  cardLast: {
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
+  },
+  cardBody: { flex: 1, gap: 2 },
+  cardName: { ...type.subheadline, fontWeight: '500', color: colors.label },
+  cardNote: { ...type.caption1, color: colors.labelSecondary },
+  cardRight: { alignItems: 'flex-end', gap: 3 },
+  cardAmount: { fontSize: 15, fontWeight: '600', letterSpacing: -0.3 },
+  cardDue: { ...type.caption1 },
+  rowSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.opaqueSeparator,
+    marginRight: space[5],
+  },
 });

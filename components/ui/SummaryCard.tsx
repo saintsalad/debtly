@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
 
 interface SummaryCardProps {
@@ -7,18 +8,15 @@ interface SummaryCardProps {
   amount: number;
   count: number;
   accentColor: string;
-  bgColor: string;
 }
 
-export function SummaryCard({ label, amount, count, accentColor, bgColor }: SummaryCardProps) {
+export function SummaryCard({ label, amount, count, accentColor }: SummaryCardProps) {
   const { fmt } = useCurrency();
   return (
-    <View style={[styles.card, { backgroundColor: bgColor }]}>
+    <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
       <Text style={[styles.amount, { color: accentColor }]}>{fmt(amount)}</Text>
-      <Text style={styles.count}>
-        {count} {count === 1 ? 'item' : 'items'}
-      </Text>
+      <Text style={styles.count}>{count} {count === 1 ? 'debt' : 'debts'}</Text>
     </View>
   );
 }
@@ -26,24 +24,24 @@ export function SummaryCard({ label, amount, count, accentColor, bgColor }: Summ
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    padding: 16,
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: space[4],
+    ...cardShadow,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 4,
+    ...type.caption1,
+    color: colors.labelSecondary,
+    marginBottom: space[1],
   },
   amount: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     letterSpacing: -0.5,
     marginBottom: 2,
   },
   count: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontWeight: '500',
+    ...type.caption2,
+    color: colors.labelTertiary,
   },
 });

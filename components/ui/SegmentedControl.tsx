@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { colors, type, radius } from '@/lib/platform';
 
 interface SegmentedControlProps {
   options: string[];
@@ -9,41 +10,51 @@ interface SegmentedControlProps {
 
 export function SegmentedControl({ options, selectedIndex, onChange }: SegmentedControlProps) {
   return (
-    <View style={styles.container}>
-      {options.map((opt, i) => (
-        <Pressable
-          key={opt}
-          style={[styles.segment, selectedIndex === i && styles.active]}
-          onPress={() => onChange(i)}
-        >
-          <Text style={[styles.label, selectedIndex === i && styles.activeLabel]}>{opt}</Text>
-        </Pressable>
-      ))}
+    <View style={styles.track}>
+      {options.map((opt, i) => {
+        const active = selectedIndex === i;
+        return (
+          <Pressable
+            key={opt}
+            style={[styles.segment, active && styles.activeSegment]}
+            onPress={() => onChange(i)}
+          >
+            <Text style={[styles.label, active && styles.activeLabel]}>{opt}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  track: {
     flexDirection: 'row',
-    backgroundColor: '#EFEFF4',
-    borderRadius: 12,
-    padding: 3,
+    backgroundColor: colors.fill,
+    borderRadius: radius.md,
+    padding: 2,
   },
   segment: {
     flex: 1,
-    paddingVertical: 9,
+    paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 10,
+    borderRadius: radius.md - 2,
   },
-  active: {
-    backgroundColor: '#fff',
+  activeSegment: {
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  label: { fontSize: 13, fontWeight: '500', color: '#9CA3AF' },
-  activeLabel: { color: '#111827', fontWeight: '600' },
+  label: {
+    ...type.subheadline,
+    fontWeight: '500',
+    color: colors.labelSecondary,
+  },
+  activeLabel: {
+    color: colors.label,
+    fontWeight: '600',
+  },
 });

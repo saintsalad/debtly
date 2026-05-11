@@ -1,22 +1,20 @@
 import React, { useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+  Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Avatar } from '@/components/ui/Avatar';
 import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
+import { colors, type, space, radius, cardShadow } from '@/lib/platform';
 
-interface SettingRowProps {
-  icon: string;
+type MaterialIconName = React.ComponentProps<typeof MaterialIcons>['name'];
+
+interface RowProps {
+  icon: MaterialIconName;
   label: string;
   value?: string;
   onPress?: () => void;
@@ -24,19 +22,40 @@ interface SettingRowProps {
   last?: boolean;
 }
 
-function SettingRow({ icon, label, value, onPress, destructive, last }: SettingRowProps) {
+function Row({ icon, label, value, onPress, destructive, last }: RowProps) {
   return (
     <>
-      <TouchableOpacity style={styles.settingRow} onPress={onPress} activeOpacity={0.6}>
-        <Text style={styles.settingIcon}>{icon}</Text>
-        <Text style={[styles.settingLabel, destructive && styles.destructiveLabel]}>{label}</Text>
-        <View style={styles.settingRight}>
-          {value ? <Text style={styles.settingValue}>{value}</Text> : null}
-          {onPress ? <Text style={styles.chevron}>›</Text> : null}
+      <TouchableOpacity
+        style={styles.row}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.5 : 1}
+        disabled={!onPress}
+      >
+        <MaterialIcons
+          name={icon}
+          size={20}
+          color={destructive ? colors.negative : colors.labelSecondary}
+          style={styles.rowIcon}
+        />
+        <Text style={[styles.rowLabel, destructive && { color: colors.negative }]}>{label}</Text>
+        <View style={styles.rowRight}>
+          {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+          {onPress ? (
+            <MaterialIcons name="chevron-right" size={20} color={colors.labelTertiary} />
+          ) : null}
         </View>
       </TouchableOpacity>
-      {!last && <View style={styles.divider} />}
+      {!last && <View style={styles.rowSeparator} />}
     </>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionCard}>{children}</View>
+    </View>
   );
 }
 
@@ -44,210 +63,206 @@ export default function ProfileScreen() {
   const { totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const setName = useProfileStore((s) => s.setName);
-  const clearAll = useDebtStore((s) => s.clearAll);
-
-  const { currency, fmt } = useCurrency();
   const setCurrency = useProfileStore((s) => s.setCurrency);
+  const clearAll = useDebtStore((s) => s.clearAll);
+  const { currency, fmt } = useCurrency();
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(name);
 
-  const handleSaveName = () => {
-    const trimmed = editName.trim();
-    if (trimmed) setName(trimmed);
+  const commitName = () => {
+    const t = editName.trim();
+    if (t) setName(t);
     setEditing(false);
   };
 
-  const handleCurrencyPick = () => {
-    const options = Object.entries(CURRENCIES).map(([code, { symbol, label }]) => ({
-      text: `${symbol}  ${code} — ${label}`,
-      onPress: () => setCurrency(code),
-      style: code === currency ? ('default' as const) : ('default' as const),
-    }));
-    Alert.alert('Select Currency', '', [
-      ...options,
-      { text: 'Cancel', style: 'cancel' },
+  const pickCurrency = () => {
+    Alert.alert('Currency', 'Select your currency', [
+      ...Object.entries(CURRENCIES).map(([code, { symbol, label }]) => ({
+        text: `${symbol}  ${code}  ·  ${label}`,
+        onPress: () => setCurrency(code),
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
     ]);
   };
 
-  const handleClearAll = () => {
-    Alert.alert('Clear all data?', 'This will delete all debts. Cannot be undone.', [
+  const confirmClearAll = () => {
+    Alert.alert('Clear all data?', 'All debts will be permanently deleted.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: clearAll },
+      { text: 'Delete all', style: 'destructive', onPress: clearAll },
     ]);
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.pageTitle}>Profile</Text>
         </View>
 
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <Avatar name={name} size={72} />
-          <View style={styles.profileInfo}>
+        {/* Identity card */}
+        <View style={styles.identityCard}>
+          <Avatar name={name} size={60} />
+          <View style={styles.identityBody}>
             {editing ? (
               <TextInput
                 style={styles.nameInput}
                 value={editName}
                 onChangeText={setEditName}
-                onSubmitEditing={handleSaveName}
-                onBlur={handleSaveName}
+                onSubmitEditing={commitName}
+                onBlur={commitName}
                 autoFocus
                 returnKeyType="done"
                 selectTextOnFocus
               />
             ) : (
-              <TouchableOpacity onPress={() => { setEditName(name); setEditing(true); }}>
-                <Text style={styles.profileName}>{name}</Text>
-                <Text style={styles.editHint}>Tap to edit name</Text>
-              </TouchableOpacity>
+              <Pressable onPress={() => { setEditName(name); setEditing(true); }} hitSlop={4}>
+                <Text style={styles.identityName}>{name}</Text>
+                <Text style={styles.identityHint}>Tap to rename</Text>
+              </Pressable>
             )}
-            <View style={styles.offlinePill}>
-              <View style={styles.offlineDot} />
-              <Text style={styles.offlineText}>Offline-first</Text>
-            </View>
+          </View>
+          <View style={styles.offlineTag}>
+            <View style={styles.offlineDot} />
+            <Text style={styles.offlineLabel}>Offline</Text>
           </View>
         </View>
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#F0FDF4' }]}>
-            <Text style={[styles.statValue, { color: '#16A34A' }]}>{fmt(totalOwedToMe)}</Text>
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: colors.positive }]}>{fmt(totalOwedToMe)}</Text>
             <Text style={styles.statLabel}>Receivable</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#FEF2F2' }]}>
-            <Text style={[styles.statValue, { color: '#DC2626' }]}>{fmt(totalIOwe)}</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: colors.negative }]}>{fmt(totalIOwe)}</Text>
             <Text style={styles.statLabel}>Payable</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#F0F9FF' }]}>
-            <Text style={[styles.statValue, { color: '#0284C7' }]}>{settledCount}</Text>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statValue, { color: colors.tint }]}>{settledCount}</Text>
             <Text style={styles.statLabel}>Settled</Text>
           </View>
         </View>
 
         {/* Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App</Text>
-          <View style={styles.settingsCard}>
-            <SettingRow icon="📱" label="Version" value="1.0.0" />
-            <SettingRow
-              icon="💱"
-              label="Currency"
-              value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
-              onPress={handleCurrencyPick}
-              last
-            />
-          </View>
-        </View>
+        <Section title="Preferences">
+          <Row
+            icon="account-balance-wallet"
+            label="Currency"
+            value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
+            onPress={pickCurrency}
+            last
+          />
+        </Section>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Sync</Text>
-          <View style={styles.settingsCard}>
-            <SettingRow icon="☁️" label="Cloud Sync" value="Coming soon" last />
-          </View>
-        </View>
+        <Section title="About">
+          <Row icon="info-outline" label="Version" value="1.0.0" last />
+        </Section>
 
-        <View style={[styles.section, { marginBottom: 40 }]}>
-          <Text style={styles.sectionTitle}>Data</Text>
-          <View style={styles.settingsCard}>
-            <SettingRow
-              icon="🗑"
-              label="Clear All Data"
-              onPress={handleClearAll}
-              destructive
-              last
-            />
-          </View>
-        </View>
+        <Section title="Data">
+          <Row
+            icon="delete-forever"
+            label="Clear all data"
+            onPress={confirmClearAll}
+            destructive
+            last
+          />
+        </Section>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F9FA' },
+  safe: { flex: 1, backgroundColor: colors.bg },
   content: { paddingBottom: 120 },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
-  profileCard: {
+  header: {
+    paddingHorizontal: space[5],
+    paddingTop: space[4],
+    paddingBottom: space[5],
+  },
+  pageTitle: { ...type.title1, color: colors.label },
+
+  identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    backgroundColor: '#fff',
-    marginHorizontal: 20,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    gap: space[4],
+    backgroundColor: colors.surface,
+    marginHorizontal: space[5],
+    borderRadius: radius.card,
+    padding: space[4],
+    marginBottom: space[3],
+    ...cardShadow,
   },
-  profileInfo: { flex: 1, gap: 8 },
-  profileName: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  editHint: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  identityBody: { flex: 1 },
+  identityName: { ...type.title3, color: colors.label },
+  identityHint: { ...type.caption1, color: colors.labelTertiary, marginTop: 2 },
   nameInput: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    ...type.title3,
+    color: colors.label,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#007AFF',
-    paddingBottom: 2,
+    borderBottomColor: colors.tint,
+    paddingBottom: 1,
   },
-  offlinePill: {
+  offlineTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
+    gap: 4,
+    paddingHorizontal: space[2] + 2,
     paddingVertical: 4,
-    borderRadius: 20,
+    borderRadius: radius.pill,
+    backgroundColor: colors.positiveSoft,
   },
-  offlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
-  offlineText: { fontSize: 11, color: '#16A34A', fontWeight: '600' },
-  statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, marginBottom: 20 },
-  statCard: { flex: 1, borderRadius: 18, padding: 14, alignItems: 'center', gap: 4 },
-  statValue: { fontSize: 17, fontWeight: '800', letterSpacing: -0.4 },
-  statLabel: { fontSize: 10, color: '#6B7280', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.3 },
-  section: { paddingHorizontal: 20, marginBottom: 16 },
+  offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.positive },
+  offlineLabel: { ...type.caption2, color: colors.positive, fontWeight: '500' },
+
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    marginHorizontal: space[5],
+    borderRadius: radius.card,
+    paddingVertical: space[4],
+    marginBottom: space[5],
+    ...cardShadow,
+  },
+  statCell: { flex: 1, alignItems: 'center', gap: 3 },
+  statValue: { fontSize: 18, fontWeight: '600', letterSpacing: -0.4 },
+  statLabel: { ...type.caption2, color: colors.labelSecondary, fontWeight: '500' },
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: colors.opaqueSeparator,
+    marginVertical: space[1],
+  },
+
+  section: { marginBottom: space[4], paddingHorizontal: space[5] },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 8,
+    ...type.footnote,
+    color: colors.labelSecondary,
+    marginBottom: space[2],
+    paddingLeft: space[1],
   },
-  settingsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 1,
+    ...cardShadow,
   },
-  settingRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    gap: 12,
+    paddingHorizontal: space[4],
+    paddingVertical: 14,
+    gap: space[3],
   },
-  settingIcon: { fontSize: 18 },
-  settingLabel: { flex: 1, fontSize: 15, color: '#111827', fontWeight: '500' },
-  destructiveLabel: { color: '#DC2626' },
-  settingRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  settingValue: { fontSize: 13, color: '#9CA3AF' },
-  chevron: { fontSize: 20, color: '#D1D5DB' },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#F3F4F6', marginLeft: 50 },
+  rowIcon: { width: 22, textAlign: 'center' },
+  rowLabel: { ...type.subheadline, color: colors.label, flex: 1 },
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rowValue: { ...type.subheadline, color: colors.labelSecondary },
+  rowSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.opaqueSeparator,
+    marginLeft: space[4] + 22 + space[3],
+  },
 });
