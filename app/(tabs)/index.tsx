@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 
 function useFadeUp(delay = 0) {
@@ -34,7 +34,9 @@ function useFadeUp(delay = 0) {
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
-    content: {},
+    content: {
+      paddingBottom: layout.screenPaddingBottom,
+    },
 
     header: {
       paddingHorizontal: space[4],

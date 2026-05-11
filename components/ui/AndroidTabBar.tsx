@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
 import { Button, useThemeColor } from 'heroui-native';
-import { useColors, type, type ColorPalette } from '@/lib/platform';
+import { useColors, type ColorPalette } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
 function TabItem({
@@ -39,9 +39,6 @@ function TabItem({
           color: labelColor,
           size: 23,
         })}
-        <Text style={[styles.tabLabel, { color: labelColor }]}>
-          {options.title}
-        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -59,14 +56,11 @@ function CreateButton({ palette }: { palette: ColorPalette }) {
         variant="primary"
         feedbackVariant="scale-ripple"
         animation={{ scale: { value: 0.97 } }}
-        className="-mt-5 mb-1 self-center shadow-lg"
+        className="self-center shadow-lg"
         onPress={present}
       >
         <Plus size={26} color={accentForeground} />
       </Button>
-      <Text style={[styles.createLabel, { color: palette.tint }]}>
-        Create
-      </Text>
     </View>
   );
 }
@@ -126,9 +120,8 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingTop: 6,
-    paddingBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   tabItem: {
     flex: 1,
@@ -138,21 +131,12 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 4,
-  },
-  tabLabel: {
-    ...type.caption2,
-    fontWeight: '500',
+    paddingVertical: 8,
   },
   createContainer: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
-    paddingBottom: 4,
-  },
-  createLabel: {
-    ...type.caption2,
-    fontWeight: '600',
+    justifyContent: 'center',
   },
 });

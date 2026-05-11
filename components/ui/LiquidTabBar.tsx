@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
-import { useColors, type, type ColorPalette } from '@/lib/platform';
+import { useColors, type ColorPalette } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
 function TabItem({
@@ -37,9 +37,6 @@ function TabItem({
           color: isFocused ? palette.tabActive : palette.tabInactive,
           size: 23,
         })}
-        <Text style={[styles.tabLabel, { color: isFocused ? palette.tabActive : palette.tabInactive }]}>
-          {options.title}
-        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -71,7 +68,6 @@ function CreateButton({ palette }: { palette: ColorPalette }) {
           <Plus size={24} color="#fff" />
         </Pressable>
       </Animated.View>
-      <Text style={[styles.createLabel, { color: palette.tint }]}>Create</Text>
     </View>
   );
 }
@@ -131,26 +127,20 @@ const styles = StyleSheet.create({
   },
   tabRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingVertical: 10,
   },
   tabItem: { flex: 1 },
   tabPressable: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 4,
-  },
-  tabLabel: {
-    ...type.caption2,
-    fontWeight: '500',
+    paddingVertical: 8,
   },
   createContainer: {
     flex: 1,
     alignItems: 'center',
-    paddingBottom: 4,
+    justifyContent: 'center',
   },
   createButton: {
     width: 48,
@@ -158,14 +148,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -18,
-    marginBottom: 4,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
-  },
-  createLabel: {
-    ...type.caption2,
-    fontWeight: '600',
   },
 });
