@@ -1,8 +1,5 @@
-import React, { createContext, useContext, useMemo, useRef } from 'react';
-import {
-  TransactionDetailSheet,
-  type TransactionDetailSheetHandle,
-} from '@/features/debts/TransactionDetailSheet';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { Debt } from '@/features/debts/types';
 
 const TransactionDetailContext = createContext<{ open: (debt: Debt) => void }>({
@@ -14,21 +11,21 @@ export function useTransactionDetail() {
 }
 
 export function TransactionDetailProvider({ children }: { children: React.ReactNode }) {
-  const sheetRef = useRef<TransactionDetailSheetHandle>(null);
+  const router = useRouter();
 
   const value = useMemo(
     () => ({
       open: (debt: Debt) => {
-        sheetRef.current?.present(debt);
+        router.push({
+          pathname: '/transaction/[id]',
+          params: { id: debt.id },
+        });
       },
     }),
-    []
+    [router]
   );
 
   return (
-    <TransactionDetailContext.Provider value={value}>
-      {children}
-      <TransactionDetailSheet ref={sheetRef} />
-    </TransactionDetailContext.Provider>
+    <TransactionDetailContext.Provider value={value}>{children}</TransactionDetailContext.Provider>
   );
 }

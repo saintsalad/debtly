@@ -1,56 +1,45 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
-  type BottomSheetBackdropProps,
-} from '@gorhom/bottom-sheet';
-import { Button, HeroUINativeProvider } from 'heroui-native';
-import * as Haptics from 'expo-haptics';
-import { Bell, MessageSquare, Printer, Trash2 } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Debt } from '@/features/debts/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
+import { ListDivider } from '@/components/ui/ListDivider';
 import {
   getAccruedInterest,
   getPaymentProgress,
   getPrincipalAmount,
   getRecurrenceLabel,
   getRemainingBalance,
-  getTotalDue,
   getTotalPaid,
 } from '@/features/debts/debtCalculations';
-import { interestRateFromBps, getInterestAccrualLabel } from '@/features/debts/interestEngine';
-import { PartialPaymentSection } from '@/features/debts/PartialPaymentSection';
-import { Avatar } from '@/components/ui/Avatar';
-import { ListDivider } from '@/components/ui/ListDivider';
-import { useCurrency } from '@/hooks/useCurrency';
-import { useDebtStore } from '@/stores/debtStore';
-import { formatDate, getComputedStatus } from '@/lib/utils';
-import { useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { getInterestAccrualLabel, interestRateFromBps } from '@/features/debts/interestEngine';
+import { PartialPaymentSheet, type PartialPaymentSheetHandle } from '@/features/debts/PartialPaymentSheet';
+import { PaymentProgress } from '@/features/debts/PaymentProgress';
+import { RecordPaymentSheet, type RecordPaymentSheetHandle } from '@/features/debts/RecordPaymentSheet';
 import {
   openSmsReminder,
   printTransaction,
   sendTransactionReminder,
 } from '@/features/debts/transactionActions';
+import { useCurrency } from '@/hooks/useCurrency';
+import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { formatDate, getComputedStatus } from '@/lib/utils';
+import { useDebtStore } from '@/stores/debtStore';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import * as Haptics from 'expo-haptics';
+import { Button, HeroUINativeProvider } from 'heroui-native';
+import { Bell, MessageSquare, Printer, Trash2, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export interface TransactionDetailSheetHandle {
-  present: (debt: Debt) => void;
-  dismiss: () => void;
+interface TransactionDetailScreenProps {
+  debtId: string;
+  onClose: () => void;
 }
 
 function formatFullDate(iso: string): string {
@@ -63,19 +52,32 @@ function formatFullDate(iso: string): string {
 
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
-    sheet: {
-      borderTopLeftRadius: radius.xl,
-      borderTopRightRadius: radius.xl,
-      backgroundColor: palette.surface,
+    screen: {
+      flex: 1,
+      backgroundColor: palette.bg,
     },
-    handle: {
-      width: 40,
-      backgroundColor: palette.opaqueSeparator,
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: space[5],
+      paddingBottom: space[3],
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: palette.opaqueSeparator,
+    },
+    headerTitle: {
+      flex: 1,
+      ...type.headline,
+      color: palette.label,
+      textAlign: 'center',
+    },
+    headerSpacer: {
+      width: 36,
+      height: 36,
     },
     content: {
       paddingHorizontal: space[4],
       paddingTop: space[2],
-      paddingBottom: space[10],
       gap: space[6],
     },
     hero: {
@@ -124,7 +126,7 @@ function createStyles(palette: ColorPalette) {
       textAlign: 'right',
     },
     actions: {
-      gap: space[6],
+      gap: space[4],
     },
     actionGroup: {
       backgroundColor: palette.fillSecondary,
@@ -230,132 +232,113 @@ function ActionRow({
   );
 }
 
-export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((_, ref) => {
+export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailScreenProps) {
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { fmt } = useCurrency();
   const { markPaid, deleteDebt, recordPayment } = useDebtStore();
   const insets = useSafeAreaInsets();
-  const sheetRef = useRef<BottomSheetModal>(null);
-  const [debt, setDebt] = useState<Debt | null>(null);
-  const snapPoints = useMemo(() => ['82%'], []);
+  const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
+  const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
+  const debt = useDebtStore((state) => state.debts.find((item) => item.id === debtId));
 
-  const dismiss = useCallback(() => {
-    sheetRef.current?.dismiss();
+  useEffect(() => {
+    if (!debt) {
+      onClose();
+    }
+  }, [debt, onClose]);
+
+  useEffect(() => {
+    return () => {
+      recordPaymentSheetRef.current?.dismiss();
+      partialPaymentSheetRef.current?.dismiss();
+    };
   }, []);
 
-  const present = useCallback((nextDebt: Debt) => {
-    setDebt((current) => {
-      if (current?.id === nextDebt.id) {
-        requestAnimationFrame(() => {
-          sheetRef.current?.present();
-        });
-      }
-      return nextDebt;
-    });
-  }, []);
+  if (!debt) {
+    return null;
+  }
 
-  useImperativeHandle(ref, () => ({ present, dismiss }), [dismiss, present]);
-
-  useLayoutEffect(() => {
-    if (!debt) return;
-    sheetRef.current?.present();
-  }, [debt]);
-
-  const handleDismiss = useCallback(() => {
-    setDebt(null);
-  }, []);
-
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" />
-    ),
-    []
-  );
-
-  const status = debt ? getComputedStatus(debt) : 'pending';
-  const isCredit = debt?.type === 'owed_to_me';
+  const status = getComputedStatus(debt);
+  const isCredit = debt.type === 'owed_to_me';
   const isPending = status !== 'paid';
-  const canRemind = Boolean(debt && isCredit && isPending);
-  const remainingBalance = debt ? getRemainingBalance(debt) : 0;
-  const accruedInterest = debt ? getAccruedInterest(debt) : 0;
-  const totalPaid = debt ? getTotalPaid(debt) : 0;
-  const totalDue = debt ? getTotalDue(debt) : 0;
-  const paymentProgress = debt ? getPaymentProgress(debt) : 0;
+  const canRemind = isCredit && isPending;
+  const remainingBalance = getRemainingBalance(debt);
+  const accruedInterest = getAccruedInterest(debt);
+  const totalPaid = getTotalPaid(debt);
+  const paymentProgress = getPaymentProgress(debt);
+  const hasPartialPayment = totalPaid > 0 && isPending;
 
   const amountColor =
-    !debt
-      ? palette.label
-      : status === 'paid'
+    status === 'paid'
       ? palette.labelTertiary
       : isCredit
-      ? palette.positive
-      : palette.negative;
+        ? palette.positive
+        : palette.negative;
 
   const statusLabel =
     status === 'paid'
       ? 'Paid'
       : status === 'partial'
-      ? 'Partially paid'
-      : status === 'overdue'
-      ? 'Overdue'
-      : 'Pending';
+        ? 'Partially paid'
+        : status === 'overdue'
+          ? 'Overdue'
+          : 'Pending';
 
-  const summaryLine = debt
-    ? [isCredit ? 'Owes you' : 'You owe', statusLabel].join(' · ')
-    : '';
+  const summaryLine = [isCredit ? 'Owes you' : 'You owe', statusLabel].join(' · ');
 
-  const handleRecordPayment = (amount: number) => {
-    if (!debt) return;
-
+  const handleRecordPayment = (amount: number): boolean => {
     const error = recordPayment(debt.id, { amount });
     if (error) {
       Alert.alert('Unable to record payment', error);
-      return;
+      return false;
     }
 
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const nextDebt = useDebtStore.getState().debts.find((item) => item.id === debt.id);
     if (!nextDebt || getComputedStatus(nextDebt) === 'paid') {
-      dismiss();
+      onClose();
     }
+
+    return true;
   };
 
-  const handleMarkPaid = () => {
-    if (!debt) return;
-
-    Alert.alert('Mark as paid?', `${debt.personName} will be marked as settled.`, [
+  const confirmFullPayment = () => {
+    Alert.alert('Record full payment?', `${fmt(remainingBalance)} will be marked as settled.`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Mark paid',
+        text: 'Record full payment',
         onPress: () => {
           markPaid(debt.id);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          dismiss();
+          onClose();
         },
       },
     ]);
   };
 
+  const beginPartialPayment = () => {
+    partialPaymentSheetRef.current?.present(remainingBalance);
+  };
+
+  const handlePaymentPress = () => {
+    recordPaymentSheetRef.current?.present();
+  };
+
   const handlePrint = () => {
-    if (!debt) return;
     void printTransaction(debt, fmt);
   };
 
   const handleSendReminder = () => {
-    if (!debt) return;
     void sendTransactionReminder(debt, fmt);
   };
 
   const handleSmsReminder = () => {
-    if (!debt) return;
     void openSmsReminder(debt, fmt);
   };
 
   const handleDelete = () => {
-    if (!debt) return;
-
     Alert.alert('Delete transaction?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -363,30 +346,29 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
         style: 'destructive',
         onPress: () => {
           deleteDebt(debt.id);
-          dismiss();
+          onClose();
         },
       },
     ]);
   };
 
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      snapPoints={snapPoints}
-      enablePanDownToClose
-      backdropComponent={renderBackdrop}
-      onDismiss={handleDismiss}
-      topInset={insets.top}
-      bottomInset={insets.bottom}
-      handleIndicatorStyle={styles.handle}
-      backgroundStyle={styles.sheet}
-    >
-      {debt ? (
+    <BottomSheetModalProvider>
+      <View style={styles.screen}>
         <HeroUINativeProvider>
-          <BottomSheetScrollView
+          <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
+            <HeaderIconButton icon={X} accessibilityLabel="Close" onPress={onClose} />
+            <Text style={styles.headerTitle}>Transaction</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+
+          <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: insets.bottom + layout.screenPaddingBottom },
+            ]}
           >
             <View style={styles.hero}>
               <Avatar name={debt.personName} size={64} />
@@ -395,12 +377,15 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
               </Text>
               <Text style={styles.summary}>{summaryLine}</Text>
               <Text style={[styles.amount, { color: amountColor }]}>
-                {isCredit ? '+' : '−'}{fmt(remainingBalance)}
+                {isCredit ? '+' : '−'}
+                {fmt(remainingBalance)}
               </Text>
-              {status !== 'paid' && (totalPaid > 0 || accruedInterest > 0) ? (
-                <Text style={styles.summary}>
-                  {fmt(totalDue)} total · {fmt(totalPaid)} paid
-                </Text>
+              {hasPartialPayment ? (
+                <PaymentProgress
+                  paidLabel={`${fmt(totalPaid)} paid`}
+                  remainingLabel={`${fmt(remainingBalance)} left`}
+                  progress={paymentProgress}
+                />
               ) : null}
             </View>
 
@@ -421,25 +406,13 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
                 />
               ) : null}
               {accruedInterest > 0 ? (
-                <DetailRow
-                  label="Accrued interest"
-                  value={fmt(accruedInterest)}
-                  showSeparator
-                />
+                <DetailRow label="Accrued interest" value={fmt(accruedInterest)} showSeparator />
               ) : null}
-              {totalPaid > 0 ? (
-                <DetailRow
-                  label="Paid to date"
-                  value={fmt(totalPaid)}
-                  showSeparator
-                />
+              {hasPartialPayment ? (
+                <DetailRow label="Paid to date" value={fmt(totalPaid)} showSeparator />
               ) : null}
-              {isPending ? (
-                <DetailRow
-                  label="Remaining"
-                  value={fmt(remainingBalance)}
-                  showSeparator
-                />
+              {hasPartialPayment ? (
+                <DetailRow label="Remaining" value={fmt(remainingBalance)} showSeparator />
               ) : null}
               {debt.isRecurring && debt.recurrenceInterval ? (
                 <DetailRow
@@ -448,9 +421,7 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
                   showSeparator
                 />
               ) : null}
-              {debt.note ? (
-                <DetailRow label="Note" value={debt.note} />
-              ) : null}
+              {debt.note ? <DetailRow label="Note" value={debt.note} /> : null}
               {debt.dueDate ? (
                 <DetailRow
                   label="Due date"
@@ -473,24 +444,10 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
               ) : null}
             </View>
 
-            {isPending ? (
-              <PartialPaymentSection
-                debt={debt}
-                remainingBalance={remainingBalance}
-                progress={paymentProgress}
-                onRecordPayment={handleRecordPayment}
-              />
-            ) : null}
-
             <View style={styles.actions}>
               {isPending ? (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className="w-full"
-                  onPress={handleMarkPaid}
-                >
-                  <Button.Label>Mark balance as paid</Button.Label>
+                <Button variant="primary" size="lg" className="w-full" onPress={handlePaymentPress}>
+                  <Button.Label>Record payment</Button.Label>
                 </Button>
               ) : null}
 
@@ -528,11 +485,15 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
                 />
               </View>
             </View>
-          </BottomSheetScrollView>
+          </ScrollView>
         </HeroUINativeProvider>
-      ) : null}
-    </BottomSheetModal>
+      </View>
+      <RecordPaymentSheet
+        ref={recordPaymentSheetRef}
+        onSelectFull={confirmFullPayment}
+        onSelectPartial={beginPartialPayment}
+      />
+      <PartialPaymentSheet ref={partialPaymentSheetRef} onSubmit={handleRecordPayment} />
+    </BottomSheetModalProvider>
   );
-});
-
-TransactionDetailSheet.displayName = 'TransactionDetailSheet';
+}

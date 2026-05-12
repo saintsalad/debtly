@@ -34,6 +34,10 @@ export default function RootLayout() {
                     name="add-transaction"
                     options={{ presentation: 'fullScreenModal', headerShown: false }}
                   />
+                  <Stack.Screen
+                    name="transaction/[id]"
+                    options={{ presentation: 'fullScreenModal', headerShown: false }}
+                  />
                 </Stack>
               </TransactionDetailProvider>
             </AddDebtProvider>
