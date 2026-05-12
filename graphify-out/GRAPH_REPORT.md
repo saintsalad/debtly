@@ -1,16 +1,16 @@
 # Graph Report - debtly  (2026-05-12)
 
 ## Corpus Check
-- 73 files · ~40,528 words
+- 78 files · ~41,805 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 216 nodes · 436 edges · 8 communities detected
-- Extraction: 80% EXTRACTED · 20% INFERRED · 0% AMBIGUOUS · INFERRED: 87 edges (avg confidence: 0.8)
+- 236 nodes · 486 edges · 8 communities detected
+- Extraction: 81% EXTRACTED · 19% INFERRED · 0% AMBIGUOUS · INFERRED: 92 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c74aa61e`
+- Built from commit: `afc2589f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -25,16 +25,16 @@
 - [[_COMMUNITY_Community 7|Community 7]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `useColors()` - 35 edges
+1. `useColors()` - 40 edges
 2. `projectDebtLedger()` - 17 edges
-3. `buildTransactionSummary()` - 15 edges
-4. `toLocalDateString()` - 14 edges
-5. `useAppColorScheme()` - 14 edges
-6. `useCurrency()` - 13 edges
-7. `getRemainingBalance()` - 12 edges
-8. `getComputedStatus()` - 11 edges
-9. `getTotalPaid()` - 10 edges
-10. `majorToMinor()` - 10 edges
+3. `useAppColorScheme()` - 16 edges
+4. `toLocalDateString()` - 15 edges
+5. `buildTransactionSummary()` - 15 edges
+6. `useCurrency()` - 15 edges
+7. `getRemainingBalance()` - 13 edges
+8. `getComputedStatus()` - 12 edges
+9. `getTotalPaid()` - 11 edges
+10. `majorToMinor()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `CreateButton()` --calls--> `useThemeColor()`  [INFERRED]
@@ -45,30 +45,30 @@
   components/ui/LiquidTabBar.tsx → lib/addDebtContext.tsx
 - `LiquidTabBar()` --calls--> `useColors()`  [INFERRED]
   components/ui/LiquidTabBar.tsx → lib/platform.ts
-- `settleDebtWithLifecycle()` --calls--> `settleDebtLedger()`  [INFERRED]
-  stores/debtStore.ts → features/debts/debtLedger.ts
+- `PaymentOptionRow()` --calls--> `useColors()`  [INFERRED]
+  features/debts/RecordPaymentSheet.tsx → lib/platform.ts
 
-## Communities (26 total, 1 thin omitted)
+## Communities (28 total, 1 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.07
-Nodes (14): handleSubmit(), useCurrency(), createPalette(), useCardShadow(), useColors(), formatCurrency(), useDebtSummary(), AppScreen() (+6 more)
+Cohesion: 0.06
+Nodes (17): handleSubmit(), PaymentOptionRow(), useCurrency(), useAppBottomSheetLayout(), createPalette(), useCardShadow(), useColors(), useTransactionDetail() (+9 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.17
-Nodes (25): advanceRecurringDueDate(), countAccrualPeriods(), isOnOrBefore(), isOverdueDate(), parseLocalDate(), getDebtAmountMajor(), isDebtSettled(), accrueBetweenDates() (+17 more)
+Cohesion: 0.14
+Nodes (22): readDebtFormValues(), getAccruedInterest(), getPrincipalAmount(), getRemainingBalance(), getTotalDue(), getTotalPaid(), getInterestAccrualLabel(), interestRateFromBps() (+14 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.18
-Nodes (21): getAccruedInterest(), getPrincipalAmount(), getRemainingBalance(), getTotalDue(), getTotalPaid(), getInterestAccrualLabel(), interestRateFromBps(), buildReminderMessage() (+13 more)
+Cohesion: 0.15
+Nodes (19): toLocalDateString(), createDebtFromInput(), settleDebtLedger(), syncDebtLedger(), migrateDebtRecord(), migrateDebts(), migratePayment(), buildInterestFields() (+11 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.1
-Nodes (10): ParallaxScrollView(), ThemedText(), ThemedView(), useAppColorScheme(), useColorScheme(), useSyncUniwindTheme(), useThemeColor(), TransactionDetailProvider() (+2 more)
+Nodes (10): RootLayout(), ParallaxScrollView(), ThemedText(), ThemedView(), useAppColorScheme(), useColorScheme(), useSyncUniwindTheme(), useThemeColor() (+2 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.16
-Nodes (18): toLocalDateString(), createDebtFromInput(), migrateDebtRecord(), migrateDebts(), migratePayment(), buildInterestFields(), buildRecurringFields(), getRecurrenceLabel() (+10 more)
+Cohesion: 0.17
+Nodes (24): advanceRecurringDueDate(), countAccrualPeriods(), isOnOrBefore(), isOverdueDate(), parseLocalDate(), getDebtAmountMajor(), isDebtSettled(), accrueBetweenDates() (+16 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.14
@@ -84,17 +84,17 @@ Nodes (5): deleteItem(), getAsyncStorage(), getWebStorage(), readItem(), writeIt
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useColors()` connect `Community 0` to `Community 2`, `Community 3`, `Community 5`?**
-  _High betweenness centrality (0.299) - this node is a cross-community bridge._
-- **Why does `useAppColorScheme()` connect `Community 3` to `Community 0`?**
-  _High betweenness centrality (0.129) - this node is a cross-community bridge._
-- **Why does `getRemainingBalance()` connect `Community 2` to `Community 0`, `Community 1`, `Community 4`?**
-  _High betweenness centrality (0.081) - this node is a cross-community bridge._
-- **Are the 10 inferred relationships involving `useColors()` (e.g. with `AndroidTabBar()` and `AppScreen()`) actually correct?**
-  _`useColors()` has 10 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `useColors()` connect `Community 0` to `Community 1`, `Community 2`, `Community 3`, `Community 5`?**
+  _High betweenness centrality (0.292) - this node is a cross-community bridge._
+- **Why does `useAppColorScheme()` connect `Community 3` to `Community 0`, `Community 2`?**
+  _High betweenness centrality (0.134) - this node is a cross-community bridge._
+- **Why does `toLocalDateString()` connect `Community 2` to `Community 4`?**
+  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+- **Are the 11 inferred relationships involving `useColors()` (e.g. with `AndroidTabBar()` and `AppScreen()`) actually correct?**
+  _`useColors()` has 11 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 5 inferred relationships involving `projectDebtLedger()` (e.g. with `sumPaymentMinor()` and `resolveInterestStartDate()`) actually correct?**
   _`projectDebtLedger()` has 5 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 11 inferred relationships involving `buildTransactionSummary()` (e.g. with `getComputedStatus()` and `getRemainingBalance()`) actually correct?**
-  _`buildTransactionSummary()` has 11 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 6 inferred relationships involving `useAppColorScheme()` (e.g. with `RootLayout()` and `useColorScheme()`) actually correct?**
+  _`useAppColorScheme()` has 6 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 7 inferred relationships involving `toLocalDateString()` (e.g. with `createDebtFromInput()` and `projectDebtLedger()`) actually correct?**
   _`toLocalDateString()` has 7 INFERRED edges - model-reasoned connections that need verification._

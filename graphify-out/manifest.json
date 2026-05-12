@@ -28,8 +28,8 @@
     "hash": "a3b709a8c79864356fcc5c97ed63400d"
   },
   "D:\\calea\\projects\\debtly\\app\\_layout.tsx": {
-    "mtime": 1778553460.81012,
-    "hash": "bf9e6eb42c59e253aa686e694aab1c1d"
+    "mtime": 1778558815.3786225,
+    "hash": "705101e624e9e2c978b262fb1fd18655"
   },
   "D:\\calea\\projects\\debtly\\app\\(tabs)\\bill-split.tsx": {
     "mtime": 1778521590.1675124,
@@ -50,6 +50,14 @@
   "D:\\calea\\projects\\debtly\\app\\(tabs)\\_layout.tsx": {
     "mtime": 1778521616.0685606,
     "hash": "ba213fda8126439bb706dcdae8297d1b"
+  },
+  "D:\\calea\\projects\\debtly\\app\\edit-transaction\\[id].tsx": {
+    "mtime": 1778558815.0373538,
+    "hash": "a15c7d185ede8db10b77a9a43f8028df"
+  },
+  "D:\\calea\\projects\\debtly\\app\\transaction\\[id].tsx": {
+    "mtime": 1778557148.738425,
+    "hash": "588821eb3f558d2c05d2a30210aab449"
   },
   "D:\\calea\\projects\\debtly\\components\\external-link.tsx": {
     "mtime": 499162500.0,
@@ -172,8 +180,8 @@
     "hash": "ee4cff313e1a3bc711ba073b8f059c71"
   },
   "D:\\calea\\projects\\debtly\\features\\debts\\AddDebtScreen.tsx": {
-    "mtime": 1778556105.3372254,
-    "hash": "f14315e8b25107596b1745b5400395a3"
+    "mtime": 1778558812.1528187,
+    "hash": "f210ae9af89f2c699cbb6d03de451ac8"
   },
   "D:\\calea\\projects\\debtly\\features\\debts\\dates.ts": {
     "mtime": 1778555671.1475093,
@@ -203,21 +211,29 @@
     "mtime": 1778555669.402101,
     "hash": "1189396be478b97a2be2c3b98131ff60"
   },
-  "D:\\calea\\projects\\debtly\\features\\debts\\PartialPaymentSection.tsx": {
-    "mtime": 1778555786.771736,
-    "hash": "f54884d6d346f2ab5dd3ccb811b65287"
+  "D:\\calea\\projects\\debtly\\features\\debts\\PartialPaymentSheet.tsx": {
+    "mtime": 1778557736.679432,
+    "hash": "d7772cfb6b9c9f251f6dc2956d0e231c"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\PaymentProgress.tsx": {
+    "mtime": 1778556836.3871722,
+    "hash": "91cad98fdd223eb72d0020af6edf05cc"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\RecordPaymentSheet.tsx": {
+    "mtime": 1778558348.3347454,
+    "hash": "c543de990874d72d1e0164b63ce44370"
   },
   "D:\\calea\\projects\\debtly\\features\\debts\\recurringEngine.ts": {
     "mtime": 1778555681.1451094,
     "hash": "094efb99552475b04ea70f7599fb7c61"
   },
   "D:\\calea\\projects\\debtly\\features\\debts\\transactionActions.ts": {
-    "mtime": 1778555994.3564632,
-    "hash": "5334368646700f941dac8a088ccb03f9"
+    "mtime": 1778559015.4606812,
+    "hash": "39b2bcc4555fa9e0e0080d57be7c8666"
   },
-  "D:\\calea\\projects\\debtly\\features\\debts\\TransactionDetailSheet.tsx": {
-    "mtime": 1778555993.0366046,
-    "hash": "6b125338c894fbc63cb089818e93cee3"
+  "D:\\calea\\projects\\debtly\\features\\debts\\TransactionDetailScreen.tsx": {
+    "mtime": 1778558828.9656253,
+    "hash": "c223a5b74a85d0f6b82e877f75d333af"
   },
   "D:\\calea\\projects\\debtly\\features\\debts\\TransactionRow.tsx": {
     "mtime": 1778554593.4243476,
@@ -255,6 +271,10 @@
     "mtime": 1778553460.0060503,
     "hash": "73476e2e93862c4a6f5a2d73f77477eb"
   },
+  "D:\\calea\\projects\\debtly\\lib\\appBottomSheet.tsx": {
+    "mtime": 1778557786.8379722,
+    "hash": "2f4e2c2b7e1ca876fa56459c1fa6ad11"
+  },
   "D:\\calea\\projects\\debtly\\lib\\mockData.ts": {
     "mtime": 1778555769.9693656,
     "hash": "5512ba920bb8095a5813bb29778a84d2"
@@ -268,8 +288,8 @@
     "hash": "e829f221ee936b032591818569483986"
   },
   "D:\\calea\\projects\\debtly\\lib\\transactionDetailContext.tsx": {
-    "mtime": 1778553446.039814,
-    "hash": "bb378ce6185322d1319656c498d20bc3"
+    "mtime": 1778557166.870757,
+    "hash": "ed74efe851f9f11892f9e9763dd366c2"
   },
   "D:\\calea\\projects\\debtly\\lib\\utils.ts": {
     "mtime": 1778554526.2603703,
