@@ -1,4 +1,5 @@
 import { format, isToday, isTomorrow, startOfDay } from 'date-fns';
+import { getRemainingBalance, getTotalPaid } from '@/features/debts/debtCalculations';
 import { Debt, DebtStatus } from '@/features/debts/types';
 
 export const CURRENCIES: Record<string, { symbol: string; label: string }> = {
@@ -28,7 +29,8 @@ export const formatDate = (isoDate: string): string => {
 };
 
 export const getComputedStatus = (debt: Debt): DebtStatus => {
-  if (debt.status === 'paid') return 'paid';
+  if (debt.status === 'paid' || getRemainingBalance(debt) <= 0.009) return 'paid';
+  if (getTotalPaid(debt) > 0) return 'partial';
   if (debt.dueDate) {
     const due = startOfDay(new Date(debt.dueDate));
     const today = startOfDay(new Date());

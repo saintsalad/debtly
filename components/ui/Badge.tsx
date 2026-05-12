@@ -6,6 +6,7 @@ import { colors, type } from '@/lib/platform';
 const CONFIG: Record<DebtStatus, { label: string; color: string }> = {
   overdue:  { label: 'Overdue', color: colors.negative },
   paid:     { label: 'Paid',    color: colors.positive },
+  partial:  { label: 'Partial', color: colors.tint },
   pending:  { label: 'Pending', color: colors.labelSecondary },
 };
 

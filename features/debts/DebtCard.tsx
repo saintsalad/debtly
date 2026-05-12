@@ -6,6 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Check, Trash2 } from 'lucide-react-native';
 import { Debt } from '@/features/debts/types';
+import { getRemainingBalance } from '@/features/debts/debtCalculations';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
@@ -96,6 +97,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
 
   const status = getComputedStatus(debt);
   const isCredit = debt.type === 'owed_to_me';
+  const remainingBalance = getRemainingBalance(debt);
 
   const amountColor = status === 'paid'
     ? palette.labelTertiary
@@ -175,7 +177,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
             <View style={styles.row}>
               <Text style={styles.name} numberOfLines={1}>{debt.personName}</Text>
               <Text style={[styles.amount, { color: amountColor }]}>
-                {isCredit ? '+' : '−'}{fmt(debt.amount)}
+                {isCredit ? '+' : '−'}{fmt(remainingBalance)}
               </Text>
             </View>
             <View style={styles.row}>

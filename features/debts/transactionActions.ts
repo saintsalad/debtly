@@ -1,5 +1,14 @@
 import { Alert, Linking, Platform, Share } from 'react-native';
 import { Debt } from '@/features/debts/types';
+import {
+  getAccruedInterest,
+  getPrincipalAmount,
+  getRecurrenceLabel,
+  getRemainingBalance,
+  getTotalDue,
+  getTotalPaid,
+} from '@/features/debts/debtCalculations';
+import { interestRateFromBps, getInterestAccrualLabel } from '@/features/debts/interestEngine';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 
 function formatFullDate(iso: string): string {
@@ -10,18 +19,47 @@ function formatFullDate(iso: string): string {
   });
 }
 
+function formatStatus(status: ReturnType<typeof getComputedStatus>): string {
+  switch (status) {
+    case 'paid':
+      return 'Paid';
+    case 'partial':
+      return 'Partially paid';
+    case 'overdue':
+      return 'Overdue';
+    default:
+      return 'Pending';
+  }
+}
+
 export function buildTransactionSummary(debt: Debt, fmt: (amount: number) => string): string {
   const status = getComputedStatus(debt);
   const direction = debt.type === 'owed_to_me' ? 'Owes you' : 'You owe';
+  const remaining = getRemainingBalance(debt);
+  const totalDue = getTotalDue(debt);
+  const totalPaid = getTotalPaid(debt);
+  const accruedInterest = getAccruedInterest(debt);
+  const principal = getPrincipalAmount(debt);
   const lines = [
     'Debtly transaction',
     '',
     `Person: ${debt.personName}`,
     `Direction: ${direction}`,
-    `Amount: ${fmt(debt.amount)}`,
-    `Status: ${status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Pending'}`,
+    `Principal: ${fmt(principal)}`,
+    `Remaining: ${fmt(remaining)}`,
+    `Status: ${formatStatus(status)}`,
   ];
 
+  if (debt.interestRateBps) lines.push(`Interest rate: ${interestRateFromBps(debt.interestRateBps)}% APR`);
+  if (debt.interestRateBps && debt.interestAccrualFrequency) {
+    lines.push(`Interest accrual: ${getInterestAccrualLabel(debt.interestAccrualFrequency)}`);
+  }
+  if (accruedInterest > 0) lines.push(`Accrued interest: ${fmt(accruedInterest)}`);
+  if (totalPaid > 0) lines.push(`Paid to date: ${fmt(totalPaid)}`);
+  if (totalDue !== principal) lines.push(`Total due: ${fmt(totalDue)}`);
+  if (debt.isRecurring && debt.recurrenceInterval) {
+    lines.push(`Recurring: ${getRecurrenceLabel(debt.recurrenceInterval)}`);
+  }
   if (debt.note) lines.push(`Note: ${debt.note}`);
   if (debt.dueDate) lines.push(`Due: ${formatDate(debt.dueDate)}`);
   lines.push(`Added: ${formatFullDate(debt.createdAt)}`);
@@ -35,12 +73,13 @@ export function buildTransactionSummary(debt: Debt, fmt: (amount: number) => str
 export function buildReminderMessage(debt: Debt, fmt: (amount: number) => string): string {
   const dueLine = debt.dueDate ? ` It was due ${formatDate(debt.dueDate)}.` : '';
   const noteLine = debt.note ? ` For: ${debt.note}.` : '';
+  const remaining = getRemainingBalance(debt);
 
   if (debt.type === 'owed_to_me') {
-    return `Hi ${debt.personName}, this is a friendly reminder about ${fmt(debt.amount)} you owe.${noteLine}${dueLine} Thanks!`;
+    return `Hi ${debt.personName}, this is a friendly reminder about ${fmt(remaining)} you owe.${noteLine}${dueLine} Thanks!`;
   }
 
-  return `Reminder: you owe ${debt.personName} ${fmt(debt.amount)}.${noteLine}${dueLine}`;
+  return `Reminder: you owe ${debt.personName} ${fmt(remaining)}.${noteLine}${dueLine}`;
 }
 
 async function shareText(title: string, message: string) {

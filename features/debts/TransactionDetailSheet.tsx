@@ -25,6 +25,17 @@ import * as Haptics from 'expo-haptics';
 import { Bell, MessageSquare, Printer, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Debt } from '@/features/debts/types';
+import {
+  getAccruedInterest,
+  getPaymentProgress,
+  getPrincipalAmount,
+  getRecurrenceLabel,
+  getRemainingBalance,
+  getTotalDue,
+  getTotalPaid,
+} from '@/features/debts/debtCalculations';
+import { interestRateFromBps, getInterestAccrualLabel } from '@/features/debts/interestEngine';
+import { PartialPaymentSection } from '@/features/debts/PartialPaymentSection';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -223,7 +234,7 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const { fmt } = useCurrency();
-  const { markPaid, deleteDebt } = useDebtStore();
+  const { markPaid, deleteDebt, recordPayment } = useDebtStore();
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheetModal>(null);
   const [debt, setDebt] = useState<Debt | null>(null);
@@ -266,6 +277,11 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
   const isCredit = debt?.type === 'owed_to_me';
   const isPending = status !== 'paid';
   const canRemind = Boolean(debt && isCredit && isPending);
+  const remainingBalance = debt ? getRemainingBalance(debt) : 0;
+  const accruedInterest = debt ? getAccruedInterest(debt) : 0;
+  const totalPaid = debt ? getTotalPaid(debt) : 0;
+  const totalDue = debt ? getTotalDue(debt) : 0;
+  const paymentProgress = debt ? getPaymentProgress(debt) : 0;
 
   const amountColor =
     !debt
@@ -277,11 +293,34 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
       : palette.negative;
 
   const statusLabel =
-    status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Pending';
+    status === 'paid'
+      ? 'Paid'
+      : status === 'partial'
+      ? 'Partially paid'
+      : status === 'overdue'
+      ? 'Overdue'
+      : 'Pending';
 
   const summaryLine = debt
     ? [isCredit ? 'Owes you' : 'You owe', statusLabel].join(' · ')
     : '';
+
+  const handleRecordPayment = (amount: number) => {
+    if (!debt) return;
+
+    const error = recordPayment(debt.id, { amount });
+    if (error) {
+      Alert.alert('Unable to record payment', error);
+      return;
+    }
+
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    const nextDebt = useDebtStore.getState().debts.find((item) => item.id === debt.id);
+    if (!nextDebt || getComputedStatus(nextDebt) === 'paid') {
+      dismiss();
+    }
+  };
 
   const handleMarkPaid = () => {
     if (!debt) return;
@@ -356,11 +395,59 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
               </Text>
               <Text style={styles.summary}>{summaryLine}</Text>
               <Text style={[styles.amount, { color: amountColor }]}>
-                {isCredit ? '+' : '−'}{fmt(debt.amount)}
+                {isCredit ? '+' : '−'}{fmt(remainingBalance)}
               </Text>
+              {status !== 'paid' && (totalPaid > 0 || accruedInterest > 0) ? (
+                <Text style={styles.summary}>
+                  {fmt(totalDue)} total · {fmt(totalPaid)} paid
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.detailsCard}>
+              <DetailRow label="Principal" value={fmt(getPrincipalAmount(debt))} />
+              {debt.interestRateBps ? (
+                <DetailRow
+                  label="Interest rate"
+                  value={`${interestRateFromBps(debt.interestRateBps)}% APR`}
+                  showSeparator
+                />
+              ) : null}
+              {debt.interestRateBps && debt.interestAccrualFrequency ? (
+                <DetailRow
+                  label="Interest accrual"
+                  value={getInterestAccrualLabel(debt.interestAccrualFrequency)}
+                  showSeparator
+                />
+              ) : null}
+              {accruedInterest > 0 ? (
+                <DetailRow
+                  label="Accrued interest"
+                  value={fmt(accruedInterest)}
+                  showSeparator
+                />
+              ) : null}
+              {totalPaid > 0 ? (
+                <DetailRow
+                  label="Paid to date"
+                  value={fmt(totalPaid)}
+                  showSeparator
+                />
+              ) : null}
+              {isPending ? (
+                <DetailRow
+                  label="Remaining"
+                  value={fmt(remainingBalance)}
+                  showSeparator
+                />
+              ) : null}
+              {debt.isRecurring && debt.recurrenceInterval ? (
+                <DetailRow
+                  label="Recurring"
+                  value={getRecurrenceLabel(debt.recurrenceInterval)}
+                  showSeparator
+                />
+              ) : null}
               {debt.note ? (
                 <DetailRow label="Note" value={debt.note} />
               ) : null}
@@ -386,6 +473,15 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
               ) : null}
             </View>
 
+            {isPending ? (
+              <PartialPaymentSection
+                debt={debt}
+                remainingBalance={remainingBalance}
+                progress={paymentProgress}
+                onRecordPayment={handleRecordPayment}
+              />
+            ) : null}
+
             <View style={styles.actions}>
               {isPending ? (
                 <Button
@@ -394,7 +490,7 @@ export const TransactionDetailSheet = forwardRef<TransactionDetailSheetHandle>((
                   className="w-full"
                   onPress={handleMarkPaid}
                 >
-                  <Button.Label>Mark as Paid</Button.Label>
+                  <Button.Label>Mark balance as paid</Button.Label>
                 </Button>
               ) : null}
 

@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Debt } from '@/features/debts/types';
+import { getRemainingBalance, getTotalPaid } from '@/features/debts/debtCalculations';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -75,9 +76,17 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
   const { fmt } = useCurrency();
   const status = getComputedStatus(debt);
   const isCredit = debt.type === 'owed_to_me';
+  const remainingBalance = getRemainingBalance(debt);
+  const totalPaid = getTotalPaid(debt);
 
   const statusLabel =
-    status === 'paid' ? 'Paid' : status === 'overdue' ? 'Overdue' : 'Pending';
+    status === 'paid'
+      ? 'Paid'
+      : status === 'partial'
+      ? 'Partially paid'
+      : status === 'overdue'
+      ? 'Overdue'
+      : 'Pending';
 
   const handlePress = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -91,7 +100,7 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
         onPress={handlePress}
         android_ripple={{ color: palette.fill, borderless: false }}
         accessibilityRole="button"
-        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(debt.amount)}`}
+        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(remainingBalance)}`}
       >
         <Avatar name={debt.personName} size={40} />
 
@@ -101,13 +110,18 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
               {debt.personName}
             </Text>
             <Text style={styles.amount}>
-              {isCredit ? '+' : '−'}{fmt(debt.amount)}
+              {isCredit ? '+' : '−'}{fmt(remainingBalance)}
             </Text>
           </View>
 
           <View style={styles.bottomRow}>
             <Text style={styles.note} numberOfLines={1}>
-              {debt.note || (isCredit ? 'Owes you' : 'You owe')}
+              {debt.note ||
+                (totalPaid > 0
+                  ? `${fmt(totalPaid)} paid`
+                  : isCredit
+                  ? 'Owes you'
+                  : 'You owe')}
             </Text>
             <Text
               style={[
