@@ -24,8 +24,9 @@ import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { Button, HeroUINativeProvider } from 'heroui-native';
-import { Bell, MessageSquare, Printer, Trash2, X } from 'lucide-react-native';
+import { Bell, MessageSquare, Pencil, Printer, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
@@ -235,6 +236,7 @@ function ActionRow({
 export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailScreenProps) {
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
+  const router = useRouter();
   const { fmt } = useCurrency();
   const { markPaid, deleteDebt, recordPayment } = useDebtStore();
   const insets = useSafeAreaInsets();
@@ -352,6 +354,13 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
     ]);
   };
 
+  const handleEdit = () => {
+    router.push({
+      pathname: '/edit-transaction/[id]',
+      params: { id: debt.id },
+    });
+  };
+
   return (
     <BottomSheetModalProvider>
       <View style={styles.screen}>
@@ -359,7 +368,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
           <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
             <HeaderIconButton icon={X} accessibilityLabel="Close" onPress={onClose} />
             <Text style={styles.headerTitle}>Transaction</Text>
-            <View style={styles.headerSpacer} />
+            <HeaderIconButton icon={Pencil} accessibilityLabel="Edit transaction" onPress={handleEdit} />
           </View>
 
           <ScrollView

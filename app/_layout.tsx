@@ -38,6 +38,10 @@ export default function RootLayout() {
                     name="transaction/[id]"
                     options={{ presentation: 'fullScreenModal', headerShown: false }}
                   />
+                  <Stack.Screen
+                    name="edit-transaction/[id]"
+                    options={{ presentation: 'fullScreenModal', headerShown: false }}
+                  />
                 </Stack>
               </TransactionDetailProvider>
             </AddDebtProvider>

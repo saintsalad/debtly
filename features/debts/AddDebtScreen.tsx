@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import {
   Alert,
@@ -17,18 +17,77 @@ import { FormSwitchRow } from '@/components/ui/FormSwitchRow';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useDebtStore } from '@/stores/debtStore';
-import { DebtType, InterestAccrualFrequency, RecurrenceFrequency } from '@/features/debts/types';
-import { interestRateToBps } from '@/features/debts/interestEngine';
+import { getPrincipalAmount } from '@/features/debts/debtCalculations';
+import { toLocalDateString } from '@/features/debts/dates';
+import {
+  buildInterestFields,
+  buildRecurringFields,
+  interestRateFromBps,
+  interestRateToBps,
+  validateAddDebtInput,
+} from '@/features/debts/interestEngine';
+import { majorToMinor } from '@/features/debts/money';
+import {
+  Debt,
+  DebtType,
+  InterestAccrualFrequency,
+  RecurrenceFrequency,
+} from '@/features/debts/types';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
 interface AddDebtScreenProps {
   onClose: () => void;
+  debtId?: string;
 }
+
+interface DebtFormValues {
+  personName: string;
+  amount: string;
+  debtType: DebtType;
+  note: string;
+  dueDate?: Date;
+  chargeInterest: boolean;
+  interestRate: string;
+  interestAccrualIndex: number;
+  isRecurring: boolean;
+  recurrenceIndex: number;
+}
+
+const EMPTY_FORM_VALUES: DebtFormValues = {
+  personName: '',
+  amount: '',
+  debtType: 'owed_to_me',
+  note: '',
+  dueDate: undefined,
+  chargeInterest: false,
+  interestRate: '',
+  interestAccrualIndex: 0,
+  isRecurring: false,
+  recurrenceIndex: 1,
+};
 
 const RECURRENCE_OPTIONS: RecurrenceFrequency[] = ['weekly', 'monthly', 'yearly'];
 const INTEREST_ACCRUAL_OPTIONS: InterestAccrualFrequency[] = ['monthly', 'yearly'];
+
+function readDebtFormValues(debt: Debt): DebtFormValues {
+  const recurrenceInterval = debt.recurrenceInterval ?? 'monthly';
+  const recurrenceIndex = Math.max(0, RECURRENCE_OPTIONS.indexOf(recurrenceInterval));
+
+  return {
+    personName: debt.personName,
+    amount: String(getPrincipalAmount(debt)),
+    debtType: debt.type,
+    note: debt.note ?? '',
+    dueDate: debt.dueDate ? new Date(debt.dueDate) : undefined,
+    chargeInterest: Boolean(debt.interestRateBps),
+    interestRate: debt.interestRateBps ? String(interestRateFromBps(debt.interestRateBps)) : '',
+    interestAccrualIndex: debt.interestAccrualFrequency === 'yearly' ? 1 : 0,
+    isRecurring: Boolean(debt.isRecurring),
+    recurrenceIndex: recurrenceIndex === -1 ? 1 : recurrenceIndex,
+  };
+}
 
 interface AddDebtFormProps {
   debtType: DebtType;
@@ -334,40 +393,62 @@ function createStyles(palette: ColorPalette) {
   });
 }
 
-export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
+export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
-  const { addDebt } = useDebtStore();
+  const { addDebt, updateDebt } = useDebtStore();
+  const existingDebt = useDebtStore((state) =>
+    debtId ? state.debts.find((debt) => debt.id === debtId) : undefined
+  );
+  const isEditing = Boolean(debtId);
   const insets = useSafeAreaInsets();
+  const initialValues = useMemo(
+    () => (existingDebt ? readDebtFormValues(existingDebt) : EMPTY_FORM_VALUES),
+    [existingDebt]
+  );
 
-  const [personName, setPersonName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [debtType, setDebtType] = useState<DebtType>('owed_to_me');
-  const [note, setNote] = useState('');
-  const [dueDate, setDueDate] = useState<Date | undefined>();
-  const [chargeInterest, setChargeInterest] = useState(false);
-  const [interestRate, setInterestRate] = useState('');
-  const [interestAccrualIndex, setInterestAccrualIndex] = useState(0);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurrenceIndex, setRecurrenceIndex] = useState(1);
+  const [personName, setPersonName] = useState(initialValues.personName);
+  const [amount, setAmount] = useState(initialValues.amount);
+  const [debtType, setDebtType] = useState<DebtType>(initialValues.debtType);
+  const [note, setNote] = useState(initialValues.note);
+  const [dueDate, setDueDate] = useState<Date | undefined>(initialValues.dueDate);
+  const [chargeInterest, setChargeInterest] = useState(initialValues.chargeInterest);
+  const [interestRate, setInterestRate] = useState(initialValues.interestRate);
+  const [interestAccrualIndex, setInterestAccrualIndex] = useState(
+    initialValues.interestAccrualIndex
+  );
+  const [isRecurring, setIsRecurring] = useState(initialValues.isRecurring);
+  const [recurrenceIndex, setRecurrenceIndex] = useState(initialValues.recurrenceIndex);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+
+    if (!existingDebt) {
+      onClose();
+    }
+  }, [existingDebt, isEditing, onClose]);
 
   const reset = () => {
-    setPersonName('');
-    setAmount('');
-    setDebtType('owed_to_me');
-    setNote('');
-    setDueDate(undefined);
-    setChargeInterest(false);
-    setInterestRate('');
-    setInterestAccrualIndex(0);
-    setIsRecurring(false);
-    setRecurrenceIndex(1);
+    setPersonName(EMPTY_FORM_VALUES.personName);
+    setAmount(EMPTY_FORM_VALUES.amount);
+    setDebtType(EMPTY_FORM_VALUES.debtType);
+    setNote(EMPTY_FORM_VALUES.note);
+    setDueDate(EMPTY_FORM_VALUES.dueDate);
+    setChargeInterest(EMPTY_FORM_VALUES.chargeInterest);
+    setInterestRate(EMPTY_FORM_VALUES.interestRate);
+    setInterestAccrualIndex(EMPTY_FORM_VALUES.interestAccrualIndex);
+    setIsRecurring(EMPTY_FORM_VALUES.isRecurring);
+    setRecurrenceIndex(EMPTY_FORM_VALUES.recurrenceIndex);
   };
 
   const close = () => {
-    reset();
+    if (!isEditing) {
+      reset();
+    }
     onClose();
   };
 
@@ -402,7 +483,7 @@ export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
       return;
     }
 
-    const error = addDebt({
+    const input = {
       personName: personName.trim(),
       amount: parsed,
       type: debtType,
@@ -414,7 +495,47 @@ export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
         : undefined,
       isRecurring,
       recurrenceInterval: isRecurring ? RECURRENCE_OPTIONS[recurrenceIndex] : undefined,
-    });
+    };
+
+    if (isEditing) {
+      if (!existingDebt) {
+        return;
+      }
+
+      const validationError = validateAddDebtInput(input);
+      if (validationError) {
+        Alert.alert('Unable to save changes', validationError);
+        return;
+      }
+
+      const updates = {
+        personName: input.personName,
+        principalMinor: majorToMinor(input.amount),
+        type: input.type,
+        note: input.note,
+        dueDate: input.dueDate ? toLocalDateString(input.dueDate) : undefined,
+        ...(chargeInterest
+          ? buildInterestFields(input, existingDebt.createdAt)
+          : {
+              interestRateBps: undefined,
+              interestStartMode: undefined,
+              interestAccrualFrequency: undefined,
+              interestStartDate: undefined,
+              accruedInterestMinor: undefined,
+            }),
+        ...buildRecurringFields(
+          input,
+          existingDebt.recurringGroupId ?? existingDebt.id,
+          existingDebt.recurringSourceId ?? existingDebt.id
+        ),
+      };
+
+      updateDebt(existingDebt.id, updates);
+      onClose();
+      return;
+    }
+
+    const error = addDebt(input);
 
     if (error) {
       Alert.alert('Unable to save debt', error);
@@ -423,6 +544,10 @@ export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
 
     close();
   };
+
+  if (isEditing && !existingDebt) {
+    return null;
+  }
 
   return (
     <View style={styles.screen}>
@@ -433,10 +558,10 @@ export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
             accessibilityLabel="Cancel"
             onPress={close}
           />
-          <Text style={styles.title}>New Debt</Text>
+          <Text style={styles.title}>{isEditing ? 'Edit Transaction' : 'New Debt'}</Text>
           <HeaderIconButton
             icon={Check}
-            accessibilityLabel="Save"
+            accessibilityLabel={isEditing ? 'Save changes' : 'Save'}
             onPress={handleSubmit}
             variant="tint"
           />

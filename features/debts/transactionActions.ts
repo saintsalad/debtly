@@ -74,12 +74,13 @@ export function buildReminderMessage(debt: Debt, fmt: (amount: number) => string
   const dueLine = debt.dueDate ? ` It was due ${formatDate(debt.dueDate)}.` : '';
   const noteLine = debt.note ? ` For: ${debt.note}.` : '';
   const remaining = getRemainingBalance(debt);
+  const signature = '\n\n— Debtly';
 
   if (debt.type === 'owed_to_me') {
-    return `Hi ${debt.personName}, this is a friendly reminder about ${fmt(remaining)} you owe.${noteLine}${dueLine} Thanks!`;
+    return `Hi ${debt.personName}, this is a friendly reminder about ${fmt(remaining)} you owe.${noteLine}${dueLine} Thanks!${signature}`;
   }
 
-  return `Reminder: you owe ${debt.personName} ${fmt(remaining)}.${noteLine}${dueLine}`;
+  return `Reminder: you owe ${debt.personName} ${fmt(remaining)}.${noteLine}${dueLine}${signature}`;
 }
 
 async function shareText(title: string, message: string) {
