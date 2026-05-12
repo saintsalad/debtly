@@ -1,0 +1,338 @@
+{
+  "D:\\calea\\projects\\debtly\\babel.config.js": {
+    "mtime": 1778504769.4005256,
+    "hash": "bcccefd99505ed7024a4b13e7a674af8"
+  },
+  "D:\\calea\\projects\\debtly\\eslint.config.js": {
+    "mtime": 499162500.0,
+    "hash": "560a864580ad8107fbbf8d6d452c82fe"
+  },
+  "D:\\calea\\projects\\debtly\\expo-env.d.ts": {
+    "mtime": 1778521087.5717466,
+    "hash": "0dd9dccdb4b08595bc83df70d6a154d3"
+  },
+  "D:\\calea\\projects\\debtly\\metro.config.js": {
+    "mtime": 1778504765.499829,
+    "hash": "6c778b24c60ce15384304f694d6e511a"
+  },
+  "D:\\calea\\projects\\debtly\\uniwind-types.d.ts": {
+    "mtime": 1778504996.2048657,
+    "hash": "f45278e12d1ee46749b206c7c9053631"
+  },
+  "D:\\calea\\projects\\debtly\\app\\add-transaction.tsx": {
+    "mtime": 1778553459.2959313,
+    "hash": "c047e7dd7a949035cd7e7a9e6bbfbf49"
+  },
+  "D:\\calea\\projects\\debtly\\app\\modal.tsx": {
+    "mtime": 499162500.0,
+    "hash": "a3b709a8c79864356fcc5c97ed63400d"
+  },
+  "D:\\calea\\projects\\debtly\\app\\_layout.tsx": {
+    "mtime": 1778553460.81012,
+    "hash": "bf9e6eb42c59e253aa686e694aab1c1d"
+  },
+  "D:\\calea\\projects\\debtly\\app\\(tabs)\\bill-split.tsx": {
+    "mtime": 1778521590.1675124,
+    "hash": "254827fe72ebf71a4f179e13ff91de9c"
+  },
+  "D:\\calea\\projects\\debtly\\app\\(tabs)\\index.tsx": {
+    "mtime": 1778522522.595121,
+    "hash": "45416040c2963bc23a30106bd861ba9a"
+  },
+  "D:\\calea\\projects\\debtly\\app\\(tabs)\\profile.tsx": {
+    "mtime": 1778523042.2777092,
+    "hash": "2cf7a13b635efdc84152d99e2faebf6b"
+  },
+  "D:\\calea\\projects\\debtly\\app\\(tabs)\\transactions.tsx": {
+    "mtime": 1778552980.9313638,
+    "hash": "0f8ca9f8392127b9634951562a5c5ef6"
+  },
+  "D:\\calea\\projects\\debtly\\app\\(tabs)\\_layout.tsx": {
+    "mtime": 1778521616.0685606,
+    "hash": "ba213fda8126439bb706dcdae8297d1b"
+  },
+  "D:\\calea\\projects\\debtly\\components\\external-link.tsx": {
+    "mtime": 499162500.0,
+    "hash": "a71bdc8e0bd55812a1e97662ade442d1"
+  },
+  "D:\\calea\\projects\\debtly\\components\\haptic-tab.tsx": {
+    "mtime": 499162500.0,
+    "hash": "3865d2fa7a067a97b4a0bbc8f7dcb2db"
+  },
+  "D:\\calea\\projects\\debtly\\components\\hello-wave.tsx": {
+    "mtime": 499162500.0,
+    "hash": "bc241776c5bccac6964c694706e89e0a"
+  },
+  "D:\\calea\\projects\\debtly\\components\\parallax-scroll-view.tsx": {
+    "mtime": 499162500.0,
+    "hash": "c2c998330722001de6d4a098fa914328"
+  },
+  "D:\\calea\\projects\\debtly\\components\\themed-text.tsx": {
+    "mtime": 499162500.0,
+    "hash": "c1f1947c3b24be35a7097cc46f71073a"
+  },
+  "D:\\calea\\projects\\debtly\\components\\themed-view.tsx": {
+    "mtime": 499162500.0,
+    "hash": "ffcbffb4831735916a920f2d0305f126"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\AndroidTabBar.tsx": {
+    "mtime": 1778520506.6148262,
+    "hash": "bcee8dd68b85d189660c58a6c7dc5b99"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\AppHeader.tsx": {
+    "mtime": 1778521619.9868042,
+    "hash": "ebdade574b579c887d2dca494270790e"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\AppScreen.tsx": {
+    "mtime": 1778521614.862384,
+    "hash": "cc4cd5f8525e7107b8386c0159efed7a"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\Avatar.tsx": {
+    "mtime": 1778506506.9017758,
+    "hash": "3b9ce28b972863b40b678d70fccf81f5"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\Badge.tsx": {
+    "mtime": 1778554613.6355238,
+    "hash": "0bd6992dabf1a066695e19d87ad8db9e"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\BottomSheet.tsx": {
+    "mtime": 1778506549.081017,
+    "hash": "711ade8598aa9e37ee167aa9fcd092bf"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\carousel.tsx": {
+    "mtime": 1778519869.216308,
+    "hash": "aad9e7522f26ba8869bab842d37a4665"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\collapsible-header-context.tsx": {
+    "mtime": 1778521619.9868042,
+    "hash": "390a794a0d21468e609e7c2b1b72306d"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\collapsible.tsx": {
+    "mtime": 1778516381.0125418,
+    "hash": "ceaa09383dad29fdc90a9c7ea925aaac"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\EmptyState.tsx": {
+    "mtime": 1778519575.3649797,
+    "hash": "4eab4a6acc3405ee0d88aa8544c6d954"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\FAB.tsx": {
+    "mtime": 1778516421.799643,
+    "hash": "1e1e53dedbf1bcf72141fead18bc390b"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\FormSwitchRow.tsx": {
+    "mtime": 1778554531.895959,
+    "hash": "0126760e360d760b26aedc609ec60cac"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\HeaderIconButton.tsx": {
+    "mtime": 1778553662.412434,
+    "hash": "8df28cc1da10503a7fccb6ae380642d5"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\icon-symbol.tsx": {
+    "mtime": 1778518071.2808619,
+    "hash": "5b00b8eadb2c208c6d40939a897220e4"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\ios-datepicker-item.tsx": {
+    "mtime": 1778515116.0616958,
+    "hash": "113dc8346ed0c1338043068dc22f3d11"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\ios-datepicker.tsx": {
+    "mtime": 1778553749.8206036,
+    "hash": "ad7657763c44bb60c95ff0b3cf39f9d4"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\LiquidTabBar.tsx": {
+    "mtime": 1778520502.9600813,
+    "hash": "ad52f526cde59cb04c76290ff8d235bd"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\ListDivider.tsx": {
+    "mtime": 1778523017.2944672,
+    "hash": "52ea2d48654d2319a5fa2849b06e2a06"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\SegmentedControl.tsx": {
+    "mtime": 1778521055.9136431,
+    "hash": "56e92eeb13b8bb2532f9278cc69bcf70"
+  },
+  "D:\\calea\\projects\\debtly\\components\\ui\\SummaryCard.tsx": {
+    "mtime": 1778519578.35871,
+    "hash": "d35a358db1c8a0f9a6b1d6ed3d570110"
+  },
+  "D:\\calea\\projects\\debtly\\constants\\theme.ts": {
+    "mtime": 1778506735.201713,
+    "hash": "69564f9ec300e20037f7745718099147"
+  },
+  "D:\\calea\\projects\\debtly\\features\\bill-split\\AddBillSplitSheet.tsx": {
+    "mtime": 1778519827.6456587,
+    "hash": "f045372c27c1a339efab78c391d42333"
+  },
+  "D:\\calea\\projects\\debtly\\features\\bill-split\\BillSplitCard.tsx": {
+    "mtime": 1778523044.366447,
+    "hash": "f5992aa9112a34d05b055a013ed445ca"
+  },
+  "D:\\calea\\projects\\debtly\\features\\bill-split\\types.ts": {
+    "mtime": 1778518045.4276814,
+    "hash": "ee4cff313e1a3bc711ba073b8f059c71"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\AddDebtScreen.tsx": {
+    "mtime": 1778556105.3372254,
+    "hash": "f14315e8b25107596b1745b5400395a3"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\dates.ts": {
+    "mtime": 1778555671.1475093,
+    "hash": "ffb47693c5b04764ab34484914008f09"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\debtCalculations.ts": {
+    "mtime": 1778555713.5998542,
+    "hash": "52d5ae5fcd1f98f599ae9a11e468b724"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\DebtCard.tsx": {
+    "mtime": 1778554627.9508235,
+    "hash": "5e4eaa3c0a3b0cfbd69e3bb5f55e5313"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\debtLedger.ts": {
+    "mtime": 1778555773.863089,
+    "hash": "4b8239ba4e8c6be2923c32e6fa13b5f6"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\debtMigration.ts": {
+    "mtime": 1778555710.1681714,
+    "hash": "27c8bcb9ac8e21258ea123b8d7f8964e"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\interestEngine.ts": {
+    "mtime": 1778555966.710686,
+    "hash": "2691cf4caf6a4d6b4270a42b1e33052f"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\money.ts": {
+    "mtime": 1778555669.402101,
+    "hash": "1189396be478b97a2be2c3b98131ff60"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\PartialPaymentSection.tsx": {
+    "mtime": 1778555786.771736,
+    "hash": "f54884d6d346f2ab5dd3ccb811b65287"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\recurringEngine.ts": {
+    "mtime": 1778555681.1451094,
+    "hash": "094efb99552475b04ea70f7599fb7c61"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\transactionActions.ts": {
+    "mtime": 1778555994.3564632,
+    "hash": "5334368646700f941dac8a088ccb03f9"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\TransactionDetailSheet.tsx": {
+    "mtime": 1778555993.0366046,
+    "hash": "6b125338c894fbc63cb089818e93cee3"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\TransactionRow.tsx": {
+    "mtime": 1778554593.4243476,
+    "hash": "2644880bb10e8f39951e3fde97d7c431"
+  },
+  "D:\\calea\\projects\\debtly\\features\\debts\\types.ts": {
+    "mtime": 1778555719.4537601,
+    "hash": "5b4740dbbea96bcfe7893cbbdcfd287c"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\use-app-color-scheme.ts": {
+    "mtime": 1778519135.726983,
+    "hash": "03f173de3f22b9a0ab2dfa87d6a4556a"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\use-color-scheme.ts": {
+    "mtime": 499162500.0,
+    "hash": "6f3444fcb9c7013a839a7832be518831"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\use-color-scheme.web.ts": {
+    "mtime": 499162500.0,
+    "hash": "071fbb9a1a05ffb8af4b7d3b1ffa72d6"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\use-sync-uniwind-theme.ts": {
+    "mtime": 1778519786.344597,
+    "hash": "bfebaf18ca9d3ac56803573531bcaf8e"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\use-theme-color.ts": {
+    "mtime": 1778519788.4835608,
+    "hash": "8c446a0c052fd3c3fc74d9c8bfe5e09f"
+  },
+  "D:\\calea\\projects\\debtly\\hooks\\useCurrency.ts": {
+    "mtime": 1778508179.544158,
+    "hash": "e524ff31e7778bebce69ac97942f1e84"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\addDebtContext.tsx": {
+    "mtime": 1778553460.0060503,
+    "hash": "73476e2e93862c4a6f5a2d73f77477eb"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\mockData.ts": {
+    "mtime": 1778555769.9693656,
+    "hash": "5512ba920bb8095a5813bb29778a84d2"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\platform.ts": {
+    "mtime": 1778519141.0032704,
+    "hash": "479c29f438df461e62d39be28a7417cc"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\storage.ts": {
+    "mtime": 1778519428.170834,
+    "hash": "e829f221ee936b032591818569483986"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\transactionDetailContext.tsx": {
+    "mtime": 1778553446.039814,
+    "hash": "bb378ce6185322d1319656c498d20bc3"
+  },
+  "D:\\calea\\projects\\debtly\\lib\\utils.ts": {
+    "mtime": 1778554526.2603703,
+    "hash": "1ccefb2b4fbffab66619bce44aa0cc07"
+  },
+  "D:\\calea\\projects\\debtly\\scripts\\reset-project.js": {
+    "mtime": 499162500.0,
+    "hash": "55e9a46ae7c35eb0340e956473beaed2"
+  },
+  "D:\\calea\\projects\\debtly\\stores\\billSplitStore.ts": {
+    "mtime": 1778518047.3838346,
+    "hash": "ff993a1e343a25e42d517327a304254e"
+  },
+  "D:\\calea\\projects\\debtly\\stores\\debtStore.ts": {
+    "mtime": 1778555752.7258277,
+    "hash": "01e4eaa459be5f07e768096cecfcc499"
+  },
+  "D:\\calea\\projects\\debtly\\stores\\profileStore.ts": {
+    "mtime": 1778519138.0432374,
+    "hash": "039dcb631ee29005c1d3b1b526e85b41"
+  },
+  "D:\\calea\\projects\\debtly\\README.md": {
+    "mtime": 499162500.0,
+    "hash": "e22acbc85bc1f0b21dd2d4fbb55488b7"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\android-icon-background.png": {
+    "mtime": 499162500.0,
+    "hash": "2d65569cc0e2afdcea0af9f9902d4173"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\android-icon-foreground.png": {
+    "mtime": 499162500.0,
+    "hash": "72e71a9c846c6aa4ae32476641a00e18"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\android-icon-monochrome.png": {
+    "mtime": 499162500.0,
+    "hash": "1e097dab989759fc0b69440092ca22cd"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\favicon.png": {
+    "mtime": 499162500.0,
+    "hash": "d9f444efbdfbe7931aa93beada07318a"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\icon.png": {
+    "mtime": 499162500.0,
+    "hash": "cb975bba2216ce10a60e6c0ffe9941a2"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\partial-react-logo.png": {
+    "mtime": 499162500.0,
+    "hash": "8f14e478886737f3323a2ac79c833749"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\react-logo.png": {
+    "mtime": 499162500.0,
+    "hash": "695d5a1c6f29a689130f3aaa573aec6e"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\react-logo@2x.png": {
+    "mtime": 499162500.0,
+    "hash": "b507e7f2c91ebc8fe24dee79ccb3b600"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\react-logo@3x.png": {
+    "mtime": 499162500.0,
+    "hash": "8a4d0e5b845044e56e3b2df627d01cfd"
+  },
+  "D:\\calea\\projects\\debtly\\assets\\images\\splash-icon.png": {
+    "mtime": 499162500.0,
+    "hash": "97dae5a0e62ad8551d8a31897b425e63"
+  }
+}
