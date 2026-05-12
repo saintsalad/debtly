@@ -30,6 +30,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WHEEL_HEIGHT, WHEEL_ITEM_SIZE } from '@/components/ui/carousel';
+import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { IosDatePickerItem } from '@/components/ui/ios-datepicker-item';
 import { useColors, radius, space, type ColorPalette } from '@/lib/platform';
 
@@ -112,22 +113,6 @@ function createStyles(palette: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingBottom: space[3],
-    },
-    headerIconButton: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerIconButtonSecondary: {
-      backgroundColor: palette.fill,
-    },
-    headerIconButtonPrimary: {
-      backgroundColor: palette.positiveSoft,
-    },
-    headerIconButtonPressed: {
-      opacity: 0.75,
     },
     title: {
       flex: 1,
@@ -379,35 +364,20 @@ export function IosDatePicker({
               <View style={styles.dragArea}>
                 <View style={styles.handle} />
                 <View style={styles.headerRow}>
-                  <Pressable
-                    accessibilityRole="button"
+                  <HeaderIconButton
+                    icon={X}
                     accessibilityLabel="Close"
-                    hitSlop={8}
                     onPress={handleCancel}
-                    style={({ pressed }) => [
-                      styles.headerIconButton,
-                      styles.headerIconButtonSecondary,
-                      pressed && styles.headerIconButtonPressed,
-                    ]}
-                  >
-                    <X size={20} color={palette.label} />
-                  </Pressable>
+                  />
 
                   <Text style={styles.title}>Select a date</Text>
 
-                  <Pressable
-                    accessibilityRole="button"
+                  <HeaderIconButton
+                    icon={Check}
                     accessibilityLabel="Confirm"
-                    hitSlop={8}
                     onPress={handleDone}
-                    style={({ pressed }) => [
-                      styles.headerIconButton,
-                      styles.headerIconButtonPrimary,
-                      pressed && styles.headerIconButtonPressed,
-                    ]}
-                  >
-                    <Check size={20} color={palette.positive} />
-                  </Pressable>
+                    variant="tint"
+                  />
                 </View>
               </View>
             </GestureDetector>

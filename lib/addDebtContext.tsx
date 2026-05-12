@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useRef } from 'react';
-import { AddDebtSheet, type AddDebtSheetHandle } from '@/features/debts/AddDebtSheet';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 
 const AddDebtContext = createContext<{ present: () => void }>({ present: () => {} });
 
@@ -8,12 +8,16 @@ export function useAddDebt() {
 }
 
 export function AddDebtProvider({ children }: { children: React.ReactNode }) {
-  const sheetRef = useRef<AddDebtSheetHandle>(null);
+  const router = useRouter();
 
-  return (
-    <AddDebtContext.Provider value={{ present: () => sheetRef.current?.present() }}>
-      {children}
-      <AddDebtSheet ref={sheetRef} />
-    </AddDebtContext.Provider>
+  const value = useMemo(
+    () => ({
+      present: () => {
+        router.push('/add-transaction');
+      },
+    }),
+    [router]
   );
+
+  return <AddDebtContext.Provider value={value}>{children}</AddDebtContext.Provider>;
 }

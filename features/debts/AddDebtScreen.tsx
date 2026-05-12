@@ -1,26 +1,27 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { Alert, StyleSheet, Text, View } from 'react-native';
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-  BottomSheetView,
-  type BottomSheetBackdropProps,
-} from '@gorhom/bottom-sheet';
-import { ArrowDown, ArrowUp } from 'lucide-react-native';
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { ArrowDown, ArrowUp, Check, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
+import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { useDebtStore } from '@/stores/debtStore';
 import { DebtType } from '@/features/debts/types';
 import { useColors, type ColorPalette } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
-export interface AddDebtSheetHandle {
-  present: () => void;
-  dismiss: () => void;
+interface AddDebtScreenProps {
+  onClose: () => void;
 }
 
 interface AddDebtFormProps {
@@ -34,9 +35,8 @@ interface AddDebtFormProps {
   setNote: (value: string) => void;
   dueDate?: Date;
   setDueDate: (value?: Date) => void;
-  onSubmit: () => void;
   palette: ColorPalette;
-  styles: ReturnType<typeof createSheetStyles>;
+  styles: ReturnType<typeof createStyles>;
   keyboardAppearance: 'light' | 'dark';
 }
 
@@ -51,7 +51,6 @@ function AddDebtForm({
   setNote,
   dueDate,
   setDueDate,
-  onSubmit,
   palette,
   styles,
   keyboardAppearance,
@@ -60,7 +59,7 @@ function AddDebtForm({
   const accentForeground = useThemeColor('accent-foreground');
 
   return (
-    <BottomSheetScrollView
+    <ScrollView
       keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.formContent}
@@ -92,7 +91,7 @@ function AddDebtForm({
 
       <TextField isRequired>
         <Label>Person</Label>
-        <BottomSheetTextInput
+        <TextInput
           style={styles.input}
           placeholder="Full name"
           placeholderTextColor={palette.placeholder}
@@ -108,7 +107,7 @@ function AddDebtForm({
         <Label>Amount</Label>
         <View style={styles.amountRow}>
           <Text style={styles.currencySymbol}>{symbol}</Text>
-          <BottomSheetTextInput
+          <TextInput
             style={[styles.input, styles.amountInput]}
             placeholder="0.00"
             placeholderTextColor={palette.placeholder}
@@ -123,7 +122,7 @@ function AddDebtForm({
 
       <TextField>
         <Label>Note</Label>
-        <BottomSheetTextInput
+        <TextInput
           style={styles.input}
           placeholder="What's it for?"
           placeholderTextColor={palette.placeholder}
@@ -142,30 +141,22 @@ function AddDebtForm({
           onChange={setDueDate}
           placeholder="Select due date"
         />
-        {dueDate && (
+        {dueDate ? (
           <Button variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
             <Button.Label>Clear due date</Button.Label>
           </Button>
-        )}
+        ) : null}
         <Description>Optional</Description>
       </TextField>
-    </BottomSheetScrollView>
+    </ScrollView>
   );
 }
 
-function createSheetStyles(palette: ColorPalette) {
+function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
-    sheet: {
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      backgroundColor: palette.surface,
-    },
-    handle: {
-      width: 40,
-      backgroundColor: palette.opaqueSeparator,
-    },
-    contentContainer: {
+    screen: {
       flex: 1,
+      backgroundColor: palette.bg,
     },
     header: {
       flexDirection: 'row',
@@ -177,9 +168,11 @@ function createSheetStyles(palette: ColorPalette) {
       borderBottomColor: palette.opaqueSeparator,
     },
     title: {
+      flex: 1,
       fontSize: 17,
       fontWeight: '600',
       color: palette.label,
+      textAlign: 'center',
     },
     formContent: {
       flexGrow: 1,
@@ -220,15 +213,13 @@ function createSheetStyles(palette: ColorPalette) {
   });
 }
 
-export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
+export function AddDebtScreen({ onClose }: AddDebtScreenProps) {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
-  const styles = useMemo(() => createSheetStyles(palette), [palette]);
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
   const { addDebt } = useDebtStore();
   const insets = useSafeAreaInsets();
-  const sheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['55%', '92%'], []);
 
   const [personName, setPersonName] = useState('');
   const [amount, setAmount] = useState('');
@@ -244,14 +235,9 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
     setDueDate(undefined);
   };
 
-  useImperativeHandle(ref, () => ({
-    present: () => sheetRef.current?.present(),
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
-
   const close = () => {
-    sheetRef.current?.dismiss();
     reset();
+    onClose();
   };
 
   const handleSubmit = () => {
@@ -276,41 +262,29 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
     close();
   };
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} pressBehavior="close" />
-    ),
-    []
-  );
-
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      snapPoints={snapPoints}
-      enablePanDownToClose
-      keyboardBehavior="interactive"
-      keyboardBlurBehavior="restore"
-      enableBlurKeyboardOnGesture
-      android_keyboardInputMode="adjustResize"
-      backdropComponent={renderBackdrop}
-      onDismiss={reset}
-      topInset={insets.top}
-      bottomInset={insets.bottom}
-      handleIndicatorStyle={styles.handle}
-      backgroundStyle={styles.sheet}
-    >
+    <View style={styles.screen}>
       <HeroUINativeProvider>
-        <BottomSheetView style={styles.contentContainer}>
-          <View style={styles.header}>
-            <Button variant="ghost" size="sm" onPress={close}>
-              <Button.Label>Cancel</Button.Label>
-            </Button>
-            <Text style={styles.title}>New Debt</Text>
-            <Button variant="primary" size="sm" onPress={handleSubmit}>
-              <Button.Label>Save</Button.Label>
-            </Button>
-          </View>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <HeaderIconButton
+            icon={X}
+            accessibilityLabel="Cancel"
+            onPress={close}
+          />
+          <Text style={styles.title}>New Debt</Text>
+          <HeaderIconButton
+            icon={Check}
+            accessibilityLabel="Save"
+            onPress={handleSubmit}
+            variant="tint"
+          />
+        </View>
 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={insets.top}
+        >
           <AddDebtForm
             debtType={debtType}
             setDebtType={setDebtType}
@@ -322,16 +296,12 @@ export const AddDebtSheet = forwardRef<AddDebtSheetHandle>((_, ref) => {
             setNote={setNote}
             dueDate={dueDate}
             setDueDate={setDueDate}
-            onSubmit={handleSubmit}
             palette={palette}
             styles={styles}
             keyboardAppearance={keyboardAppearance}
           />
-        </BottomSheetView>
+        </KeyboardAvoidingView>
       </HeroUINativeProvider>
-    </BottomSheetModal>
+    </View>
   );
-});
-
-AddDebtSheet.displayName = 'AddDebtSheet';
-
+}

@@ -1,14 +1,15 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import { SearchField } from 'heroui-native';
-import { Receipt, SearchX } from 'lucide-react-native';
+import { Plus, Receipt, SearchX } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TransactionRow } from '@/features/debts/TransactionRow';
 import { useDebtStore } from '@/stores/debtStore';
 import { Debt } from '@/features/debts/types';
+import { useAddDebt } from '@/lib/addDebtContext';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
 
@@ -19,8 +20,16 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       paddingHorizontal: layout.screenPaddingX,
     },
     header: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: space[3],
       paddingTop: space[4],
       paddingBottom: space[6],
+    },
+    headerCopy: {
+      flex: 1,
+      gap: space[1],
     },
     title: {
       ...type.largeTitle,
@@ -30,7 +39,17 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     subtitle: {
       ...type.footnote,
       color: palette.labelSecondary,
-      marginTop: space[1],
+    },
+    addButton: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.tint,
+    },
+    addButtonPressed: {
+      opacity: 0.82,
     },
 
     searchWrap: {
@@ -62,6 +81,7 @@ export default function TransactionsScreen() {
   const [segmentIndex, setSegmentIndex] = useState(0);
   const debts = useDebtStore((s) => s.debts);
   const { open: openTransactionDetail } = useTransactionDetail();
+  const { present: presentAddDebt } = useAddDebt();
 
   const filtered = useMemo(() => {
     let list = debts;
@@ -92,8 +112,19 @@ export default function TransactionsScreen() {
     <AppScreen>
       <View style={[styles.container, { paddingTop: headerSpacerHeight }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Transactions</Text>
-          <Text style={styles.subtitle}>{filtered.length} records</Text>
+          <View style={styles.headerCopy}>
+            <Text style={styles.title}>Transactions</Text>
+            <Text style={styles.subtitle}>{filtered.length} records</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add transaction"
+            onPress={presentAddDebt}
+            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+            android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
+          >
+            <Plus size={20} color="#fff" />
+          </Pressable>
         </View>
 
         <View style={styles.searchWrap}>
