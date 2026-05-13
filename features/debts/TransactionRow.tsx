@@ -102,7 +102,7 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
         accessibilityRole="button"
         accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(remainingBalance)}`}
       >
-        <Avatar name={debt.personName} size={40} />
+        <Avatar name={debt.personName} size={40} tone={isCredit ? 'credit' : 'debit'} />
 
         <View style={styles.body}>
           <View style={styles.topRow}>

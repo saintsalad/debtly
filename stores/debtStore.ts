@@ -18,7 +18,7 @@ import {
   stampRecurringGeneration,
 } from '@/features/debts/recurringEngine';
 import { zustandStorage } from '@/lib/storage';
-import { INITIAL_DEBTS } from '@/lib/mockData';
+import { INITIAL_DEBTS } from '@/lib/mocks/initialDebts';
 
 interface DebtState {
   debts: Debt[];

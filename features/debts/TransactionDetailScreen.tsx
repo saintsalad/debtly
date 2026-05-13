@@ -380,7 +380,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             ]}
           >
             <View style={styles.hero}>
-              <Avatar name={debt.personName} size={64} />
+              <Avatar name={debt.personName} size={64} tone={isCredit ? 'credit' : 'debit'} />
               <Text style={styles.personName} numberOfLines={2}>
                 {debt.personName}
               </Text>
