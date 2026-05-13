@@ -16,6 +16,8 @@ type CollapsibleHeaderContextValue = {
   expandMainHeader: () => void;
   headerSpacerHeight: number;
   headerTranslateY: SharedValue<number>;
+  /** Measured main header height (same basis as `headerSpacerHeight`). */
+  headerHeight: SharedValue<number>;
 };
 
 const CollapsibleHeaderContext = createContext<CollapsibleHeaderContextValue | null>(null);
@@ -81,10 +83,12 @@ export function CollapsibleHeaderProvider({ children }: { children: React.ReactN
       expandMainHeader,
       headerSpacerHeight,
       headerTranslateY,
+      headerHeight,
     }),
     [
       collapseMainHeader,
       expandMainHeader,
+      headerHeight,
       headerSpacerHeight,
       headerTranslateY,
       onScroll,

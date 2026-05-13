@@ -7,27 +7,32 @@ interface SegmentedControlProps {
   options: string[];
   selectedIndex: number;
   onChange: (index: number) => void;
+  /** Fills parent width (e.g. toolbar row); default is centered 80% width. */
+  variant?: 'default' | 'inline';
 }
 
-function createStyles(palette: ColorPalette, dark: boolean) {
+const TRACK_PAD = 2;
+const INNER_RADIUS = radius.md - TRACK_PAD;
+
+function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' | 'inline') {
   return StyleSheet.create({
-    container: {
-      width: '80%',
-      alignSelf: 'center',
-    },
+    container:
+      variant === 'inline'
+        ? { alignSelf: 'stretch', width: '100%' }
+        : { width: '80%', alignSelf: 'center' },
     track: {
       flexDirection: 'row',
       backgroundColor: palette.fillSecondary,
-      borderRadius: radius.sm,
-      padding: 2,
-      minHeight: 32,
+      borderRadius: radius.md,
+      padding: TRACK_PAD,
+      minHeight: 36,
     },
     segment: {
       flex: 1,
-      minHeight: 28,
+      minHeight: 32,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radius.sm - 2,
+      borderRadius: INNER_RADIUS,
       paddingHorizontal: space[2],
     },
     activeSegment: {
@@ -53,10 +58,18 @@ function createStyles(palette: ColorPalette, dark: boolean) {
   });
 }
 
-export function SegmentedControl({ options, selectedIndex, onChange }: SegmentedControlProps) {
+export function SegmentedControl({
+  options,
+  selectedIndex,
+  onChange,
+  variant = 'default',
+}: SegmentedControlProps) {
   const palette = useColors();
   const scheme = useAppColorScheme();
-  const styles = useMemo(() => createStyles(palette, scheme === 'dark'), [palette, scheme]);
+  const styles = useMemo(
+    () => createStyles(palette, scheme === 'dark', variant),
+    [palette, scheme, variant]
+  );
 
   return (
     <View style={styles.container}>
