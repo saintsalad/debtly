@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
 import { SearchField } from 'heroui-native';
-import { ListFilter, Plus, Receipt, SearchX } from 'lucide-react-native';
+import { ListFilter, Plus, Receipt, SearchX, X } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -68,6 +70,36 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     },
     searchField: {
       flex: 1,
+      minWidth: 0,
+    },
+    searchTrailing: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      flexShrink: 0,
+    },
+    filterSlot: {
+      width: 36,
+      height: 36,
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeSlot: {
+      width: 36,
+      height: 36,
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeTrackInner: {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: space[2] + 36,
     },
     segmentWrap: {
       marginBottom: space[6],
@@ -100,13 +132,26 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 }
 
 export default function TransactionsScreen() {
+  const insets = useSafeAreaInsets();
   const palette = useColors();
   const shadow = useCardShadow();
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+  const compactContentTop = useMemo(() => insets.top + space[2], [insets.top]);
+  const closeTrackMax = space[2] + 36;
   const [search, setSearch] = useState('');
   const [segmentIndex, setSegmentIndex] = useState(0);
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const filterSheetRef = useRef<TransactionFilterSheetHandle>(null);
+  const searchInputRef = useRef<TextInput>(null);
+  const suppressSearchBlurRef = useRef(false);
+  const searchFocusedRef = useRef(false);
+  const transactionHeaderNaturalHeight = useRef(0);
+  const hasMeasuredTxHeader = useRef(false);
+  /** Approximate until first layout; avoids a zero-height header on first paint. */
+  const txHeaderHeight = useSharedValue(120);
+  const screenTopPadding = useSharedValue(0);
+  const closeTrackWidth = useSharedValue(0);
+  const headerSpacerRef = useRef(0);
   const debts = useDebtStore((s) => s.debts);
   const { open: openTransactionDetail } = useTransactionDetail();
   const { present: presentAddDebt } = useAddDebt();
@@ -138,10 +183,116 @@ export default function TransactionsScreen() {
     },
     [openTransactionDetail]
   );
-  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
+  const { onScroll, headerSpacerHeight, collapseMainHeader, expandMainHeader } = useCollapsibleHeader();
+
+  const [searchFieldFocused, setSearchFieldFocused] = useState(false);
+
+  const txHeaderAnimatedStyle = useAnimatedStyle(() => ({
+    height: txHeaderHeight.value,
+    overflow: 'hidden' as const,
+  }));
+
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    paddingTop: screenTopPadding.value,
+  }));
+
+  const closeTrackAnimatedStyle = useAnimatedStyle(() => ({
+    width: closeTrackWidth.value,
+    overflow: 'hidden' as const,
+    height: 36,
+    position: 'relative' as const,
+  }));
+
+  const onTransactionHeaderLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h <= 0 || searchFocusedRef.current) return;
+    transactionHeaderNaturalHeight.current = h;
+    if (!hasMeasuredTxHeader.current) {
+      hasMeasuredTxHeader.current = true;
+    }
+    txHeaderHeight.value = h;
+  }, [txHeaderHeight]);
+
+  const endSearchChrome = useCallback(() => {
+    searchFocusedRef.current = false;
+    setSearchFieldFocused(false);
+    expandMainHeader();
+  }, [expandMainHeader]);
+
+  useEffect(() => {
+    headerSpacerRef.current = headerSpacerHeight;
+  }, [headerSpacerHeight]);
+
+  useEffect(() => {
+    if (searchFieldFocused) {
+      screenTopPadding.value = withTiming(compactContentTop, { duration: 220 });
+      closeTrackWidth.value = withTiming(closeTrackMax, { duration: 220 });
+    } else {
+      if (headerSpacerHeight > 0) {
+        screenTopPadding.value = withTiming(headerSpacerHeight, { duration: 220 });
+      }
+      closeTrackWidth.value = withTiming(0, { duration: 220 });
+    }
+  }, [
+    searchFieldFocused,
+    headerSpacerHeight,
+    compactContentTop,
+    closeTrackMax,
+    screenTopPadding,
+    closeTrackWidth,
+  ]);
+
+  useEffect(() => {
+    if (searchFieldFocused) {
+      txHeaderHeight.value = withTiming(0, { duration: 220 });
+      return;
+    }
+    if (!hasMeasuredTxHeader.current) return;
+    const target = transactionHeaderNaturalHeight.current || 96;
+    txHeaderHeight.value = withTiming(target, { duration: 220 });
+  }, [searchFieldFocused, txHeaderHeight]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        searchInputRef.current?.blur();
+        suppressSearchBlurRef.current = false;
+        searchFocusedRef.current = false;
+        setSearchFieldFocused(false);
+        expandMainHeader();
+        const target = transactionHeaderNaturalHeight.current || 96;
+        txHeaderHeight.value = target;
+        const topSnap = headerSpacerRef.current > 0 ? headerSpacerRef.current : insets.top + space[2];
+        screenTopPadding.value = topSnap;
+        closeTrackWidth.value = 0;
+      };
+    }, [closeTrackWidth, expandMainHeader, insets.top, screenTopPadding, txHeaderHeight])
+  );
+
+  const handleSearchFocus = useCallback(() => {
+    searchFocusedRef.current = true;
+    setSearchFieldFocused(true);
+    collapseMainHeader();
+  }, [collapseMainHeader]);
+
+  const handleSearchBlur = useCallback(() => {
+    if (suppressSearchBlurRef.current) return;
+    endSearchChrome();
+  }, [endSearchChrome]);
+
+  const handleCloseSearchChrome = useCallback(() => {
+    searchInputRef.current?.blur();
+  }, []);
 
   const openFilters = useCallback(() => {
     filterSheetRef.current?.present();
+    setTimeout(() => {
+      suppressSearchBlurRef.current = false;
+    }, 600);
+  }, []);
+
+  const suppressBlurForFilter = useCallback(() => {
+    suppressSearchBlurRef.current = true;
   }, []);
 
   const emptySubtitle = useMemo(() => {
@@ -154,39 +305,73 @@ export default function TransactionsScreen() {
 
   return (
     <AppScreen>
-      <View style={[styles.container, { paddingTop: headerSpacerHeight }]}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>Transactions</Text>
-            <Text style={styles.subtitle}>{filtered.length} records</Text>
+      <Animated.View style={[styles.container, containerAnimatedStyle]}>
+        <Animated.View style={txHeaderAnimatedStyle}>
+          <View onLayout={onTransactionHeaderLayout}>
+            <View style={styles.header}>
+              <View style={styles.headerCopy}>
+                <Text style={styles.title}>Transactions</Text>
+                <Text style={styles.subtitle}>{filtered.length} records</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add transaction"
+                onPress={presentAddDebt}
+                style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
+              >
+                <Plus size={20} color="#fff" />
+              </Pressable>
+            </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add transaction"
-            onPress={presentAddDebt}
-            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-            android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
-          >
-            <Plus size={20} color="#fff" />
-          </Pressable>
-        </View>
+        </Animated.View>
 
         <View style={styles.searchRow}>
           <View style={styles.searchField}>
             <SearchField value={search} onChange={setSearch}>
               <SearchField.Group>
                 <SearchField.SearchIcon />
-                <SearchField.Input placeholder="Search by name or note" />
+                <SearchField.Input
+                  ref={searchInputRef}
+                  placeholder="Search by name or note"
+                  className="rounded-full h-9 py-0"
+                  onFocus={handleSearchFocus}
+                  onBlur={handleSearchBlur}
+                />
                 <SearchField.ClearButton />
               </SearchField.Group>
             </SearchField>
           </View>
-          <HeaderIconButton
-            icon={ListFilter}
-            accessibilityLabel="Filter transactions"
-            onPress={openFilters}
-            variant={hasActiveFilters ? 'tint' : 'secondary'}
-          />
+          <View style={styles.searchTrailing}>
+            <View style={styles.filterSlot}>
+              <HeaderIconButton
+                icon={ListFilter}
+                accessibilityLabel="Filter transactions"
+                onPressIn={suppressBlurForFilter}
+                onPress={openFilters}
+                variant={hasActiveFilters ? 'tint' : 'secondary'}
+                iconSize={20}
+              />
+            </View>
+            <Animated.View style={closeTrackAnimatedStyle}>
+              <View
+                style={styles.closeTrackInner}
+                pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+              >
+                <View style={{ width: space[2] }} />
+                <View style={styles.closeSlot}>
+                  <HeaderIconButton
+                    icon={X}
+                    accessibilityLabel="Close search"
+                    onPress={handleCloseSearchChrome}
+                    variant="secondary"
+                    iconSize={20}
+                  />
+                </View>
+              </View>
+            </Animated.View>
+          </View>
         </View>
 
         <View style={styles.segmentWrap}>
@@ -244,7 +429,7 @@ export default function TransactionsScreen() {
           filters={filters}
           onChange={setFilters}
         />
-      </View>
+      </Animated.View>
     </AppScreen>
   );
 }

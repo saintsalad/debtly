@@ -9,6 +9,7 @@ interface HeaderIconButtonProps {
   icon: LucideIcon;
   accessibilityLabel: string;
   onPress: () => void;
+  onPressIn?: () => void;
   variant?: HeaderIconButtonVariant;
   iconSize?: number;
 }
@@ -17,6 +18,7 @@ export function HeaderIconButton({
   icon: Icon,
   accessibilityLabel,
   onPress,
+  onPressIn,
   variant = 'secondary',
   iconSize = 20,
 }: HeaderIconButtonProps) {
@@ -40,6 +42,7 @@ export function HeaderIconButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
+      onPressIn={onPressIn}
       onPress={onPress}
       style={({ pressed }) => [styles.button, { backgroundColor }, pressed && styles.pressed]}
       android_ripple={{ color: rippleColor, borderless: true }}
