@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { layout, useColors } from '@/lib/platform';
 
@@ -25,7 +25,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: layout.screenPaddingBottom,
+    /** iOS: tab clearance comes from each screen’s scroll `contentContainerStyle`; see `docs/fixes/ios-tab-bottom-inset.md`. */
+    paddingBottom: Platform.OS === 'ios' ? 0 : layout.screenPaddingBottom,
   },
 });
 

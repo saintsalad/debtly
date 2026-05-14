@@ -1,6 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, Pressable,
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
@@ -12,7 +20,7 @@ import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
 
 interface RowProps {
   icon: LucideIcon;
@@ -232,7 +240,11 @@ export default function ProfileScreen() {
       <Animated.ScrollView
         onScroll={onScroll}
         scrollEventThrottle={16}
-        contentContainerStyle={[styles.content, { paddingTop: headerSpacerHeight }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: headerSpacerHeight },
+          Platform.OS === 'ios' && { paddingBottom: layout.screenPaddingBottom },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

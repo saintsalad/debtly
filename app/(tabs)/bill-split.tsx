@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Button } from 'heroui-native';
 import { Users } from 'lucide-react-native';
@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AddBillSplitSheet, type AddBillSplitSheetHandle } from '@/features/bill-split/AddBillSplitSheet';
 import { BillSplitCard } from '@/features/bill-split/BillSplitCard';
 import { useBillSplitStore } from '@/stores/billSplitStore';
-import { useCardShadow, useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
@@ -82,6 +82,7 @@ export default function BillSplitScreen() {
           styles.listContent,
           splits.length === 0 && styles.listEmpty,
           splits.length > 0 && styles.listGroup,
+          Platform.OS === 'ios' && { paddingBottom: layout.screenPaddingBottom },
         ]}
         renderItem={({ item, index }) => (
           <BillSplitCard split={item} showSeparator={index < splits.length - 1} />

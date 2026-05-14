@@ -1,16 +1,4 @@
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
-import { SearchField } from 'heroui-native';
-import { ListFilter, Plus, Receipt, Search, SearchX, X } from 'lucide-react-native';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -24,14 +12,39 @@ import {
 } from '@/features/debts/transactionFilters';
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useAddDebt } from '@/lib/addDebtContext';
+import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useDebtStore } from '@/stores/debtStore';
-import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useFocusEffect } from '@react-navigation/native';
+import { SearchField } from 'heroui-native';
+import { ListFilter, Plus, Receipt, Search, SearchX, X } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
-    container: {
+    containerRoot: {
+      flex: 1,
+    },
+    containerInner: {
       flex: 1,
       paddingHorizontal: layout.screenPaddingX,
     },
@@ -142,9 +155,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     list: {
       flex: 1,
     },
-    listContent: {
-      paddingBottom: layout.screenPaddingBottom,
-    },
     listEmpty: {
       flexGrow: 1,
     },
@@ -168,6 +178,8 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const colorScheme = useAppColorScheme();
   const palette = useColors();
   const shadow = useCardShadow();
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
@@ -383,57 +395,145 @@ export default function TransactionsScreen() {
 
   const hasSearchQuery = search.trim().length > 0;
 
+  /**
+   * Clears the floating tab bar + home indicator. On iOS, `AppScreen` does not add
+   * `layout.screenPaddingBottom` to the wrapper; see `docs/fixes/ios-tab-bottom-inset.md`.
+   */
+  const listScrollBottomPadding = layout.screenPaddingBottom;
+
+  const screenGradientStops = useMemo(() => {
+    if (colorScheme === 'dark') {
+      return [
+        { offset: '0%', color: palette.bg },
+        { offset: '42%', color: '#070F18' },
+        { offset: '100%', color: '#0E1F38' },
+      ] as const;
+    }
+    return [
+      { offset: '0%', color: palette.bg },
+      { offset: '38%', color: '#E8F0FB' },
+      { offset: '100%', color: '#C8DCF5' },
+    ] as const;
+  }, [colorScheme, palette.bg]);
+
   return (
     <AppScreen>
-      <Animated.View style={[styles.container, containerAnimatedStyle]}>
-        <Animated.View style={txHeaderAnimatedStyle}>
-          <View onLayout={onTransactionHeaderLayout}>
-            <View style={styles.header}>
-              <View style={styles.headerCopy}>
-                <Text style={styles.title}>Transactions</Text>
-                <Text style={styles.subtitle}>{filtered.length} records</Text>
+      <Animated.View style={[styles.containerRoot, containerAnimatedStyle]}>
+        <Svg
+          pointerEvents="none"
+          width={windowWidth}
+          height={windowHeight}
+          style={StyleSheet.absoluteFillObject}
+        >
+          <Defs>
+            <SvgLinearGradient id="transactionsScreenBg" x1="0%" y1="0%" x2="92%" y2="100%">
+              {screenGradientStops.map((s) => (
+                <Stop key={s.offset} offset={s.offset} stopColor={s.color} />
+              ))}
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={windowWidth} height={windowHeight} fill="url(#transactionsScreenBg)" />
+        </Svg>
+        <View style={styles.containerInner}>
+          <Animated.View style={txHeaderAnimatedStyle}>
+            <View onLayout={onTransactionHeaderLayout}>
+              <View style={styles.header}>
+                <View style={styles.headerCopy}>
+                  <Text style={styles.title}>Transactions</Text>
+                  <Text style={styles.subtitle}>{filtered.length} records</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add transaction"
+                  onPress={presentAddDebt}
+                  style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+                  android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
+                >
+                  <Plus size={20} color="#fff" />
+                </Pressable>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add transaction"
-                onPress={presentAddDebt}
-                style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
-              >
-                <Plus size={20} color="#fff" />
-              </Pressable>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        <View style={styles.toolbarRow}>
-          <View style={styles.toolbarMain}>
-            <Animated.View
-              style={[styles.toolbarLayer, idleToolbarStyle]}
-              pointerEvents={searchFieldFocused ? 'none' : 'auto'}
-              importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
+          <View style={styles.toolbarRow}>
+            <View style={styles.toolbarMain}>
+              <Animated.View
+                style={[styles.toolbarLayer, idleToolbarStyle]}
+                pointerEvents={searchFieldFocused ? 'none' : 'auto'}
+                importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
+              >
+                <View style={styles.segmentInline}>
+                  <SegmentedControl
+                    variant="inline"
+                    options={['All', 'Owed you', 'You owe']}
+                    selectedIndex={segmentIndex}
+                    onChange={setSegmentIndex}
+                  />
+                </View>
+                <View style={styles.toolbarIconWrap}>
+                  <HeaderIconButton
+                    icon={Search}
+                    accessibilityLabel={
+                      hasSearchQuery
+                        ? 'Search transactions, text filter is active'
+                        : 'Search transactions'
+                    }
+                    onPress={openSearchFromIcon}
+                    variant="secondary"
+                    iconSize={20}
+                  />
+                  {hasSearchQuery ? (
+                    <View
+                      style={styles.toolbarIconBadge}
+                      pointerEvents="none"
+                      accessibilityElementsHidden
+                      importantForAccessibility="no-hide-descendants"
+                    />
+                  ) : null}
+                </View>
+              </Animated.View>
+              <Animated.View
+                style={[styles.toolbarLayer, activeSearchToolbarStyle]}
+                pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+              >
+                <View style={styles.searchField}>
+                  <SearchField value={search} onChange={setSearch}>
+                    <SearchField.Group>
+                      <SearchField.SearchIcon />
+                      <SearchField.Input
+                        ref={searchInputRef}
+                        placeholder="Search by name or note"
+                        className="rounded-full h-9 py-0"
+                        onFocus={handleSearchFocus}
+                        onBlur={handleSearchBlur}
+                      />
+                      <SearchField.ClearButton />
+                    </SearchField.Group>
+                  </SearchField>
+                </View>
+              </Animated.View>
+            </View>
+            <View
+              style={[
+                styles.searchTrailing,
+                searchFieldFocused && styles.searchTrailingWithCloseGap,
+              ]}
             >
-              <View style={styles.segmentInline}>
-                <SegmentedControl
-                  variant="inline"
-                  options={['All', 'Owed you', 'You owe']}
-                  selectedIndex={segmentIndex}
-                  onChange={setSegmentIndex}
-                />
-              </View>
               <View style={styles.toolbarIconWrap}>
                 <HeaderIconButton
-                  icon={Search}
+                  icon={ListFilter}
                   accessibilityLabel={
-                    hasSearchQuery
-                      ? 'Search transactions, text filter is active'
-                      : 'Search transactions'
+                    hasActiveFilters
+                      ? 'Filter transactions, filters are active'
+                      : 'Filter transactions'
                   }
-                  onPress={openSearchFromIcon}
+                  onPressIn={suppressBlurForFilter}
+                  onPress={openFilters}
                   variant="secondary"
                   iconSize={20}
                 />
-                {hasSearchQuery ? (
+                {hasActiveFilters ? (
                   <View
                     style={styles.toolbarIconBadge}
                     pointerEvents="none"
@@ -442,125 +542,75 @@ export default function TransactionsScreen() {
                   />
                 ) : null}
               </View>
-            </Animated.View>
-            <Animated.View
-              style={[styles.toolbarLayer, activeSearchToolbarStyle]}
-              pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-              importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-            >
-              <View style={styles.searchField}>
-                <SearchField value={search} onChange={setSearch}>
-                  <SearchField.Group>
-                    <SearchField.SearchIcon />
-                    <SearchField.Input
-                      ref={searchInputRef}
-                      placeholder="Search by name or note"
-                      className="rounded-full h-9 py-0"
-                      onFocus={handleSearchFocus}
-                      onBlur={handleSearchBlur}
+              <Animated.View style={closeTrackAnimatedStyle}>
+                <View
+                  style={styles.closeTrackInner}
+                  pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                  importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                >
+                  <View style={{ width: space[2] }} />
+                  <View style={styles.closeSlot}>
+                    <HeaderIconButton
+                      icon={X}
+                      accessibilityLabel="Close search"
+                      onPress={handleCloseSearchChrome}
+                      variant="secondary"
+                      iconSize={20}
                     />
-                    <SearchField.ClearButton />
-                  </SearchField.Group>
-                </SearchField>
-              </View>
-            </Animated.View>
+                  </View>
+                </View>
+              </Animated.View>
+            </View>
           </View>
-          <View
-            style={[
-              styles.searchTrailing,
-              searchFieldFocused && styles.searchTrailingWithCloseGap,
+
+          <Animated.ScrollView
+            style={styles.list}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              { paddingBottom: listScrollBottomPadding },
+              filtered.length === 0 && styles.listEmpty,
             ]}
           >
-            <View style={styles.toolbarIconWrap}>
-              <HeaderIconButton
-                icon={ListFilter}
-                accessibilityLabel={
-                  hasActiveFilters
-                    ? 'Filter transactions, filters are active'
-                    : 'Filter transactions'
+            {filtered.length === 0 ? (
+              <EmptyState
+                title={search || hasActiveFilters ? 'No results' : 'No transactions'}
+                subtitle={emptySubtitle}
+                icon={
+                  search || hasActiveFilters ? (
+                    <SearchX size={40} color={palette.labelTertiary} />
+                  ) : (
+                    <Receipt size={40} color={palette.labelTertiary} />
+                  )
                 }
-                onPressIn={suppressBlurForFilter}
-                onPress={openFilters}
-                variant="secondary"
-                iconSize={20}
               />
-              {hasActiveFilters ? (
-                <View
-                  style={styles.toolbarIconBadge}
-                  pointerEvents="none"
-                  accessibilityElementsHidden
-                  importantForAccessibility="no-hide-descendants"
-                />
-              ) : null}
-            </View>
-            <Animated.View style={closeTrackAnimatedStyle}>
-              <View
-                style={styles.closeTrackInner}
-                pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-              >
-                <View style={{ width: space[2] }} />
-                <View style={styles.closeSlot}>
-                  <HeaderIconButton
-                    icon={X}
-                    accessibilityLabel="Close search"
-                    onPress={handleCloseSearchChrome}
-                    variant="secondary"
-                    iconSize={20}
-                  />
+            ) : (
+              sections.map((section) => (
+                <View key={section.key} style={styles.sectionBlock}>
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                  <View style={styles.sectionCard}>
+                    {section.data.map((debt, index) => (
+                      <TransactionRow
+                        key={debt.id}
+                        debt={debt}
+                        onPress={() => handleSelect(debt)}
+                        showSeparator={index < section.data.length - 1}
+                      />
+                    ))}
+                  </View>
                 </View>
-              </View>
-            </Animated.View>
-          </View>
+              ))
+            )}
+          </Animated.ScrollView>
+
+          <TransactionFilterSheet
+            ref={filterSheetRef}
+            filters={filters}
+            onChange={setFilters}
+          />
         </View>
-
-        <Animated.ScrollView
-          style={styles.list}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContent,
-            filtered.length === 0 && styles.listEmpty,
-          ]}
-        >
-          {filtered.length === 0 ? (
-            <EmptyState
-              title={search || hasActiveFilters ? 'No results' : 'No transactions'}
-              subtitle={emptySubtitle}
-              icon={
-                search || hasActiveFilters ? (
-                  <SearchX size={40} color={palette.labelTertiary} />
-                ) : (
-                  <Receipt size={40} color={palette.labelTertiary} />
-                )
-              }
-            />
-          ) : (
-            sections.map((section) => (
-              <View key={section.key} style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
-                <View style={styles.sectionCard}>
-                  {section.data.map((debt, index) => (
-                    <TransactionRow
-                      key={debt.id}
-                      debt={debt}
-                      onPress={() => handleSelect(debt)}
-                      showSeparator={index < section.data.length - 1}
-                    />
-                  ))}
-                </View>
-              </View>
-            ))
-          )}
-        </Animated.ScrollView>
-
-        <TransactionFilterSheet
-          ref={filterSheetRef}
-          filters={filters}
-          onChange={setFilters}
-        />
       </Animated.View>
     </AppScreen>
   );
