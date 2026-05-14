@@ -401,39 +401,31 @@ export default function TransactionsScreen() {
    */
   const listScrollBottomPadding = layout.screenPaddingBottom;
 
-  const screenGradientStops = useMemo(() => {
-    if (colorScheme === 'dark') {
-      return [
-        { offset: '0%', color: palette.bg },
-        { offset: '42%', color: '#070F18' },
-        { offset: '100%', color: '#0E1F38' },
-      ] as const;
-    }
-    return [
-      { offset: '0%', color: palette.bg },
-      { offset: '38%', color: '#E8F0FB' },
-      { offset: '100%', color: '#C8DCF5' },
-    ] as const;
-  }, [colorScheme, palette.bg]);
-
   return (
     <AppScreen>
       <Animated.View style={[styles.containerRoot, containerAnimatedStyle]}>
-        <Svg
-          pointerEvents="none"
-          width={windowWidth}
-          height={windowHeight}
-          style={StyleSheet.absoluteFillObject}
-        >
-          <Defs>
-            <SvgLinearGradient id="transactionsScreenBg" x1="0%" y1="0%" x2="92%" y2="100%">
-              {screenGradientStops.map((s) => (
-                <Stop key={s.offset} offset={s.offset} stopColor={s.color} />
-              ))}
-            </SvgLinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width={windowWidth} height={windowHeight} fill="url(#transactionsScreenBg)" />
-        </Svg>
+        {colorScheme === 'dark' ? (
+          <Svg
+            pointerEvents="none"
+            width={windowWidth}
+            height={windowHeight}
+            style={StyleSheet.absoluteFillObject}
+          >
+            <Defs>
+              <SvgLinearGradient id="transactionsScreenBg" x1="0%" y1="0%" x2="92%" y2="100%">
+                <Stop offset="0%" stopColor={palette.bg} />
+                <Stop offset="42%" stopColor="#070F18" />
+                <Stop offset="100%" stopColor="#0E1F38" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={windowWidth} height={windowHeight} fill="url(#transactionsScreenBg)" />
+          </Svg>
+        ) : (
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFillObject, { backgroundColor: palette.bg }]}
+          />
+        )}
         <View style={styles.containerInner}>
           <Animated.View style={txHeaderAnimatedStyle}>
             <View onLayout={onTransactionHeaderLayout}>
