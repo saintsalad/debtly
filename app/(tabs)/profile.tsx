@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import * as SystemUI from 'expo-system-ui';
 import {
   Alert,
   Platform,
@@ -22,6 +24,7 @@ import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 
 interface RowProps {
   icon: LucideIcon;
@@ -235,6 +238,13 @@ export default function ProfileScreen() {
     ]);
   };
   const insets = useSafeAreaInsets();
+  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
+
+  useFocusEffect(
+    useCallback(() => {
+      void SystemUI.setBackgroundColorAsync(palette.bg);
+    }, [palette.bg])
+  );
 
   return (
     <AppScreen style={{ backgroundColor: palette.bg }}>
@@ -244,6 +254,8 @@ export default function ProfileScreen() {
           { paddingTop: insets.top },
           Platform.OS === 'ios' && { paddingBottom: layout.screenPaddingBottom },
         ]}
+        scrollEventThrottle={16}
+        onScroll={statusBarScrollFadeOnScroll}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

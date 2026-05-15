@@ -4,12 +4,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { ArrowDown, ArrowUp, Check, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
@@ -34,6 +34,7 @@ import {
   RecurrenceFrequency,
 } from '@/features/debts/types';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
@@ -114,6 +115,7 @@ interface AddDebtFormProps {
   styles: ReturnType<typeof createStyles>;
   keyboardAppearance: 'light' | 'dark';
   contentBottomPadding: number;
+  scrollFadeOnScroll?: React.ComponentProps<typeof Animated.ScrollView>['onScroll'];
 }
 
 function AddDebtForm({
@@ -141,14 +143,17 @@ function AddDebtForm({
   styles,
   keyboardAppearance,
   contentBottomPadding,
+  scrollFadeOnScroll,
 }: AddDebtFormProps) {
   const { symbol } = useCurrency();
   const accentForeground = useThemeColor('accent-foreground');
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={scrollFadeOnScroll}
       contentContainerStyle={[styles.formContent, { paddingBottom: contentBottomPadding }]}
     >
       <View style={styles.typeRow}>
@@ -295,7 +300,7 @@ function AddDebtForm({
           ) : null}
         </View>
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -408,6 +413,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
     () => (existingDebt ? readDebtFormValues(existingDebt) : EMPTY_FORM_VALUES),
     [existingDebt]
   );
+  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
 
   const [personName, setPersonName] = useState(initialValues.personName);
   const [amount, setAmount] = useState(initialValues.amount);
@@ -597,6 +603,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
             styles={styles}
             keyboardAppearance={keyboardAppearance}
             contentBottomPadding={insets.bottom + layout.screenPaddingBottom}
+            scrollFadeOnScroll={statusBarScrollFadeOnScroll}
           />
         </KeyboardAvoidingView>
       </HeroUINativeProvider>

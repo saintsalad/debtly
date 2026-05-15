@@ -1,4 +1,6 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import * as SystemUI from 'expo-system-ui';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +12,7 @@ import { AddBillSplitSheet, type AddBillSplitSheetHandle } from '@/features/bill
 import { BillSplitCard } from '@/features/bill-split/BillSplitCard';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
@@ -56,6 +59,13 @@ export default function BillSplitScreen() {
   const splits = useBillSplitStore((s) => s.splits);
   const sheetRef = useRef<AddBillSplitSheetHandle>(null);
   const insets = useSafeAreaInsets();
+  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
+
+  useFocusEffect(
+    useCallback(() => {
+      void SystemUI.setBackgroundColorAsync(palette.bg);
+    }, [palette.bg])
+  );
 
   return (
     <AppScreen>
@@ -76,6 +86,8 @@ export default function BillSplitScreen() {
       <Animated.FlatList
         data={splits}
         keyExtractor={(item) => item.id}
+        scrollEventThrottle={16}
+        onScroll={statusBarScrollFadeOnScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,

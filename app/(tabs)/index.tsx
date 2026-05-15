@@ -1,6 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as SystemUI from 'expo-system-ui';
 import { AppScreen } from '@/components/ui/AppScreen';
 import Animated, {
   useAnimatedStyle,
@@ -16,6 +18,7 @@ import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { getComputedStatus } from '@/lib/utils';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 
@@ -179,11 +182,20 @@ export default function HomeScreen() {
   const overviewStyle = useFadeUp(50);
   const insets = useSafeAreaInsets();
   const { open: openTransactionDetail } = useTransactionDetail();
+  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
+
+  useFocusEffect(
+    useCallback(() => {
+      void SystemUI.setBackgroundColorAsync(palette.bg);
+    }, [palette.bg])
+  );
 
   return (
     <AppScreen>
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={statusBarScrollFadeOnScroll}
         contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       >
         <View style={styles.header}>

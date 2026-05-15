@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
@@ -9,6 +9,8 @@ interface SegmentedControlProps {
   onChange: (index: number) => void;
   /** Fills parent width (e.g. toolbar row); default is centered 80% width. */
   variant?: 'default' | 'inline';
+  /** Merged after base track styles (e.g. translucent track over scrolling content). */
+  trackStyle?: StyleProp<ViewStyle>;
 }
 
 const TRACK_PAD = 2;
@@ -63,6 +65,7 @@ export function SegmentedControl({
   selectedIndex,
   onChange,
   variant = 'default',
+  trackStyle,
 }: SegmentedControlProps) {
   const palette = useColors();
   const scheme = useAppColorScheme();
@@ -73,7 +76,7 @@ export function SegmentedControl({
 
   return (
     <View style={styles.container}>
-      <View style={styles.track}>
+      <View style={[styles.track, trackStyle]}>
         {options.map((option, index) => {
           const active = selectedIndex === index;
 

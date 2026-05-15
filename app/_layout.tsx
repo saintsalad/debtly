@@ -7,6 +7,7 @@ import '../global.css';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useSyncUniwindTheme } from '@/hooks/use-sync-uniwind-theme';
 import { AddDebtProvider } from '@/lib/addDebtContext';
+import { StatusBarScrollFadeProvider } from '@/lib/statusBarScrollFade';
 import { TransactionDetailProvider } from '@/lib/transactionDetailContext';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
@@ -21,14 +22,21 @@ export default function RootLayout() {
   useSyncUniwindTheme();
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <HeroUINativeProvider>
           <BottomSheetModalProvider>
             <AddDebtProvider>
               <TransactionDetailProvider>
-                <Stack>
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <StatusBarScrollFadeProvider>
+                  <Stack>
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  />
                   <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
                   <Stack.Screen
                     name="add-transaction"
@@ -42,7 +50,8 @@ export default function RootLayout() {
                     name="edit-transaction/[id]"
                     options={{ presentation: 'fullScreenModal', headerShown: false }}
                   />
-                </Stack>
+                  </Stack>
+                </StatusBarScrollFadeProvider>
               </TransactionDetailProvider>
             </AddDebtProvider>
           </BottomSheetModalProvider>

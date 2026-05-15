@@ -20,6 +20,7 @@ import {
 } from '@/features/debts/transactionActions';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -31,11 +32,11 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface TransactionDetailScreenProps {
@@ -243,6 +244,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
   const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
   const debt = useDebtStore((state) => state.debts.find((item) => item.id === debtId));
+  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
 
   useEffect(() => {
     if (!debt) {
@@ -371,8 +373,10 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             <HeaderIconButton icon={Pencil} accessibilityLabel="Edit transaction" onPress={handleEdit} />
           </View>
 
-          <ScrollView
+          <Animated.ScrollView
             showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={statusBarScrollFadeOnScroll}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[
               styles.content,
@@ -494,7 +498,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
                 />
               </View>
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
         </HeroUINativeProvider>
       </View>
       <RecordPaymentSheet
