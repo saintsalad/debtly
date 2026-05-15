@@ -48,7 +48,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -61,7 +60,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 
 /** Scroll-driven header hide/show: one curve + duration so title and chrome stay in lockstep. */
 const TX_SCROLL_HEADER_SHOW_HIDE = {
@@ -287,7 +285,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 
 export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const colorScheme = useAppColorScheme();
   const palette = useColors();
   const shadow = useCardShadow();
@@ -795,42 +792,14 @@ export default function TransactionsScreen() {
     [colorScheme]
   );
 
-  const bleedTop = insets.top;
-  const bleedHeight = windowHeight + bleedTop;
-
   return (
-    <AppScreen style={{ backgroundColor: 'transparent' }}>
+    <AppScreen>
       <StatusBar
         style={colorScheme === 'dark' ? 'light' : 'dark'}
         translucent
         backgroundColor="transparent"
       />
       <View style={styles.containerRoot}>
-        {colorScheme === 'dark' ? (
-          <Svg
-            pointerEvents="none"
-            width={windowWidth}
-            height={bleedHeight}
-            style={{ position: 'absolute', left: 0, right: 0, top: -bleedTop }}
-          >
-            <Defs>
-              <SvgLinearGradient id="transactionsScreenBg" x1="0%" y1="0%" x2="92%" y2="100%">
-                <Stop offset="0%" stopColor={palette.bg} />
-                <Stop offset="42%" stopColor="#070F18" />
-                <Stop offset="100%" stopColor="#0E1F38" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width={windowWidth} height={bleedHeight} fill="url(#transactionsScreenBg)" />
-          </Svg>
-        ) : (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              { top: -bleedTop, backgroundColor: palette.bg },
-            ]}
-          />
-        )}
         <View style={styles.contentShell}>
           <View style={styles.containerInner}>
             <View style={styles.screenLayerStack} collapsable={false}>

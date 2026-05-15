@@ -242,12 +242,12 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void SystemUI.setBackgroundColorAsync(palette.bg);
-    }, [palette.bg])
+      void SystemUI.setBackgroundColorAsync('transparent');
+    }, [])
   );
 
   return (
-    <AppScreen style={{ backgroundColor: palette.bg }}>
+    <AppScreen>
       <Animated.ScrollView
         contentContainerStyle={[
           styles.content,

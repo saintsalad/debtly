@@ -63,8 +63,8 @@ export default function BillSplitScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void SystemUI.setBackgroundColorAsync(palette.bg);
-    }, [palette.bg])
+      void SystemUI.setBackgroundColorAsync('transparent');
+    }, [])
   );
 
   return (

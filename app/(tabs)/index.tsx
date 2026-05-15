@@ -186,8 +186,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void SystemUI.setBackgroundColorAsync(palette.bg);
-    }, [palette.bg])
+      void SystemUI.setBackgroundColorAsync('transparent');
+    }, [])
   );
 
   return (
