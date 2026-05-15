@@ -637,11 +637,9 @@ export default function TransactionsScreen() {
   }, [endSearchChrome]);
 
   const handleCloseSearchChrome = useCallback(() => {
-    setSearch('');
+    endSearchChrome();
     searchInputRef.current?.blur();
-    requestAnimationFrame(() => {
-      endSearchChrome();
-    });
+    setSearch('');
   }, [endSearchChrome]);
 
   const openFilters = useCallback(() => {
