@@ -1,16 +1,24 @@
-import React, { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { Avatar } from '@/components/ui/Avatar';
+import { ContextMenuDropdown, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
+import { minorToMajor } from '@/features/debts/money';
 import type { MemberBalance } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
-import { minorToMajor } from '@/features/debts/money';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
-import { useColors, space, type, type ColorPalette } from '@/lib/platform';
+import { space, type, useColors, type ColorPalette } from '@/lib/platform';
+import * as Haptics from 'expo-haptics';
+import { MessageCircle, Share2 } from 'lucide-react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+export interface MemberBalanceCreditMenu {
+  onShareReceipt: () => void;
+  onSendMessage: () => void;
+}
 
 interface MemberBalanceRowProps {
   balance: MemberBalance;
-  onRemind?: () => void;
+  /** Shown when someone owes you; opens a context menu (share / message). */
+  creditMenu?: MemberBalanceCreditMenu;
 }
 
 function createStyles(palette: ColorPalette, rowPressedColor: string) {
@@ -44,7 +52,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
   });
 }
 
-export function MemberBalanceRow({ balance, onRemind }: MemberBalanceRowProps) {
+export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps) {
   const palette = useColors();
   const rowPressedColor = useGlassSurfacePressed();
   const styles = useMemo(
@@ -52,12 +60,35 @@ export function MemberBalanceRow({ balance, onRemind }: MemberBalanceRowProps) {
     [palette, rowPressedColor]
   );
   const { fmt } = useCurrency();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const anchorRef = useRef<View>(null);
 
-  const handlePress = useCallback(() => {
-    if (!onRemind) return;
+  const menuSections = useMemo((): ContextMenuSection[] => {
+    if (!creditMenu) return [];
+    return [
+      {
+        items: [
+          {
+            id: 'share',
+            title: 'Share receipt',
+            icon: Share2,
+            onPress: creditMenu.onShareReceipt,
+          },
+          {
+            id: 'message',
+            title: 'Send message',
+            icon: MessageCircle,
+            onPress: creditMenu.onSendMessage,
+          },
+        ],
+      },
+    ];
+  }, [creditMenu]);
+
+  const openMenu = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onRemind();
-  }, [onRemind]);
+    setMenuOpen(true);
+  }, []);
 
   if (balance.isCurrentUser) {
     return (
@@ -78,12 +109,8 @@ export function MemberBalanceRow({ balance, onRemind }: MemberBalanceRowProps) {
         ? `you owe ${fmt(minorToMajor(Math.abs(balance.netMinor)))}`
         : 'settled up';
 
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.row, pressed && onRemind && styles.rowPressed]}
-      onPress={onRemind ? handlePress : undefined}
-      disabled={!onRemind || balance.netMinor === 0}
-    >
+  const rowInner = (
+    <>
       <Avatar
         name={balance.displayName}
         size={40}
@@ -104,7 +131,6 @@ export function MemberBalanceRow({ balance, onRemind }: MemberBalanceRowProps) {
           ]}
         >
           {label}
-          {onRemind && balance.netMinor !== 0 ? ' · tap to remind' : ''}
         </Text>
       </View>
       {balance.netMinor !== 0 ? (
@@ -117,6 +143,31 @@ export function MemberBalanceRow({ balance, onRemind }: MemberBalanceRowProps) {
           {fmt(minorToMajor(Math.abs(balance.netMinor)))}
         </Text>
       ) : null}
-    </Pressable>
+    </>
   );
+
+  if (balance.netMinor > 0 && creditMenu) {
+    return (
+      <>
+        <Pressable
+          ref={anchorRef}
+          collapsable={false}
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          onPress={openMenu}
+          accessibilityRole="button"
+          accessibilityLabel="Balance options"
+        >
+          {rowInner}
+        </Pressable>
+        <ContextMenuDropdown
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          anchorRef={anchorRef}
+          sections={menuSections}
+        />
+      </>
+    );
+  }
+
+  return <View style={styles.row}>{rowInner}</View>;
 }

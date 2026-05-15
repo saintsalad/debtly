@@ -113,7 +113,8 @@ export function AvatarStack({ members, size = 36, maxVisible = 4, overlay }: Ava
   if (members.length === 0) return null;
 
   const outer = size + RING_WIDTH * 2;
-  const overlap = Math.round(outer * 0.28);
+  /** Horizontal overlap between adjacent rings; higher = tighter stack */
+  const overlap = Math.round(outer * 0.38);
   const visible = members.slice(0, maxVisible);
   const overflow = members.length - visible.length;
 
