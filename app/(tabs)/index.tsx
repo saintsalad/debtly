@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppScreen } from '@/components/ui/AppScreen';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -176,16 +177,14 @@ export default function HomeScreen() {
   const activeCount = owedToMe.length + iOwe.length;
   const heroStyle = useFadeUp(0);
   const overviewStyle = useFadeUp(50);
-  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
+  const insets = useSafeAreaInsets();
   const { open: openTransactionDetail } = useTransactionDetail();
 
   return (
     <AppScreen>
       <Animated.ScrollView
-        onScroll={onScroll}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingTop: headerSpacerHeight }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
       >
         <View style={styles.header}>
           <Text style={styles.greeting}>{greeting}</Text>

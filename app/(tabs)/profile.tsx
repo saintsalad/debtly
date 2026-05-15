@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppScreen } from '@/components/ui/AppScreen';
 import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
@@ -233,16 +234,14 @@ export default function ProfileScreen() {
       { text: 'Delete all', style: 'destructive', onPress: clearAll },
     ]);
   };
-  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
+  const insets = useSafeAreaInsets();
 
   return (
     <AppScreen style={{ backgroundColor: palette.bg }}>
       <Animated.ScrollView
-        onScroll={onScroll}
-        scrollEventThrottle={16}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: headerSpacerHeight },
+          { paddingTop: insets.top },
           Platform.OS === 'ios' && { paddingBottom: layout.screenPaddingBottom },
         ]}
         showsVerticalScrollIndicator={false}

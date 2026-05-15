@@ -1,4 +1,4 @@
-import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
+import { AppScreen } from '@/components/ui/AppScreen';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -13,17 +13,18 @@ import {
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useAddDebt } from '@/lib/addDebtContext';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useDebtStore } from '@/stores/debtStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { SearchField } from 'heroui-native';
-import { ListFilter, Plus, Receipt, Search, SearchX, X } from 'lucide-react-native';
+import { MoreHorizontal, Receipt, Search, SearchX, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  InteractionManager,
   LayoutChangeEvent,
-  Pressable,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -48,20 +49,21 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       flex: 1,
       paddingHorizontal: layout.screenPaddingX,
     },
-    header: {
+    titleBlock: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: space[3],
       paddingTop: space[4],
-      paddingBottom: space[6],
+      paddingBottom: space[3],
     },
     headerCopy: {
       flex: 1,
+      minWidth: 0,
       gap: space[1],
     },
     title: {
-      ...type.largeTitle,
+      ...type.title2,
       fontWeight: '600',
       color: palette.label,
     },
@@ -69,18 +71,13 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       ...type.footnote,
       color: palette.labelSecondary,
     },
-    addButton: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: palette.tint,
+    headerTrailing: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: space[2],
+      flexShrink: 0,
     },
-    addButtonPressed: {
-      opacity: 0.82,
-    },
-    toolbarRow: {
+    chromeRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
@@ -102,9 +99,9 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       alignItems: 'center',
       gap: space[2],
     },
-    segmentInline: {
-      flex: 1,
-      minWidth: 0,
+    segmentIdleWrap: {
+      width: '100%',
+      alignItems: 'center',
     },
     toolbarIconWrap: {
       position: 'relative',
@@ -132,8 +129,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       flexDirection: 'row',
       alignItems: 'center',
       flexShrink: 0,
-    },
-    searchTrailingWithCloseGap: {
       gap: space[2],
     },
     closeSlot: {
@@ -184,11 +179,7 @@ export default function TransactionsScreen() {
   const shadow = useCardShadow();
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const compactContentTop = useMemo(() => insets.top + space[2], [insets.top]);
-  /** Align large title with app header row: same top as Debtly ≈ insets + space[2], minus tx header's own paddingTop. */
-  const scrollCollapsedTop = useMemo(
-    () => Math.max(0, insets.top + space[2] - space[4]),
-    [insets.top]
-  );
+  const scrollIdleTop = useMemo(() => insets.top, [insets.top]);
   const closeTrackMax = space[2] + 36;
   const [search, setSearch] = useState('');
   const [segmentIndex, setSegmentIndex] = useState(0);
@@ -199,17 +190,15 @@ export default function TransactionsScreen() {
   const searchFocusedRef = useRef(false);
   const transactionHeaderNaturalHeight = useRef(0);
   const hasMeasuredTxHeader = useRef(false);
-  /** Approximate until first layout; avoids a zero-height header on first paint. */
+  /** When true, skip writing `txHeaderHeight` from onLayout so iOS does not cancel the expand animation. */
+  const txHeaderHeightExpandLockRef = useRef(false);
   const txHeaderHeight = useSharedValue(120);
-  const headerSpacerSV = useSharedValue(0);
   const compactTopSV = useSharedValue(compactContentTop);
-  const scrollCollapsedTopSV = useSharedValue(scrollCollapsedTop);
+  const scrollIdleTopSV = useSharedValue(scrollIdleTop);
   const closeTrackWidth = useSharedValue(0);
-  /** 0 = tabs + search icon; 1 = expanded search (tabs hidden). */
   const searchProgress = useSharedValue(0);
   const debts = useDebtStore((s) => s.debts);
   const { open: openTransactionDetail } = useTransactionDetail();
-  const { present: presentAddDebt } = useAddDebt();
   const hasActiveFilters = hasActiveTransactionFilters(filters);
 
   const filtered = useMemo(() => {
@@ -238,14 +227,6 @@ export default function TransactionsScreen() {
     },
     [openTransactionDetail]
   );
-  const {
-    onScroll,
-    headerSpacerHeight,
-    headerTranslateY,
-    headerHeight: mainHeaderHeight,
-    collapseMainHeader,
-    expandMainHeader,
-  } = useCollapsibleHeader();
 
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
 
@@ -255,14 +236,11 @@ export default function TransactionsScreen() {
   }));
 
   const containerAnimatedStyle = useAnimatedStyle(() => {
-    const h = Math.max(mainHeaderHeight.value, 0.001);
-    const spacer = Math.max(headerSpacerSV.value, h);
-    const ty = headerTranslateY.value;
-    const collapsed = scrollCollapsedTopSV.value;
-    const searchCompact = compactTopSV.value;
-    const scrollTop =
-      spacer > 0 ? spacer + ty * ((spacer - collapsed) / h) : collapsed;
-    const paddingTop = interpolate(searchProgress.value, [0, 1], [scrollTop, searchCompact]);
+    const paddingTop = interpolate(
+      searchProgress.value,
+      [0, 1],
+      [scrollIdleTopSV.value, compactTopSV.value]
+    );
     return { paddingTop };
   });
 
@@ -283,33 +261,39 @@ export default function TransactionsScreen() {
     transform: [{ translateX: interpolate(searchProgress.value, [0, 1], [14, 0]) }],
   }));
 
-  const onTransactionHeaderLayout = useCallback((e: LayoutChangeEvent) => {
-    const h = e.nativeEvent.layout.height;
-    if (h <= 0 || searchFocusedRef.current) return;
-    transactionHeaderNaturalHeight.current = h;
-    if (!hasMeasuredTxHeader.current) {
-      hasMeasuredTxHeader.current = true;
-    }
-    txHeaderHeight.value = h;
-  }, [txHeaderHeight]);
+  const onTransactionHeaderLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h <= 0 || searchFocusedRef.current) return;
+      transactionHeaderNaturalHeight.current = h;
+      if (!hasMeasuredTxHeader.current) {
+        hasMeasuredTxHeader.current = true;
+      }
+      if (!txHeaderHeightExpandLockRef.current) {
+        txHeaderHeight.value = h;
+      }
+    },
+    [txHeaderHeight]
+  );
 
   const endSearchChrome = useCallback(() => {
     searchFocusedRef.current = false;
+    txHeaderHeightExpandLockRef.current = true;
     setSearchFieldFocused(false);
-    expandMainHeader();
-  }, [expandMainHeader]);
-
-  useEffect(() => {
-    headerSpacerSV.value = headerSpacerHeight;
-  }, [headerSpacerHeight, headerSpacerSV]);
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(() => {
+        txHeaderHeightExpandLockRef.current = false;
+      }, 280);
+    });
+  }, []);
 
   useEffect(() => {
     compactTopSV.value = compactContentTop;
   }, [compactContentTop, compactTopSV]);
 
   useEffect(() => {
-    scrollCollapsedTopSV.value = scrollCollapsedTop;
-  }, [scrollCollapsedTop, scrollCollapsedTopSV]);
+    scrollIdleTopSV.value = scrollIdleTop;
+  }, [scrollIdleTop, scrollIdleTopSV]);
 
   useEffect(() => {
     searchProgress.value = withTiming(searchFieldFocused ? 1 : 0, { duration: 220 });
@@ -328,7 +312,6 @@ export default function TransactionsScreen() {
       txHeaderHeight.value = withTiming(0, { duration: 220 });
       return;
     }
-    if (!hasMeasuredTxHeader.current) return;
     const target = transactionHeaderNaturalHeight.current || 96;
     txHeaderHeight.value = withTiming(target, { duration: 220 });
   }, [searchFieldFocused, txHeaderHeight]);
@@ -340,29 +323,26 @@ export default function TransactionsScreen() {
         suppressSearchBlurRef.current = false;
         searchFocusedRef.current = false;
         setSearchFieldFocused(false);
-        expandMainHeader();
         const target = transactionHeaderNaturalHeight.current || 96;
         txHeaderHeight.value = target;
         closeTrackWidth.value = 0;
         searchProgress.value = 0;
       };
-    }, [closeTrackWidth, expandMainHeader, searchProgress, txHeaderHeight])
+    }, [closeTrackWidth, searchProgress, txHeaderHeight])
   );
 
   const handleSearchFocus = useCallback(() => {
     searchFocusedRef.current = true;
     setSearchFieldFocused(true);
-    collapseMainHeader();
-  }, [collapseMainHeader]);
+  }, []);
 
   const openSearchFromIcon = useCallback(() => {
     searchFocusedRef.current = true;
     setSearchFieldFocused(true);
-    collapseMainHeader();
     requestAnimationFrame(() => {
       searchInputRef.current?.focus();
     });
-  }, [collapseMainHeader]);
+  }, []);
 
   const handleSearchBlur = useCallback(() => {
     if (suppressSearchBlurRef.current) return;
@@ -372,7 +352,10 @@ export default function TransactionsScreen() {
   const handleCloseSearchChrome = useCallback(() => {
     setSearch('');
     searchInputRef.current?.blur();
-  }, []);
+    requestAnimationFrame(() => {
+      endSearchChrome();
+    });
+  }, [endSearchChrome]);
 
   const openFilters = useCallback(() => {
     filterSheetRef.current?.present();
@@ -381,9 +364,17 @@ export default function TransactionsScreen() {
     }, 600);
   }, []);
 
-  const suppressBlurForFilter = useCallback(() => {
-    suppressSearchBlurRef.current = true;
-  }, []);
+  const openMoreMenu = useCallback(() => {
+    Alert.alert('More', undefined, [
+      {
+        text: 'Filter',
+        onPress: () => {
+          openFilters();
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [openFilters]);
 
   const emptySubtitle = useMemo(() => {
     if (search) return 'Try a different name or note.';
@@ -395,10 +386,6 @@ export default function TransactionsScreen() {
 
   const hasSearchQuery = search.trim().length > 0;
 
-  /**
-   * Clears the floating tab bar + home indicator. On iOS, `AppScreen` does not add
-   * `layout.screenPaddingBottom` to the wrapper; see `docs/fixes/ios-tab-bottom-inset.md`.
-   */
   const listScrollBottomPadding = layout.screenPaddingBottom;
 
   return (
@@ -429,59 +416,59 @@ export default function TransactionsScreen() {
         <View style={styles.containerInner}>
           <Animated.View style={txHeaderAnimatedStyle}>
             <View onLayout={onTransactionHeaderLayout}>
-              <View style={styles.header}>
+              <View style={styles.titleBlock}>
                 <View style={styles.headerCopy}>
                   <Text style={styles.title}>Transactions</Text>
                   <Text style={styles.subtitle}>{filtered.length} records</Text>
                 </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Add transaction"
-                  onPress={presentAddDebt}
-                  style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
-                  android_ripple={{ color: 'rgba(255,255,255,0.25)', borderless: true }}
-                >
-                  <Plus size={20} color="#fff" />
-                </Pressable>
+                <View style={styles.headerTrailing}>
+                  <View style={styles.toolbarIconWrap}>
+                    <HeaderIconButton
+                      icon={Search}
+                      accessibilityLabel={
+                        hasSearchQuery
+                          ? 'Search transactions, text filter is active'
+                          : 'Search transactions'
+                      }
+                      onPress={openSearchFromIcon}
+                      variant="secondary"
+                      iconSize={20}
+                    />
+                    {hasSearchQuery ? (
+                      <View
+                        style={styles.toolbarIconBadge}
+                        pointerEvents="none"
+                        accessibilityElementsHidden
+                        importantForAccessibility="no-hide-descendants"
+                      />
+                    ) : null}
+                  </View>
+                  <HeaderIconButton
+                    icon={MoreHorizontal}
+                    accessibilityLabel="More options"
+                    onPress={openMoreMenu}
+                    variant="secondary"
+                    iconSize={20}
+                  />
+                </View>
               </View>
             </View>
           </Animated.View>
 
-          <View style={styles.toolbarRow}>
+          <View style={styles.chromeRow}>
             <View style={styles.toolbarMain}>
               <Animated.View
                 style={[styles.toolbarLayer, idleToolbarStyle]}
                 pointerEvents={searchFieldFocused ? 'none' : 'auto'}
                 importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
               >
-                <View style={styles.segmentInline}>
+                <View style={styles.segmentIdleWrap}>
                   <SegmentedControl
-                    variant="inline"
+                    variant="default"
                     options={['All', 'Owed you', 'You owe']}
                     selectedIndex={segmentIndex}
                     onChange={setSegmentIndex}
                   />
-                </View>
-                <View style={styles.toolbarIconWrap}>
-                  <HeaderIconButton
-                    icon={Search}
-                    accessibilityLabel={
-                      hasSearchQuery
-                        ? 'Search transactions, text filter is active'
-                        : 'Search transactions'
-                    }
-                    onPress={openSearchFromIcon}
-                    variant="secondary"
-                    iconSize={20}
-                  />
-                  {hasSearchQuery ? (
-                    <View
-                      style={styles.toolbarIconBadge}
-                      pointerEvents="none"
-                      accessibilityElementsHidden
-                      importantForAccessibility="no-hide-descendants"
-                    />
-                  ) : null}
                 </View>
               </Animated.View>
               <Animated.View
@@ -504,52 +491,25 @@ export default function TransactionsScreen() {
                     </SearchField.Group>
                   </SearchField>
                 </View>
-              </Animated.View>
-            </View>
-            <View
-              style={[
-                styles.searchTrailing,
-                searchFieldFocused && styles.searchTrailingWithCloseGap,
-              ]}
-            >
-              <View style={styles.toolbarIconWrap}>
-                <HeaderIconButton
-                  icon={ListFilter}
-                  accessibilityLabel={
-                    hasActiveFilters
-                      ? 'Filter transactions, filters are active'
-                      : 'Filter transactions'
-                  }
-                  onPressIn={suppressBlurForFilter}
-                  onPress={openFilters}
-                  variant="secondary"
-                  iconSize={20}
-                />
-                {hasActiveFilters ? (
-                  <View
-                    style={styles.toolbarIconBadge}
-                    pointerEvents="none"
-                    accessibilityElementsHidden
-                    importantForAccessibility="no-hide-descendants"
-                  />
-                ) : null}
-              </View>
-              <Animated.View style={closeTrackAnimatedStyle}>
-                <View
-                  style={styles.closeTrackInner}
-                  pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                  importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                >
-                  <View style={{ width: space[2] }} />
-                  <View style={styles.closeSlot}>
-                    <HeaderIconButton
-                      icon={X}
-                      accessibilityLabel="Close search"
-                      onPress={handleCloseSearchChrome}
-                      variant="secondary"
-                      iconSize={20}
-                    />
-                  </View>
+                <View style={styles.searchTrailing}>
+                  <Animated.View style={closeTrackAnimatedStyle}>
+                    <View
+                      style={styles.closeTrackInner}
+                      pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                      importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                    >
+                      <View style={{ width: space[2] }} />
+                      <View style={styles.closeSlot}>
+                        <HeaderIconButton
+                          icon={X}
+                          accessibilityLabel="Close search"
+                          onPress={handleCloseSearchChrome}
+                          variant="secondary"
+                          iconSize={20}
+                        />
+                      </View>
+                    </View>
+                  </Animated.View>
                 </View>
               </Animated.View>
             </View>
@@ -557,8 +517,8 @@ export default function TransactionsScreen() {
 
           <Animated.ScrollView
             style={styles.list}
-            onScroll={onScroll}
             scrollEventThrottle={16}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[

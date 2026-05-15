@@ -1,9 +1,10 @@
 import React, { useMemo, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from 'heroui-native';
 import { Users } from 'lucide-react-native';
-import { AppScreen, useCollapsibleHeader } from '@/components/ui/AppScreen';
+import { AppScreen } from '@/components/ui/AppScreen';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AddBillSplitSheet, type AddBillSplitSheetHandle } from '@/features/bill-split/AddBillSplitSheet';
 import { BillSplitCard } from '@/features/bill-split/BillSplitCard';
@@ -54,11 +55,11 @@ export default function BillSplitScreen() {
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const splits = useBillSplitStore((s) => s.splits);
   const sheetRef = useRef<AddBillSplitSheetHandle>(null);
-  const { onScroll, headerSpacerHeight } = useCollapsibleHeader();
+  const insets = useSafeAreaInsets();
 
   return (
     <AppScreen>
-      <View style={[styles.header, { paddingTop: headerSpacerHeight }]}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Bill split</Text>
           <Text style={styles.subtitle}>
@@ -75,8 +76,6 @@ export default function BillSplitScreen() {
       <Animated.FlatList
         data={splits}
         keyExtractor={(item) => item.id}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.listContent,

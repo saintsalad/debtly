@@ -1,6 +1,5 @@
 import React from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { AppHeader } from '@/components/ui/AppHeader';
 import { layout, useColors } from '@/lib/platform';
 
 interface AppScreenProps {
@@ -14,7 +13,6 @@ export function AppScreen({ children, style }: AppScreenProps) {
   return (
     <View style={[styles.safe, { backgroundColor: palette.bg }, style]}>
       <View style={styles.content}>{children}</View>
-      <AppHeader />
     </View>
   );
 }
@@ -29,5 +27,3 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 0 : layout.screenPaddingBottom,
   },
 });
-
-export { useCollapsibleHeader } from '@/components/ui/collapsible-header-context';
