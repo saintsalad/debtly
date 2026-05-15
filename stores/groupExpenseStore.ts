@@ -1,0 +1,437 @@
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import {
+  amountToMinor,
+  createDefaultShares,
+  validateExpenseShares,
+} from '@/features/group-expense/balanceEngine';
+import { migratePersistedState } from '@/features/group-expense/billSplitMigration';
+import type {
+  AddExpenseInput,
+  CreateGroupInput,
+  GroupExpense,
+  GroupExpenseState,
+  GroupMember,
+  RecordSettlementInput,
+  Settlement,
+  SplitGroup,
+} from '@/features/group-expense/types';
+import { INITIAL_GROUP_EXPENSE_STATE } from '@/lib/mocks/initialGroupExpenses';
+import { zustandStorage } from '@/lib/storage';
+import { generateId } from '@/lib/utils';
+import { useDebtStore } from '@/stores/debtStore';
+import { useProfileStore } from '@/stores/profileStore';
+
+function generateInviteCode(): string {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function bumpVersion(version: number): number {
+  return version + 1;
+}
+
+function syncLedgerForGroup(
+  groupId: string,
+  groups: SplitGroup[],
+  expenses: GroupExpense[],
+  settlements: Settlement[]
+) {
+  const group = groups.find((g) => g.id === groupId);
+  if (!group) return;
+  useDebtStore.getState().syncGroupDebtsToLedger(group, expenses, settlements);
+}
+
+interface GroupExpenseStore extends GroupExpenseState {
+  createGroup: (input: CreateGroupInput) => string | null;
+  updateGroup: (id: string, updates: Partial<Pick<SplitGroup, 'name' | 'imageUri'>>) => void;
+  deleteGroup: (id: string) => void;
+  setGroupImage: (id: string, imageUri: string | undefined) => void;
+  addMember: (groupId: string, displayName: string, username?: string) => string | null;
+  removeMember: (groupId: string, memberId: string) => void;
+  addExpense: (input: AddExpenseInput) => string | null;
+  updateExpense: (id: string, input: Partial<AddExpenseInput>) => string | null;
+  deleteExpense: (id: string) => void;
+  recordSettlement: (input: RecordSettlementInput) => string | null;
+  joinGroupByCode: (code: string, displayName: string) => string | null;
+  getInviteLink: (groupId: string) => string;
+  getGroup: (id: string) => SplitGroup | undefined;
+  getGroupExpenses: (groupId: string) => GroupExpense[];
+  getGroupSettlements: (groupId: string) => Settlement[];
+}
+
+function createCurrentUserMember(name: string): GroupMember {
+  const now = new Date().toISOString();
+  return {
+    id: generateId(),
+    displayName: name,
+    isCurrentUser: true,
+    joinedAt: now,
+  };
+}
+
+export const useGroupExpenseStore = create<GroupExpenseStore>()(
+  persist(
+    (set, get) => ({
+      ...INITIAL_GROUP_EXPENSE_STATE,
+
+      createGroup: ({ name, memberNames = [], imageUri }) => {
+        const trimmed = name.trim();
+        if (!trimmed) return null;
+
+        const profileName = useProfileStore.getState().name || 'You';
+        const now = new Date().toISOString();
+        const currentUser = createCurrentUserMember(profileName);
+
+        const extraMembers: GroupMember[] = memberNames
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .map((displayName) => ({
+            id: generateId(),
+            displayName,
+            isCurrentUser: false,
+            joinedAt: now,
+          }));
+
+        const group: SplitGroup = {
+          id: generateId(),
+          name: trimmed,
+          imageUri,
+          inviteCode: generateInviteCode(),
+          members: [currentUser, ...extraMembers],
+          createdAt: now,
+          updatedAt: now,
+          version: 1,
+        };
+
+        set((state) => ({ groups: [group, ...state.groups] }));
+        return group.id;
+      },
+
+      updateGroup: (id, updates) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === id
+              ? {
+                  ...g,
+                  ...updates,
+                  updatedAt: now,
+                  version: bumpVersion(g.version),
+                }
+              : g
+          ),
+        }));
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(id, groups, expenses, settlements);
+      },
+
+      deleteGroup: (id) => {
+        set((state) => ({
+          groups: state.groups.filter((g) => g.id !== id),
+          expenses: state.expenses.filter((e) => e.groupId !== id),
+          settlements: state.settlements.filter((s) => s.groupId !== id),
+        }));
+        useDebtStore.getState().removeGroupSyncedDebtsForGroup(id);
+      },
+
+      setGroupImage: (id, imageUri) => {
+        get().updateGroup(id, { imageUri });
+      },
+
+      addMember: (groupId, displayName, username) => {
+        const trimmed = displayName.trim();
+        if (!trimmed) return null;
+
+        const now = new Date().toISOString();
+        const memberId = generateId();
+
+        let resolvedId: string | null = memberId;
+        set((state) => ({
+          groups: state.groups.map((g) => {
+            if (g.id !== groupId) return g;
+            const existing = g.members.find(
+              (m) => m.displayName.toLowerCase() === trimmed.toLowerCase()
+            );
+            if (existing) {
+              resolvedId = existing.id;
+              return g;
+            }
+            return {
+              ...g,
+              members: [
+                ...g.members,
+                {
+                  id: memberId,
+                  displayName: trimmed,
+                  isCurrentUser: false,
+                  username,
+                  joinedAt: now,
+                },
+              ],
+              updatedAt: now,
+              version: bumpVersion(g.version),
+            };
+          }),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(groupId, groups, expenses, settlements);
+        return resolvedId;
+      },
+
+      removeMember: (groupId, memberId) => {
+        const group = get().groups.find((g) => g.id === groupId);
+        const member = group?.members.find((m) => m.id === memberId);
+        if (!member || member.isCurrentUser) return;
+
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  members: g.members.filter((m) => m.id !== memberId),
+                  updatedAt: new Date().toISOString(),
+                  version: bumpVersion(g.version),
+                }
+              : g
+          ),
+          expenses: state.expenses.map((e) =>
+            e.groupId === groupId
+              ? {
+                  ...e,
+                  includedMemberIds: e.includedMemberIds.filter((id) => id !== memberId),
+                  shares: e.shares.filter((s) => s.memberId !== memberId),
+                }
+              : e
+          ),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(groupId, groups, expenses, settlements);
+      },
+
+      addExpense: (input) => {
+        const group = get().groups.find((g) => g.id === input.groupId);
+        if (!group) return 'Group not found.';
+
+        const amountMinor = amountToMinor(input.amount);
+        const currency = useProfileStore.getState().currency;
+        const included = input.includedMemberIds.length
+          ? input.includedMemberIds
+          : group.members.map((m) => m.id);
+
+        const shares =
+          input.shares ??
+          createDefaultShares(input.splitMethod, included, amountMinor);
+
+        const validation = validateExpenseShares(
+          amountMinor,
+          input.splitMethod,
+          included,
+          shares
+        );
+        if (validation) return validation;
+
+        const now = new Date().toISOString();
+        const expense: GroupExpense = {
+          id: generateId(),
+          groupId: input.groupId,
+          title: input.title.trim(),
+          amountMinor,
+          currency,
+          paidByMemberId: input.paidByMemberId,
+          splitMethod: input.splitMethod,
+          shares,
+          includedMemberIds: included,
+          note: input.note?.trim() || undefined,
+          receiptUri: input.receiptUri,
+          expenseDate: input.expenseDate ?? now,
+          createdAt: now,
+          updatedAt: now,
+          version: 1,
+        };
+
+        set((state) => ({
+          expenses: [expense, ...state.expenses],
+          groups: state.groups.map((g) =>
+            g.id === input.groupId ? { ...g, updatedAt: now, version: bumpVersion(g.version) } : g
+          ),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(input.groupId, groups, expenses, settlements);
+        return null;
+      },
+
+      updateExpense: (id, input) => {
+        const existing = get().expenses.find((e) => e.id === id);
+        if (!existing || existing.deletedAt) return 'Expense not found.';
+
+        const group = get().groups.find((g) => g.id === existing.groupId);
+        if (!group) return 'Group not found.';
+
+        const amountMinor =
+          input.amount != null ? amountToMinor(input.amount) : existing.amountMinor;
+        const splitMethod = input.splitMethod ?? existing.splitMethod;
+        const included =
+          input.includedMemberIds ?? existing.includedMemberIds;
+        const shares =
+          input.shares ??
+          createDefaultShares(splitMethod, included, amountMinor);
+
+        const validation = validateExpenseShares(
+          amountMinor,
+          splitMethod,
+          included,
+          shares
+        );
+        if (validation) return validation;
+
+        const now = new Date().toISOString();
+        const updated: GroupExpense = {
+          ...existing,
+          title: input.title?.trim() ?? existing.title,
+          amountMinor,
+          paidByMemberId: input.paidByMemberId ?? existing.paidByMemberId,
+          splitMethod,
+          shares,
+          includedMemberIds: included,
+          note: input.note !== undefined ? input.note?.trim() || undefined : existing.note,
+          receiptUri: input.receiptUri !== undefined ? input.receiptUri : existing.receiptUri,
+          expenseDate: input.expenseDate ?? existing.expenseDate,
+          updatedAt: now,
+          version: bumpVersion(existing.version),
+        };
+
+        set((state) => ({
+          expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
+          groups: state.groups.map((g) =>
+            g.id === existing.groupId
+              ? { ...g, updatedAt: now, version: bumpVersion(g.version) }
+              : g
+          ),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(existing.groupId, groups, expenses, settlements);
+        return null;
+      },
+
+      deleteExpense: (id) => {
+        const existing = get().expenses.find((e) => e.id === id);
+        if (!existing) return;
+
+        const now = new Date().toISOString();
+        set((state) => ({
+          expenses: state.expenses.map((e) =>
+            e.id === id ? { ...e, deletedAt: now, updatedAt: now, version: bumpVersion(e.version) } : e
+          ),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(existing.groupId, groups, expenses, settlements);
+      },
+
+      recordSettlement: (input) => {
+        const group = get().groups.find((g) => g.id === input.groupId);
+        if (!group) return 'Group not found.';
+        if (input.fromMemberId === input.toMemberId) return 'Choose different members.';
+
+        const amountMinor = amountToMinor(input.amount);
+        if (amountMinor <= 0) return 'Enter an amount greater than 0.';
+
+        const settlement: Settlement = {
+          id: generateId(),
+          groupId: input.groupId,
+          fromMemberId: input.fromMemberId,
+          toMemberId: input.toMemberId,
+          amountMinor,
+          note: input.note?.trim() || undefined,
+          settledAt: new Date().toISOString(),
+          version: 1,
+        };
+
+        set((state) => ({
+          settlements: [settlement, ...state.settlements],
+          groups: state.groups.map((g) =>
+            g.id === input.groupId
+              ? {
+                  ...g,
+                  updatedAt: settlement.settledAt,
+                  version: bumpVersion(g.version),
+                }
+              : g
+          ),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(input.groupId, groups, expenses, settlements);
+        return null;
+      },
+
+      joinGroupByCode: (code, displayName) => {
+        const normalized = code.trim().toUpperCase();
+        const group = get().groups.find((g) => g.inviteCode === normalized);
+        if (!group) return null;
+
+        const trimmed = displayName.trim() || 'Guest';
+        const existing = group.members.find(
+          (m) => m.displayName.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (existing) return group.id;
+
+        get().addMember(group.id, trimmed);
+        return group.id;
+      },
+
+      getInviteLink: (groupId) => {
+        const group = get().groups.find((g) => g.id === groupId);
+        if (!group) return 'debtly://group/join';
+        return `debtly://group/join?code=${group.inviteCode}`;
+      },
+
+      getGroup: (id) => get().groups.find((g) => g.id === id),
+
+      getGroupExpenses: (groupId) =>
+        get().expenses.filter((e) => e.groupId === groupId && !e.deletedAt),
+
+      getGroupSettlements: (groupId) =>
+        get().settlements.filter((s) => s.groupId === groupId),
+    }),
+    {
+      name: 'debtly-group-expenses',
+      version: 2,
+      storage: createJSONStorage(() => zustandStorage),
+      migrate: (persistedState, version) => {
+        if (version < 2) {
+          return INITIAL_GROUP_EXPENSE_STATE;
+        }
+        const profileName = useProfileStore.getState().name || 'You';
+        return migratePersistedState(persistedState, profileName);
+      },
+      onRehydrateStorage: () => (state) => {
+        void (async () => {
+          let hydrated = state;
+          if (!hydrated?.groups?.length) {
+            const legacyRaw = await zustandStorage.getItem('debtly-bill-splits');
+            if (legacyRaw) {
+              try {
+                const parsed = JSON.parse(legacyRaw) as { state?: unknown };
+                const profileName = useProfileStore.getState().name || 'You';
+                const migrated = migratePersistedState(parsed.state ?? parsed, profileName);
+                useGroupExpenseStore.setState(migrated);
+                hydrated = useGroupExpenseStore.getState();
+              } catch {
+                // ignore corrupt legacy payload
+              }
+            }
+          }
+          if (!hydrated) return;
+          for (const group of hydrated.groups) {
+            syncLedgerForGroup(group.id, hydrated.groups, hydrated.expenses, hydrated.settlements);
+          }
+        })();
+      },
+    }
+  )
+);

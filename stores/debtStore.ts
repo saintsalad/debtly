@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Debt, AddDebtInput, RecordPaymentInput } from '@/features/debts/types';
 import {
+  buildGroupSyncedDebt,
+  computeGroupDebtTargets,
+  isGroupSyncedDebt,
+} from '@/features/group-expense/groupDebtSync';
+import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expense/types';
+import {
   createDebtFromInput,
   getRemainingBalance,
   validateAddDebtInput,
@@ -29,6 +35,12 @@ interface DebtState {
   deletePayment: (debtId: string, paymentId: string) => void;
   markPaid: (id: string) => void;
   clearAll: () => void;
+  syncGroupDebtsToLedger: (
+    group: SplitGroup,
+    expenses: GroupExpense[],
+    settlements: Settlement[]
+  ) => void;
+  removeGroupSyncedDebtsForGroup: (groupId: string) => void;
 }
 
 function settleDebtWithLifecycle(debts: Debt[], debt: Debt, settledAt: string): Debt[] {
@@ -161,6 +173,33 @@ export const useDebtStore = create<DebtState>()(
           };
         }),
       clearAll: () => set({ debts: [] }),
+      syncGroupDebtsToLedger: (group, expenses, settlements) => {
+        const targets = computeGroupDebtTargets(group, expenses, settlements);
+        const targetMemberIds = new Set(targets.map((t) => t.memberId));
+
+        set((state) => {
+          const withoutStale = state.debts.filter(
+            (debt) =>
+              !isGroupSyncedDebt(debt, group.id) ||
+              targetMemberIds.has(debt.sourceMemberId ?? '')
+          );
+
+          const manualDebts = withoutStale.filter((d) => !isGroupSyncedDebt(d, group.id));
+          const existingSynced = withoutStale.filter((d) => isGroupSyncedDebt(d, group.id));
+
+          const syncedDebts: Debt[] = [];
+          for (const target of targets) {
+            const existing = existingSynced.find((d) => d.sourceMemberId === target.memberId);
+            syncedDebts.push(buildGroupSyncedDebt(group, target, existing));
+          }
+
+          return { debts: withSyncedDebts([...manualDebts, ...syncedDebts]) };
+        });
+      },
+      removeGroupSyncedDebtsForGroup: (groupId) =>
+        set((state) => ({
+          debts: withSyncedDebts(state.debts.filter((d) => !isGroupSyncedDebt(d, groupId))),
+        })),
     }),
     {
       name: 'debtly-debts',

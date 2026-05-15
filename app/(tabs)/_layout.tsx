@@ -30,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="bill-split"
         options={{
-          title: 'Bill split',
+          title: 'Groups',
           tabBarIcon: ({ color, size }) => <Split size={size} color={color} />,
         }}
       />

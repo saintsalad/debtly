@@ -13,11 +13,16 @@ export interface DebtPayment {
   note?: string;
 }
 
+export type DebtSourceType = 'group';
+
 export interface Debt {
   id: string;
   personName: string;
   principalMinor: number;
   type: DebtType;
+  sourceType?: DebtSourceType;
+  sourceGroupId?: string;
+  sourceMemberId?: string;
   note?: string;
   dueDate?: string;
   status: 'pending' | 'paid';

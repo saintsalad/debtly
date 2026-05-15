@@ -3,15 +3,11 @@ import { GlassButton } from '@/components/ui/GlassButton';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { AddBillSplitSheet, type AddBillSplitSheetHandle } from '@/features/bill-split/AddBillSplitSheet';
-import { BillSplitCard } from '@/features/bill-split/BillSplitCard';
-import {
-  buildBillSplitSections,
-  isBillSplitSettled,
-} from '@/features/bill-split/billSplitSections';
+import { CreateGroupSheet, type CreateGroupSheetHandle } from '@/features/group-expense/CreateGroupSheet';
+import { GroupCard } from '@/features/group-expense/GroupCard';
+import { buildGroupSections, filterGroups } from '@/features/group-expense/groupSections';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { glassBorderStyle, glassBorderWidth } from '@/lib/glassBorder';
+import { glassBorderWidth } from '@/lib/glassBorder';
 import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import {
@@ -20,7 +16,7 @@ import {
   StatusBarScrollFadeStrip,
   useStatusBarScrollFade,
 } from '@/lib/statusBarScrollFade';
-import { useBillSplitStore } from '@/stores/billSplitStore';
+import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -45,7 +41,6 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
-  interpolate,
   runOnJS,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -151,10 +146,6 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
-      backgroundColor: 'transparent',
-    },
-    segmentIdleWrap: {
-      width: '100%',
       backgroundColor: 'transparent',
     },
     searchField: {
@@ -275,11 +266,12 @@ export default function BillSplitScreen() {
   const glassSeparator = useGlassSeparatorColor();
   const styles = useMemo(() => createStyles(palette, glassSeparator), [palette, glassSeparator]);
   const closeTrackMax = space[2] + 36;
-  const splits = useBillSplitStore((s) => s.splits);
-  const sheetRef = useRef<AddBillSplitSheetHandle>(null);
+  const groups = useGroupExpenseStore((s) => s.groups);
+  const expenses = useGroupExpenseStore((s) => s.expenses);
+  const settlements = useGroupExpenseStore((s) => s.settlements);
+  const sheetRef = useRef<CreateGroupSheetHandle>(null);
   const searchInputRef = useRef<TextInput>(null);
   const searchFocusedRef = useRef(false);
-  const [segmentIndex, setSegmentIndex] = useState(0);
   const [search, setSearch] = useState('');
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
 
@@ -289,9 +281,9 @@ export default function BillSplitScreen() {
   const hasMeasuredBsChrome = useRef(false);
   const bsHeaderHeightExpandLockRef = useRef(false);
   const bsHeaderHeight = useSharedValue(120);
-  const bsChromeHeight = useSharedValue(52);
+  const bsChromeHeight = useSharedValue(0);
   const naturalTitleBlockHeightSV = useSharedValue(120);
-  const naturalChromeHeightSV = useSharedValue(52);
+  const naturalChromeHeightSV = useSharedValue(0);
   const lastListScrollY = useSharedValue(-1);
   const headerCollapsedByScroll = useSharedValue(0);
   const scrollRevealAccum = useSharedValue(0);
@@ -301,27 +293,9 @@ export default function BillSplitScreen() {
   const closeTrackWidth = useSharedValue(0);
   const searchProgress = useSharedValue(0);
 
-  const filtered = useMemo(() => {
-    let list = [...splits].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    if (segmentIndex === 0) {
-      list = list.filter((split) => !isBillSplitSettled(split));
-    } else {
-      list = list.filter((split) => isBillSplitSettled(split));
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (split) =>
-          split.title.toLowerCase().includes(q) ||
-          split.participants.some((p) => p.name.toLowerCase().includes(q))
-      );
-    }
-    return list;
-  }, [splits, segmentIndex, search]);
+  const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
-  const sections = useMemo(() => buildBillSplitSections(filtered), [filtered]);
+  const sections = useMemo(() => buildGroupSections(filtered, expenses, settlements), [filtered, expenses, settlements]);
   const showSearchSuggestions = searchFieldFocused && !search.trim();
   const hasSearchQuery = search.trim().length > 0;
 
@@ -368,16 +342,6 @@ export default function BillSplitScreen() {
     overflow: 'hidden' as const,
     height: 36,
     position: 'relative' as const,
-  }));
-
-  const idleToolbarStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(searchProgress.value, [0, 0.45, 1], [1, 0.25, 0]),
-    transform: [{ translateX: interpolate(searchProgress.value, [0, 1], [0, -12]) }],
-  }));
-
-  const activeSearchToolbarStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(searchProgress.value, [0, 0.55, 1], [0, 0.4, 1]),
-    transform: [{ translateX: interpolate(searchProgress.value, [0, 1], [14, 0]) }],
   }));
 
   const { scrollY: statusBarScrollY } = useStatusBarScrollFade({ overlayHost: 'screen' });
@@ -454,17 +418,17 @@ export default function BillSplitScreen() {
   useEffect(() => {
     if (searchFieldFocused) {
       bsHeaderHeight.value = withTiming(0, { duration: 220 });
+      const naturalChrome = billSplitChromeNaturalHeight.current || 52;
+      bsChromeHeight.value = withTiming(naturalChrome, { duration: 220 });
       return;
     }
     const natural = billSplitHeaderNaturalHeight.current || 96;
-    const naturalChrome = billSplitChromeNaturalHeight.current || 52;
     if (headerHiddenByScrollRef.current) {
       bsHeaderHeight.value = withTiming(0, { duration: 220 });
-      bsChromeHeight.value = withTiming(0, { duration: 220 });
     } else {
       bsHeaderHeight.value = withTiming(natural, { duration: 220 });
-      bsChromeHeight.value = withTiming(naturalChrome, { duration: 220 });
     }
+    bsChromeHeight.value = withTiming(0, { duration: 220 });
   }, [searchFieldFocused, bsChromeHeight, bsHeaderHeight]);
 
   const onListScroll = useAnimatedScrollHandler(
@@ -558,9 +522,10 @@ export default function BillSplitScreen() {
       scrollRevealAccum.value = 0;
       headerHiddenByScrollRef.current = false;
       const n = billSplitHeaderNaturalHeight.current;
-      const nc = billSplitChromeNaturalHeight.current;
       if (n && n > 24) bsHeaderHeight.value = n;
-      if (nc && nc > 16) bsChromeHeight.value = nc;
+      bsChromeHeight.value = searchFocusedRef.current
+        ? billSplitChromeNaturalHeight.current || 52
+        : 0;
       return () => {
         if (bsScrollClipAnimFallbackTimerRef.current) {
           clearTimeout(bsScrollClipAnimFallbackTimerRef.current);
@@ -571,11 +536,10 @@ export default function BillSplitScreen() {
         searchFocusedRef.current = false;
         setSearchFieldFocused(false);
         const target = billSplitHeaderNaturalHeight.current || 96;
-        const targetChrome = billSplitChromeNaturalHeight.current || 52;
         bsHeaderHeight.value = target;
-        bsChromeHeight.value = targetChrome;
+        bsChromeHeight.value = 0;
         naturalTitleBlockHeightSV.value = target;
-        naturalChromeHeightSV.value = targetChrome;
+        naturalChromeHeightSV.value = billSplitChromeNaturalHeight.current || 0;
         headerCollapsedByScroll.value = 0;
         headerHiddenByScrollRef.current = false;
         scrollRevealAccum.value = 0;
@@ -621,32 +585,17 @@ export default function BillSplitScreen() {
   }, [endSearchChrome]);
 
   const emptySubtitle = useMemo(() => {
-    if (search) return 'Try a different title or participant name.';
-    if (segmentIndex === 0) {
-      return splits.length === 0
-        ? 'Create a split to divide a bill with friends.'
-        : 'Splits with outstanding balances appear here.';
-    }
-    return 'Fully settled splits appear here.';
-  }, [segmentIndex, search, splits.length]);
+    if (search) return 'Try a different group or member name.';
+    return 'Create a group to split expenses with friends.';
+  }, [search]);
 
   const emptyTitle = useMemo(() => {
     if (search) return 'No results';
-    if (splits.length === 0) return 'No splits yet';
-    return segmentIndex === 0 ? 'No active splits' : 'No settled splits';
-  }, [segmentIndex, search, splits.length]);
+    return 'No groups yet';
+  }, [search]);
 
   const listScrollBottomPadding = Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
   const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
-
-  const segmentedTrackStyle = useMemo(
-    () => ({
-      backgroundColor:
-        colorScheme === 'dark' ? 'rgba(28, 28, 30, 0.42)' : 'rgba(120, 120, 128, 0.14)',
-      ...glassBorderStyle(colorScheme, 'surface'),
-    }),
-    [colorScheme]
-  );
 
   return (
     <AppScreen reserveTabBarInset={false}>
@@ -709,10 +658,12 @@ export default function BillSplitScreen() {
                     <View key={section.key} style={styles.sectionBlock}>
                       <Text style={styles.sectionTitle}>{section.title}</Text>
                       <GlassCard style={styles.sectionCard}>
-                        {section.data.map((split, index) => (
-                          <BillSplitCard
-                            key={split.id}
-                            split={split}
+                        {section.data.map((group, index) => (
+                          <GroupCard
+                            key={group.id}
+                            group={group}
+                            expenses={expenses}
+                            settlements={settlements}
                             showSeparator={index < section.data.length - 1}
                             dividerVariant="glass"
                           />
@@ -734,9 +685,10 @@ export default function BillSplitScreen() {
                   <View onLayout={onBillSplitHeaderLayout} style={styles.headerMeasureWrap}>
                     <View style={styles.titleBlock}>
                       <View style={styles.headerCopy}>
-                        <Text style={styles.title}>Bill split</Text>
+                        <Text style={styles.title}>Groups</Text>
                         <Text style={styles.subtitle}>
-                          {filtered.length} {filtered.length === 1 ? 'split' : 'splits'}
+                          Split bills · {filtered.length}{' '}
+                          {filtered.length === 1 ? 'group' : 'groups'}
                         </Text>
                       </View>
                       <View style={styles.headerTrailing}>
@@ -745,8 +697,8 @@ export default function BillSplitScreen() {
                             icon={Search}
                             accessibilityLabel={
                               hasSearchQuery
-                                ? 'Search bill splits, text filter is active'
-                                : 'Search bill splits'
+                                ? 'Search groups, text filter is active'
+                                : 'Search groups'
                             }
                             onPress={openSearchFromIcon}
                             variant="secondary"
@@ -766,7 +718,7 @@ export default function BillSplitScreen() {
                           variant="primary"
                           onPress={() => sheetRef.current?.present()}
                         >
-                          <GlassButton.Label>New split</GlassButton.Label>
+                          <GlassButton.Label>New group</GlassButton.Label>
                         </GlassButton>
                       </View>
                     </View>
@@ -783,69 +735,48 @@ export default function BillSplitScreen() {
                     ]}
                   >
                     <View style={styles.toolbarMain}>
-                      <Animated.View
-                        style={[styles.toolbarLayer, idleToolbarStyle]}
-                        pointerEvents={searchFieldFocused ? 'none' : 'auto'}
-                        importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
-                      >
-                        <View style={styles.segmentIdleWrap}>
-                          <SegmentedControl
-                            variant="inline"
-                            trackStyle={segmentedTrackStyle}
-                            options={['Active', 'Settled']}
-                            selectedIndex={segmentIndex}
-                            onChange={setSegmentIndex}
-                          />
-                        </View>
-                      </Animated.View>
-                      <Animated.View
-                        style={[styles.toolbarLayer, activeSearchToolbarStyle]}
-                        pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                        importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                      >
-                        <View style={styles.searchField}>
-                          <SearchField value={search} onChange={setSearch}>
-                            <SearchField.Group>
-                              <SearchField.SearchIcon />
-                              <SearchField.Input
-                                ref={searchInputRef}
-                                placeholder="Search by title or participant"
-                                className="rounded-full h-9 py-0 bg-transparent"
-                                onFocus={handleSearchFocus}
-                                onBlur={handleSearchBlur}
-                              />
-                              <SearchField.ClearButton />
-                            </SearchField.Group>
-                          </SearchField>
-                        </View>
-                        <View style={styles.searchTrailing}>
-                          <Animated.View style={closeTrackAnimatedStyle}>
-                            <View
-                              style={styles.closeTrackInner}
-                              pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                              importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                            >
-                              <View style={{ width: space[2] }} />
-                              <View style={styles.closeSlot}>
-                                <HeaderIconButton
-                                  icon={X}
-                                  accessibilityLabel="Close search"
-                                  onPress={handleCloseSearchChrome}
-                                  variant="secondary"
-                                  iconSize={20}
+                      {searchFieldFocused ? (
+                        <View style={styles.toolbarLayer}>
+                          <View style={styles.searchField}>
+                            <SearchField value={search} onChange={setSearch}>
+                              <SearchField.Group>
+                                <SearchField.SearchIcon />
+                                <SearchField.Input
+                                  ref={searchInputRef}
+                                  placeholder="Search by group or member"
+                                  className="rounded-full h-9 py-0 bg-transparent"
+                                  onFocus={handleSearchFocus}
+                                  onBlur={handleSearchBlur}
                                 />
+                                <SearchField.ClearButton />
+                              </SearchField.Group>
+                            </SearchField>
+                          </View>
+                          <View style={styles.searchTrailing}>
+                            <Animated.View style={closeTrackAnimatedStyle}>
+                              <View style={styles.closeTrackInner}>
+                                <View style={{ width: space[2] }} />
+                                <View style={styles.closeSlot}>
+                                  <HeaderIconButton
+                                    icon={X}
+                                    accessibilityLabel="Close search"
+                                    onPress={handleCloseSearchChrome}
+                                    variant="secondary"
+                                    iconSize={20}
+                                  />
+                                </View>
                               </View>
-                            </View>
-                          </Animated.View>
+                            </Animated.View>
+                          </View>
                         </View>
-                      </Animated.View>
+                      ) : null}
                     </View>
                   </View>
                 </Animated.View>
               </View>
             </View>
 
-            <AddBillSplitSheet ref={sheetRef} />
+            <CreateGroupSheet ref={sheetRef} />
           </View>
         </View>
       </View>

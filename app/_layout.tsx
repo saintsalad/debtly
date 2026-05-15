@@ -12,6 +12,7 @@ import { TransactionDetailProvider } from '@/lib/transactionDetailContext';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -29,6 +30,7 @@ export default function RootLayout() {
             <AddDebtProvider>
               <TransactionDetailProvider>
                 <StatusBarScrollFadeProvider>
+                  <GroupInviteLinkHandler />
                   <Stack>
                     <Stack.Screen
                       name="(tabs)"
@@ -48,6 +50,10 @@ export default function RootLayout() {
                     />
                     <Stack.Screen
                       name="edit-transaction/[id]"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="group/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
                   </Stack>
