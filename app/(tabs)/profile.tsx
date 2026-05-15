@@ -19,13 +19,12 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
-import { useDebtStore, useDebtSummary } from '@/stores/debtStore';
+import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
-import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 
 interface RowProps {
@@ -114,7 +113,7 @@ function Section({
   );
 }
 
-function createStyles(palette: ColorPalette, glassSeparator: string) {
+function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
     content: {},
     header: {
@@ -154,21 +153,6 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.positive },
     offlineLabel: { ...type.caption2, color: palette.positive, fontWeight: '500' },
 
-    statsRow: {
-      flexDirection: 'row',
-      marginHorizontal: space[5],
-      paddingVertical: space[4],
-      marginBottom: space[5],
-    },
-    statCell: { flex: 1, alignItems: 'center', gap: 3 },
-    statValue: { fontSize: 18, fontWeight: '600', letterSpacing: -0.4 },
-    statLabel: { ...type.caption2, color: palette.labelSecondary, fontWeight: '500' },
-    statDivider: {
-      width: StyleSheet.hairlineWidth,
-      backgroundColor: glassSeparator,
-      marginVertical: space[1],
-    },
-
     section: { marginBottom: space[4], paddingHorizontal: space[5] },
     sectionTitle: {
       ...type.footnote,
@@ -194,16 +178,14 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
 export default function ProfileScreen() {
   const colorScheme = useAppColorScheme();
   const palette = useColors();
-  const glassSeparator = useGlassSeparatorColor();
-  const styles = useMemo(() => createStyles(palette, glassSeparator), [palette, glassSeparator]);
+  const styles = useMemo(() => createStyles(palette), [palette]);
 
-  const { totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
   const setAppearance = useProfileStore((s) => s.setAppearance);
   const clearAll = useDebtStore((s) => s.clearAll);
-  const { currency, fmt } = useCurrency();
+  const { currency } = useCurrency();
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(name);
@@ -281,23 +263,6 @@ export default function ProfileScreen() {
           <View style={styles.offlineTag}>
             <View style={styles.offlineDot} />
             <Text style={styles.offlineLabel}>Offline</Text>
-          </View>
-        </GlassCard>
-
-        <GlassCard style={styles.statsRow} borderRadius={radius.card}>
-          <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: palette.positive }]}>{fmt(totalOwedToMe)}</Text>
-            <Text style={styles.statLabel}>Receivable</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: palette.negative }]}>{fmt(totalIOwe)}</Text>
-            <Text style={styles.statLabel}>Payable</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statValue, { color: palette.tint }]}>{settledCount}</Text>
-            <Text style={styles.statLabel}>Settled</Text>
           </View>
         </GlassCard>
 

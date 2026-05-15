@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AddBillSplitInput, BillSplit } from '@/features/bill-split/types';
+import { INITIAL_BILL_SPLITS } from '@/lib/mocks/initialBillSplits';
 import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/utils';
 
@@ -14,7 +15,7 @@ interface BillSplitState {
 export const useBillSplitStore = create<BillSplitState>()(
   persist(
     (set) => ({
-      splits: [],
+      splits: INITIAL_BILL_SPLITS,
       addSplit: ({ title, total, participantNames }) => {
         const names = participantNames
           .map((name) => name.trim())
