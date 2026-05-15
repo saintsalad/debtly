@@ -35,13 +35,22 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  Easing,
   interpolate,
+  runOnJS,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
+
+/** Scroll-driven header hide/show: one curve + duration so title and chrome stay in lockstep. */
+const TX_SCROLL_HEADER_SHOW_HIDE = {
+  duration: 300,
+  easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+} as const;
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
@@ -93,7 +102,8 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
-      marginBottom: space[6],
+      /** Bottom spacing lives inside the scroll-collapse clip (see `paddingBottom`). */
+      paddingBottom: space[6],
       backgroundColor: 'transparent',
     },
     toolbarMain: {
@@ -223,10 +233,28 @@ export default function TransactionsScreen() {
   const suppressSearchBlurRef = useRef(false);
   const searchFocusedRef = useRef(false);
   const transactionHeaderNaturalHeight = useRef(0);
+  const transactionChromeNaturalHeight = useRef(0);
   const hasMeasuredTxHeader = useRef(false);
+  const hasMeasuredTxChrome = useRef(false);
   /** When true, skip writing `txHeaderHeight` from onLayout so iOS does not cancel the expand animation. */
   const txHeaderHeightExpandLockRef = useRef(false);
   const txHeaderHeight = useSharedValue(120);
+  const txChromeHeight = useSharedValue(88);
+  const naturalTitleBlockHeightSV = useSharedValue(120);
+  const naturalChromeHeightSV = useSharedValue(88);
+  const lastListScrollY = useSharedValue(-1);
+  /** 1 = title + chrome (tabs / search toolbar) hidden by scroll. */
+  const headerCollapsedByScroll = useSharedValue(0);
+  /** Sums small upward dy while collapsed so slow scroll-up still reveals the header. */
+  const scrollRevealAccum = useSharedValue(0);
+  /** JS-side mirror for `onLayout` (avoid reading shared values on the RN JS thread). */
+  const headerHiddenByScrollRef = useRef(false);
+  /**
+   * Set on the UI thread before scroll-driven `withTiming` so `onLayout` (JS) can skip writes that
+   * would cancel the clip animation. Cleared when the timing finishes or the fallback timer fires.
+   */
+  const txScrollClipLayoutMuteSV = useSharedValue(0);
+  const txScrollClipAnimFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTrackWidth = useSharedValue(0);
   const searchProgress = useSharedValue(0);
   const debts = useDebtStore((s) => s.debts);
@@ -262,8 +290,41 @@ export default function TransactionsScreen() {
 
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
 
+  const endTxScrollClipAnimation = useCallback(() => {
+    txScrollClipLayoutMuteSV.value = 0;
+    if (txScrollClipAnimFallbackTimerRef.current) {
+      clearTimeout(txScrollClipAnimFallbackTimerRef.current);
+      txScrollClipAnimFallbackTimerRef.current = null;
+    }
+  }, [txScrollClipLayoutMuteSV]);
+
+  const beginTxScrollClipFallback = useCallback(() => {
+    if (txScrollClipAnimFallbackTimerRef.current) {
+      clearTimeout(txScrollClipAnimFallbackTimerRef.current);
+    }
+    txScrollClipAnimFallbackTimerRef.current = setTimeout(() => {
+      txScrollClipAnimFallbackTimerRef.current = null;
+      endTxScrollClipAnimation();
+    }, TX_SCROLL_HEADER_SHOW_HIDE.duration + 80);
+  }, [endTxScrollClipAnimation]);
+
+  const prepareScrollHeaderExpand = useCallback(() => {
+    headerHiddenByScrollRef.current = false;
+    beginTxScrollClipFallback();
+  }, [beginTxScrollClipFallback]);
+
+  const prepareScrollHeaderCollapse = useCallback(() => {
+    headerHiddenByScrollRef.current = true;
+    beginTxScrollClipFallback();
+  }, [beginTxScrollClipFallback]);
+
   const txHeaderAnimatedStyle = useAnimatedStyle(() => ({
     height: txHeaderHeight.value,
+    overflow: 'hidden' as const,
+  }));
+
+  const txChromeAnimatedStyle = useAnimatedStyle(() => ({
+    height: txChromeHeight.value,
     overflow: 'hidden' as const,
   }));
 
@@ -284,21 +345,53 @@ export default function TransactionsScreen() {
     transform: [{ translateX: interpolate(searchProgress.value, [0, 1], [14, 0]) }],
   }));
 
-  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
+  const { scrollY: statusBarScrollY } = useStatusBarScrollFade();
 
   const onTransactionHeaderLayout = useCallback(
     (e: LayoutChangeEvent) => {
       const h = e.nativeEvent.layout.height;
       if (h <= 0 || searchFocusedRef.current) return;
-      transactionHeaderNaturalHeight.current = h;
-      if (!hasMeasuredTxHeader.current) {
-        hasMeasuredTxHeader.current = true;
-      }
-      if (!txHeaderHeightExpandLockRef.current) {
-        txHeaderHeight.value = h;
+      if (h > 24) {
+        const prev = transactionHeaderNaturalHeight.current;
+        /** Ignore clipped intermediate heights while the clip animates open (keeps scroll hide/show targets stable). */
+        const stable = prev > 24 ? Math.max(prev, h) : h;
+        transactionHeaderNaturalHeight.current = stable;
+        naturalTitleBlockHeightSV.value = stable;
+        if (txScrollClipLayoutMuteSV.value === 1) {
+          return;
+        }
+        if (!headerHiddenByScrollRef.current && !txHeaderHeightExpandLockRef.current) {
+          if (!hasMeasuredTxHeader.current) {
+            hasMeasuredTxHeader.current = true;
+            txHeaderHeight.value = stable;
+          }
+        }
       }
     },
-    [txHeaderHeight]
+    [naturalTitleBlockHeightSV, txHeaderHeight, txScrollClipLayoutMuteSV]
+  );
+
+  const onChromeRowLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h <= 0 || searchFocusedRef.current) return;
+      if (h > 16) {
+        const prev = transactionChromeNaturalHeight.current;
+        const stable = prev > 16 ? Math.max(prev, h) : h;
+        transactionChromeNaturalHeight.current = stable;
+        naturalChromeHeightSV.value = stable;
+        if (txScrollClipLayoutMuteSV.value === 1) {
+          return;
+        }
+        if (!headerHiddenByScrollRef.current) {
+          if (!hasMeasuredTxChrome.current) {
+            hasMeasuredTxChrome.current = true;
+            txChromeHeight.value = stable;
+          }
+        }
+      }
+    },
+    [naturalChromeHeightSV, txChromeHeight, txScrollClipLayoutMuteSV]
   );
 
   const endSearchChrome = useCallback(() => {
@@ -329,24 +422,158 @@ export default function TransactionsScreen() {
       txHeaderHeight.value = withTiming(0, { duration: 220 });
       return;
     }
-    const target = transactionHeaderNaturalHeight.current || 96;
-    txHeaderHeight.value = withTiming(target, { duration: 220 });
-  }, [searchFieldFocused, txHeaderHeight]);
+    const natural = transactionHeaderNaturalHeight.current || 96;
+    const naturalChrome = transactionChromeNaturalHeight.current || 88;
+    if (headerHiddenByScrollRef.current) {
+      txHeaderHeight.value = withTiming(0, { duration: 220 });
+      txChromeHeight.value = withTiming(0, { duration: 220 });
+    } else {
+      txHeaderHeight.value = withTiming(natural, { duration: 220 });
+      txChromeHeight.value = withTiming(naturalChrome, { duration: 220 });
+    }
+  }, [searchFieldFocused, txChromeHeight, txHeaderHeight]);
+
+  const onListScroll = useAnimatedScrollHandler(
+    {
+      onBeginDrag: (e) => {
+        lastListScrollY.value = e.contentOffset.y;
+      },
+      onScroll: (e) => {
+        const y = e.contentOffset.y;
+        statusBarScrollY.value = y;
+
+        if (searchProgress.value > 0.12) {
+          lastListScrollY.value = y;
+          return;
+        }
+
+        if (lastListScrollY.value < 0) {
+          lastListScrollY.value = y;
+          return;
+        }
+
+        const prev = lastListScrollY.value;
+        const dy = y - prev;
+        lastListScrollY.value = y;
+
+        const naturalTitle = naturalTitleBlockHeightSV.value;
+        const naturalChrome = naturalChromeHeightSV.value;
+        if (naturalTitle < 1) {
+          return;
+        }
+
+        const collapsed = headerCollapsedByScroll.value === 1;
+
+        if (y <= 24) {
+          scrollRevealAccum.value = 0;
+          if (collapsed) {
+            headerCollapsedByScroll.value = 0;
+            txScrollClipLayoutMuteSV.value = 1;
+            runOnJS(prepareScrollHeaderExpand)();
+            txHeaderHeight.value = withTiming(naturalTitle, TX_SCROLL_HEADER_SHOW_HIDE, (finished) => {
+              if (finished) {
+                runOnJS(endTxScrollClipAnimation)();
+              }
+            });
+            txChromeHeight.value = withTiming(naturalChrome, TX_SCROLL_HEADER_SHOW_HIDE);
+          }
+          return;
+        }
+
+        if (collapsed) {
+          if (dy < -0.5) {
+            scrollRevealAccum.value += dy;
+          } else if (dy > 4) {
+            scrollRevealAccum.value = 0;
+          }
+          if (scrollRevealAccum.value <= -20 || dy < -12) {
+            scrollRevealAccum.value = 0;
+            headerCollapsedByScroll.value = 0;
+            txScrollClipLayoutMuteSV.value = 1;
+            runOnJS(prepareScrollHeaderExpand)();
+            txHeaderHeight.value = withTiming(naturalTitle, TX_SCROLL_HEADER_SHOW_HIDE, (finished) => {
+              if (finished) {
+                runOnJS(endTxScrollClipAnimation)();
+              }
+            });
+            txChromeHeight.value = withTiming(naturalChrome, TX_SCROLL_HEADER_SHOW_HIDE);
+          }
+          return;
+        }
+
+        scrollRevealAccum.value = 0;
+
+        if (dy > 6 && y > 56 && headerCollapsedByScroll.value === 0) {
+          txScrollClipLayoutMuteSV.value = 1;
+          runOnJS(prepareScrollHeaderCollapse)();
+          headerCollapsedByScroll.value = 1;
+          txHeaderHeight.value = withTiming(0, TX_SCROLL_HEADER_SHOW_HIDE, (finished) => {
+            if (finished) {
+              runOnJS(endTxScrollClipAnimation)();
+            }
+          });
+          txChromeHeight.value = withTiming(0, TX_SCROLL_HEADER_SHOW_HIDE);
+        }
+      },
+    },
+    [endTxScrollClipAnimation, prepareScrollHeaderCollapse, prepareScrollHeaderExpand]
+  );
 
   useFocusEffect(
     useCallback(() => {
       void SystemUI.setBackgroundColorAsync('transparent');
+      if (txScrollClipAnimFallbackTimerRef.current) {
+        clearTimeout(txScrollClipAnimFallbackTimerRef.current);
+        txScrollClipAnimFallbackTimerRef.current = null;
+      }
+      endTxScrollClipAnimation();
+      lastListScrollY.value = -1;
+      headerCollapsedByScroll.value = 0;
+      scrollRevealAccum.value = 0;
+      headerHiddenByScrollRef.current = false;
+      const n = transactionHeaderNaturalHeight.current;
+      const nc = transactionChromeNaturalHeight.current;
+      if (n && n > 24) {
+        txHeaderHeight.value = n;
+      }
+      if (nc && nc > 16) {
+        txChromeHeight.value = nc;
+      }
       return () => {
+        if (txScrollClipAnimFallbackTimerRef.current) {
+          clearTimeout(txScrollClipAnimFallbackTimerRef.current);
+          txScrollClipAnimFallbackTimerRef.current = null;
+        }
+        endTxScrollClipAnimation();
         searchInputRef.current?.blur();
         suppressSearchBlurRef.current = false;
         searchFocusedRef.current = false;
         setSearchFieldFocused(false);
         const target = transactionHeaderNaturalHeight.current || 96;
+        const targetChrome = transactionChromeNaturalHeight.current || 88;
         txHeaderHeight.value = target;
+        txChromeHeight.value = targetChrome;
+        naturalTitleBlockHeightSV.value = target;
+        naturalChromeHeightSV.value = targetChrome;
+        headerCollapsedByScroll.value = 0;
+        headerHiddenByScrollRef.current = false;
+        scrollRevealAccum.value = 0;
+        lastListScrollY.value = -1;
         closeTrackWidth.value = 0;
         searchProgress.value = 0;
       };
-    }, [closeTrackWidth, searchProgress, txHeaderHeight])
+    }, [
+      closeTrackWidth,
+      endTxScrollClipAnimation,
+      headerCollapsedByScroll,
+      lastListScrollY,
+      naturalChromeHeightSV,
+      naturalTitleBlockHeightSV,
+      scrollRevealAccum,
+      searchProgress,
+      txChromeHeight,
+      txHeaderHeight,
+    ])
   );
 
   const handleSearchFocus = useCallback(() => {
@@ -464,7 +691,7 @@ export default function TransactionsScreen() {
             style={styles.list}
             stickyHeaderIndices={[0]}
             scrollEventThrottle={16}
-            onScroll={statusBarScrollFadeOnScroll}
+            onScroll={onListScroll}
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -477,6 +704,7 @@ export default function TransactionsScreen() {
             <View
               style={[styles.stickyHeaderCluster, { paddingTop: insets.top }]}
               pointerEvents="box-none"
+              collapsable={false}
             >
               <Animated.View style={[txHeaderAnimatedStyle, styles.txHeaderClip]}>
                 <View onLayout={onTransactionHeaderLayout} style={styles.headerMeasureWrap}>
@@ -519,66 +747,74 @@ export default function TransactionsScreen() {
                 </View>
               </Animated.View>
 
-              <View style={styles.chromeRow}>
-                <View style={styles.toolbarMain}>
-                  <Animated.View
-                    style={[styles.toolbarLayer, idleToolbarStyle]}
-                    pointerEvents={searchFieldFocused ? 'none' : 'auto'}
-                    importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
-                  >
-                    <View style={styles.segmentIdleWrap}>
-                      <SegmentedControl
-                        variant="default"
-                        trackStyle={segmentedTrackStyle}
-                        options={['All', 'Owed you', 'You owe']}
-                        selectedIndex={segmentIndex}
-                        onChange={setSegmentIndex}
-                      />
-                    </View>
-                  </Animated.View>
-                  <Animated.View
-                    style={[styles.toolbarLayer, activeSearchToolbarStyle]}
-                    pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                    importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                  >
-                    <View style={styles.searchField}>
-                      <SearchField value={search} onChange={setSearch}>
-                        <SearchField.Group>
-                          <SearchField.SearchIcon />
-                          <SearchField.Input
-                            ref={searchInputRef}
-                            placeholder="Search by name or note"
-                            className="rounded-full h-9 py-0 bg-transparent"
-                            onFocus={handleSearchFocus}
-                            onBlur={handleSearchBlur}
-                          />
-                          <SearchField.ClearButton />
-                        </SearchField.Group>
-                      </SearchField>
-                    </View>
-                    <View style={styles.searchTrailing}>
-                      <Animated.View style={closeTrackAnimatedStyle}>
-                        <View
-                          style={styles.closeTrackInner}
-                          pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                          importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                        >
-                          <View style={{ width: space[2] }} />
-                          <View style={styles.closeSlot}>
-                            <HeaderIconButton
-                              icon={X}
-                              accessibilityLabel="Close search"
-                              onPress={handleCloseSearchChrome}
-                              variant="secondary"
-                              iconSize={20}
+              <Animated.View style={txChromeAnimatedStyle}>
+                <View
+                  onLayout={onChromeRowLayout}
+                  style={[
+                    styles.chromeRow,
+                    Platform.OS === 'android' && { paddingTop: space[2] },
+                  ]}
+                >
+                  <View style={styles.toolbarMain}>
+                    <Animated.View
+                      style={[styles.toolbarLayer, idleToolbarStyle]}
+                      pointerEvents={searchFieldFocused ? 'none' : 'auto'}
+                      importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
+                    >
+                      <View style={styles.segmentIdleWrap}>
+                        <SegmentedControl
+                          variant="default"
+                          trackStyle={segmentedTrackStyle}
+                          options={['All', 'Owed you', 'You owe']}
+                          selectedIndex={segmentIndex}
+                          onChange={setSegmentIndex}
+                        />
+                      </View>
+                    </Animated.View>
+                    <Animated.View
+                      style={[styles.toolbarLayer, activeSearchToolbarStyle]}
+                      pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                      importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                    >
+                      <View style={styles.searchField}>
+                        <SearchField value={search} onChange={setSearch}>
+                          <SearchField.Group>
+                            <SearchField.SearchIcon />
+                            <SearchField.Input
+                              ref={searchInputRef}
+                              placeholder="Search by name or note"
+                              className="rounded-full h-9 py-0 bg-transparent"
+                              onFocus={handleSearchFocus}
+                              onBlur={handleSearchBlur}
                             />
+                            <SearchField.ClearButton />
+                          </SearchField.Group>
+                        </SearchField>
+                      </View>
+                      <View style={styles.searchTrailing}>
+                        <Animated.View style={closeTrackAnimatedStyle}>
+                          <View
+                            style={styles.closeTrackInner}
+                            pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                            importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                          >
+                            <View style={{ width: space[2] }} />
+                            <View style={styles.closeSlot}>
+                              <HeaderIconButton
+                                icon={X}
+                                accessibilityLabel="Close search"
+                                onPress={handleCloseSearchChrome}
+                                variant="secondary"
+                                iconSize={20}
+                              />
+                            </View>
                           </View>
-                        </View>
-                      </Animated.View>
-                    </View>
-                  </Animated.View>
+                        </Animated.View>
+                      </View>
+                    </Animated.View>
+                  </View>
                 </View>
-              </View>
+              </Animated.View>
             </View>
 
             {filtered.length === 0 ? (
