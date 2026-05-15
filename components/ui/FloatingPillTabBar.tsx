@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Plus } from 'lucide-react-native';
@@ -11,13 +11,15 @@ import { GlassButton } from '@/components/ui/GlassButton';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useAddDebt } from '@/lib/addDebtContext';
 import { useGlassBorder } from '@/lib/glassBorder';
-import { useGlassCardShadow } from '@/lib/glassSurface';
+import { useFloatingBarShadow, useFloatingFabShadow } from '@/lib/glassSurface';
 import { space, useColors, type ColorPalette } from '@/lib/platform';
 
-const PILL_RADIUS = 30;
-const PILL_VERTICAL_PADDING = 6;
-const PILL_VERTICAL_PADDING_ANDROID = 4;
-const PILL_WIDTH_RATIO = 0.8;
+/** Shared height for the tab pill and add button. */
+const BAR_HEIGHT = 56;
+const BAR_RADIUS = BAR_HEIGHT / 2;
+const TAB_SLOT = BAR_HEIGHT;
+const BAR_HORIZONTAL_PADDING = space[4];
+const BAR_GAP = space[3];
 
 const TAB_ICON_ACTIVE_LIGHT = '#FFFFFF';
 const TAB_ICON_INACTIVE_LIGHT = 'rgba(255, 255, 255, 0.52)';
@@ -62,7 +64,7 @@ function TabItem({
   return (
     <Animated.View style={[styles.tabItem, animStyle]}>
       <Pressable
-        style={[styles.tabPressable, Platform.OS === 'android' && styles.tabPressableAndroid]}
+        style={styles.tabPressable}
         onPressIn={() => {
           scale.value = withSpring(0.84, { damping: 12, stiffness: 400 });
         }}
@@ -91,12 +93,12 @@ function TabItem({
   );
 }
 
-function CreateButton() {
+function CreateButton({ elevation }: { elevation: ViewStyle }) {
   const { present } = useAddDebt();
   const accentForeground = useThemeColor('accent-foreground');
 
   return (
-    <View style={styles.createContainer}>
+    <View style={[styles.fabSlot, Platform.OS === 'ios' && elevation]}>
       <GlassButton
         isIconOnly
         size="md"
@@ -104,7 +106,7 @@ function CreateButton() {
         glassVariant="tint"
         feedbackVariant="scale-ripple"
         animation={{ scale: { value: 0.97 } }}
-        className="self-center shadow-md"
+        style={[styles.fabButton, Platform.OS === 'android' && elevation]}
         onPress={present}
       >
         <Plus size={22} color={accentForeground} />
@@ -124,7 +126,6 @@ function TabRow({
   scheme: 'light' | 'dark';
 }) {
   const routes = state.routes;
-  const mid = Math.floor(routes.length / 2);
 
   const renderTab = (route: (typeof routes)[0]) => {
     const index = routes.indexOf(route);
@@ -151,13 +152,7 @@ function TabRow({
     );
   };
 
-  return (
-    <View style={styles.tabRow}>
-      {routes.slice(0, mid).map(renderTab)}
-      <CreateButton />
-      {routes.slice(mid).map(renderTab)}
-    </View>
-  );
+  return <View style={styles.tabRow}>{routes.map(renderTab)}</View>;
 }
 
 export function FloatingPillTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -165,9 +160,8 @@ export function FloatingPillTabBar({ state, descriptors, navigation }: BottomTab
   const insets = useSafeAreaInsets();
   const scheme = useAppColorScheme();
   const glassBorder = useGlassBorder('surface');
-  const shadow = useGlassCardShadow();
-  const pillVerticalPadding =
-    Platform.OS === 'android' ? PILL_VERTICAL_PADDING_ANDROID : PILL_VERTICAL_PADDING;
+  const pillElevation = useFloatingBarShadow();
+  const fabElevation = useFloatingFabShadow();
   const blurTint = 'dark' as const;
   const blurIntensity = scheme === 'dark' ? 100 : 92;
 
@@ -181,6 +175,32 @@ export function FloatingPillTabBar({ state, descriptors, navigation }: BottomTab
     />
   );
 
+  const pillStyle = {
+    height: BAR_HEIGHT,
+    borderRadius: BAR_RADIUS,
+    borderCurve: Platform.OS === 'ios' ? ('continuous' as const) : undefined,
+  };
+
+  const pillContent =
+    Platform.OS === 'ios' ? (
+      <BlurView
+        intensity={blurIntensity}
+        tint={blurTint}
+        style={[styles.pill, pillStyle]}
+      >
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: iosPillBlurScrim(scheme) },
+          ]}
+        />
+        {tabRow}
+      </BlurView>
+    ) : (
+      <View style={[styles.pill, styles.pillAndroid, pillStyle]}>{tabRow}</View>
+    );
+
   return (
     <View
       pointerEvents="box-none"
@@ -188,55 +208,36 @@ export function FloatingPillTabBar({ state, descriptors, navigation }: BottomTab
         styles.wrapper,
         {
           paddingBottom: Math.max(insets.bottom, space[2]) + space[2],
+          paddingHorizontal: BAR_HORIZONTAL_PADDING,
+          gap: BAR_GAP,
+          minHeight: BAR_HEIGHT,
         },
       ]}
     >
       <View
         style={[
-          styles.pillShadow,
-          shadow,
-          glassBorder,
-          {
-            width: `${PILL_WIDTH_RATIO * 100}%`,
-            borderRadius: PILL_RADIUS,
-            borderCurve: Platform.OS === 'ios' ? 'continuous' : undefined,
-          },
+          styles.pillElevated,
+          pillStyle,
+          styles.pillShell,
+          Platform.OS === 'ios' && pillElevation,
+          Platform.OS === 'android' && [
+            pillElevation,
+            { backgroundColor: androidPillBackground() },
+          ],
         ]}
       >
-        {Platform.OS === 'ios' ? (
-          <BlurView
-            intensity={blurIntensity}
-            tint={blurTint}
-            style={[
-              styles.pill,
-              { borderRadius: PILL_RADIUS, paddingVertical: pillVerticalPadding },
-            ]}
-          >
-            <View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFillObject,
-                { backgroundColor: iosPillBlurScrim(scheme) },
-              ]}
-            />
-            {tabRow}
-          </BlurView>
-        ) : (
-          <View
-            style={[
-              styles.pill,
-              styles.pillAndroid,
-              {
-                borderRadius: PILL_RADIUS,
-                paddingVertical: pillVerticalPadding,
-                backgroundColor: androidPillBackground(),
-              },
-            ]}
-          >
-            {tabRow}
-          </View>
-        )}
+        <View
+          style={[
+            styles.pillClip,
+            Platform.OS === 'android' && styles.pillClipAndroid,
+            glassBorder,
+            pillStyle,
+          ]}
+        >
+          {pillContent}
+        </View>
       </View>
+      <CreateButton elevation={fabElevation} />
     </View>
   );
 }
@@ -247,36 +248,58 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  pillShadow: {
+  pillShell: {
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+  },
+  pillElevated: {
+    backgroundColor: 'transparent',
+  },
+  pillClip: {
     overflow: 'hidden',
+  },
+  pillClipAndroid: {
+    overflow: 'visible',
   },
   pill: {
     overflow: 'hidden',
     paddingHorizontal: space[1],
+    justifyContent: 'center',
+  },
+  pillAndroid: {
+    overflow: 'visible',
   },
   tabRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: BAR_HEIGHT,
   },
   tabItem: {
-    flex: 1,
-    minWidth: 0,
+    width: TAB_SLOT,
+    height: TAB_SLOT,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabPressable: {
-    width: '100%',
+    width: TAB_SLOT,
+    height: TAB_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: space[2],
   },
-  tabPressableAndroid: {
-    paddingVertical: space[1],
-  },
-  createContainer: {
-    flex: 1,
-    minWidth: 0,
+  fabSlot: {
+    width: BAR_HEIGHT,
+    height: BAR_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
+  },
+  fabButton: {
+    width: BAR_HEIGHT,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_RADIUS,
   },
 });

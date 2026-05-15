@@ -97,3 +97,37 @@ export function useGlassCardShadow() {
   const scheme = useAppColorScheme();
   return useMemo(() => glassCardShadowStyle(scheme), [scheme]);
 }
+
+/** Elevated shadow for floating bottom chrome (tab pill, FAB). */
+export function floatingBarShadowStyle(scheme: 'light' | 'dark'): ViewStyle {
+  return Platform.OS === 'ios'
+    ? {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: scheme === 'dark' ? 0.42 : 0.2,
+        shadowRadius: 20,
+      }
+    : { elevation: 12 };
+}
+
+/** Accent-tinted elevation for the floating add button. */
+export function floatingFabShadowStyle(tint: string): ViewStyle {
+  return Platform.OS === 'ios'
+    ? {
+        shadowColor: tint,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.38,
+        shadowRadius: 14,
+      }
+    : { elevation: 14 };
+}
+
+export function useFloatingBarShadow() {
+  const scheme = useAppColorScheme();
+  return useMemo(() => floatingBarShadowStyle(scheme), [scheme]);
+}
+
+export function useFloatingFabShadow() {
+  const palette = useColors();
+  return useMemo(() => floatingFabShadowStyle(palette.tint), [palette.tint]);
+}

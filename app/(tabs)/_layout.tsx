@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Split } from 'lucide-react-native';
 import { FloatingPillTabBar } from '@/components/ui/FloatingPillTabBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
@@ -30,9 +31,7 @@ export default function TabLayout() {
         name="bill-split"
         options={{
           title: 'Bill split',
-          tabBarIcon: ({ color, size }) => (
-            <IconSymbol name="person.2.fill" size={size} color={color} />
-          ),
+          tabBarIcon: ({ color, size }) => <Split size={size} color={color} />,
         }}
       />
       <Tabs.Screen
