@@ -14,7 +14,7 @@ import {
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { glassBorderStyle } from '@/lib/glassBorder';
+import { glassBorderStyle, glassBorderWidth } from '@/lib/glassBorder';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
@@ -147,7 +147,6 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     },
     segmentIdleWrap: {
       width: '100%',
-      alignItems: 'center',
       backgroundColor: 'transparent',
     },
     toolbarIconWrap: {
@@ -203,7 +202,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     headerMeasureWrap: {
       backgroundColor: 'transparent',
     },
-  screenLayerStack: {
+    screenLayerStack: {
       flex: 1,
       position: 'relative',
       backgroundColor: 'transparent',
@@ -850,53 +849,53 @@ export default function TransactionsScreen() {
               >
                 <Animated.View style={[styles.scrollTopSpacer, scrollTopSpacerStyle]} />
                 {showSearchSuggestions ? (
-                <View style={styles.suggestedSection}>
-                  <Text style={styles.suggestedHeader} accessibilityRole="header">
-                    Suggested
-                  </Text>
-                  <View style={styles.suggestionRow}>
-                    <View style={styles.suggestionIconTrack}>
-                      <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                  <View style={styles.suggestedSection}>
+                    <Text style={styles.suggestedHeader} accessibilityRole="header">
+                      Suggested
+                    </Text>
+                    <View style={styles.suggestionRow}>
+                      <View style={styles.suggestionIconTrack}>
+                        <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                      </View>
+                      <Text style={styles.suggestionLabel}>Name</Text>
                     </View>
-                    <Text style={styles.suggestionLabel}>Name</Text>
-                  </View>
-                  <View style={styles.suggestionDivider} />
-                  <View style={styles.suggestionRow}>
-                    <View style={styles.suggestionIconTrack}>
-                      <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                    </View>
-                    <Text style={styles.suggestionLabel}>Note</Text>
-                  </View>
-                </View>
-              ) : filtered.length === 0 ? (
-                <EmptyState
-                  title={search || hasActiveFilters ? 'No results' : 'No transactions'}
-                  subtitle={emptySubtitle}
-                  icon={
-                    search || hasActiveFilters ? (
-                      <SearchX size={40} color={palette.labelTertiary} />
-                    ) : (
-                      <Receipt size={40} color={palette.labelTertiary} />
-                    )
-                  }
-                />
-              ) : (
-                sections.map((section) => (
-                  <View key={section.key} style={styles.sectionBlock}>
-                    <Text style={styles.sectionTitle}>{section.title}</Text>
-                    <View style={styles.sectionCard}>
-                      {section.data.map((debt, index) => (
-                        <TransactionRow
-                          key={debt.id}
-                          debt={debt}
-                          onPress={() => handleSelect(debt)}
-                          showSeparator={index < section.data.length - 1}
-                        />
-                      ))}
+                    <View style={styles.suggestionDivider} />
+                    <View style={styles.suggestionRow}>
+                      <View style={styles.suggestionIconTrack}>
+                        <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                      </View>
+                      <Text style={styles.suggestionLabel}>Note</Text>
                     </View>
                   </View>
-                ))
-              )}
+                ) : filtered.length === 0 ? (
+                  <EmptyState
+                    title={search || hasActiveFilters ? 'No results' : 'No transactions'}
+                    subtitle={emptySubtitle}
+                    icon={
+                      search || hasActiveFilters ? (
+                        <SearchX size={40} color={palette.labelTertiary} />
+                      ) : (
+                        <Receipt size={40} color={palette.labelTertiary} />
+                      )
+                    }
+                  />
+                ) : (
+                  sections.map((section) => (
+                    <View key={section.key} style={styles.sectionBlock}>
+                      <Text style={styles.sectionTitle}>{section.title}</Text>
+                      <View style={styles.sectionCard}>
+                        {section.data.map((debt, index) => (
+                          <TransactionRow
+                            key={debt.id}
+                            debt={debt}
+                            onPress={() => handleSelect(debt)}
+                            showSeparator={index < section.data.length - 1}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))
+                )}
               </Animated.ScrollView>
 
               <StatusBarScrollFadeStrip />
@@ -962,6 +961,7 @@ export default function TransactionsScreen() {
                     onLayout={onChromeRowLayout}
                     style={[
                       styles.chromeRow,
+                      Platform.OS === 'ios' && { paddingTop: glassBorderWidth },
                       Platform.OS === 'android' && { paddingTop: space[2] },
                     ]}
                   >
@@ -973,7 +973,7 @@ export default function TransactionsScreen() {
                       >
                         <View style={styles.segmentIdleWrap}>
                           <SegmentedControl
-                            variant="default"
+                            variant="inline"
                             trackStyle={segmentedTrackStyle}
                             options={['All', 'Owed you', 'You owe']}
                             selectedIndex={segmentIndex}

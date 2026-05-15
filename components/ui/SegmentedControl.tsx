@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { glassBorderStyle } from '@/lib/glassBorder';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import React, { useMemo } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 interface SegmentedControlProps {
   options: string[];
@@ -14,7 +14,7 @@ interface SegmentedControlProps {
   trackStyle?: StyleProp<ViewStyle>;
 }
 
-const TRACK_PAD = 2;
+const TRACK_PAD = 1;
 const INNER_RADIUS = radius.md - TRACK_PAD;
 
 function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' | 'inline') {
@@ -30,6 +30,7 @@ function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' |
       padding: TRACK_PAD,
       minHeight: 36,
       ...glassBorderStyle(dark ? 'dark' : 'light', 'surface'),
+      ...(Platform.OS === 'ios' ? { overflow: 'visible' as const } : null),
     },
     segment: {
       flex: 1,
@@ -37,14 +38,23 @@ function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' |
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: INNER_RADIUS,
-      paddingHorizontal: space[2],
     },
     activeSegment: {
+      alignSelf: 'stretch',
+      width: '100%',
+      minHeight: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: INNER_RADIUS,
       backgroundColor: dark ? palette.surfaceRaised : palette.surface,
       ...glassBorderStyle(dark ? 'dark' : 'light', 'secondary'),
-      ...(dark
-        ? {}
-        : {
+      ...(Platform.OS === 'ios'
+        ? {
+          borderCurve: 'continuous' as const,
+        }
+        : dark
+          ? {}
+          : {
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 0.5 },
             shadowOpacity: 0.12,
@@ -55,6 +65,7 @@ function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' |
       ...type.footnote,
       fontWeight: '500',
       color: palette.labelSecondary,
+      paddingHorizontal: space[1],
     },
     activeLabel: {
       color: palette.label,
@@ -88,15 +99,20 @@ export function SegmentedControl({
               key={option}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              style={[styles.segment, active && styles.activeSegment]}
+              style={styles.segment}
               onPress={() => onChange(index)}
             >
-              <Text
-                style={[styles.label, active && styles.activeLabel]}
-                numberOfLines={1}
-              >
-                {option}
-              </Text>
+              {active ? (
+                <View style={styles.activeSegment}>
+                  <Text style={[styles.label, styles.activeLabel]} numberOfLines={1}>
+                    {option}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.label} numberOfLines={1}>
+                  {option}
+                </Text>
+              )}
             </Pressable>
           );
         })}
