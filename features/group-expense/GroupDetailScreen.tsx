@@ -1,8 +1,10 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, MoreHorizontal, UserPlus } from 'lucide-react-native';
+import { ChevronLeft, Camera, MoreHorizontal, UserPlus } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AvatarStack, sortMembersForStack } from '@/components/ui/AvatarStack';
@@ -17,6 +19,7 @@ import { buildGroupActivity } from '@/features/group-expense/activityFeed';
 import { isExpenseTappable } from '@/features/group-expense/activityLog';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
 import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
+import { pickGroupPhotoFromLibrary } from '@/features/group-expense/pickGroupPhoto';
 import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
 import { shareGroupSummary, sendGroupReminder } from '@/features/group-expense/groupExpenseActions';
 import { GroupMembersSheet, type GroupMembersSheetHandle } from '@/features/group-expense/GroupMembersSheet';
@@ -29,9 +32,11 @@ import {
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { CURRENCIES } from '@/lib/utils';
-import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
+
+const GROUP_HERO_MIN_HEIGHT = 248;
 
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
@@ -68,18 +73,61 @@ function createStyles(palette: ColorPalette) {
       ...type.caption1,
       marginBottom: space[2],
     },
-    heroCard: {
-      paddingVertical: space[2],
+    heroShell: {
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+    },
+    heroMedia: {
+      width: '100%',
+      minHeight: GROUP_HERO_MIN_HEIGHT,
+      backgroundColor: palette.fill,
+    },
+    heroImage: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    heroGradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    heroCameraFab: {
+      position: 'absolute',
+      top: space[3],
+      right: space[3],
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(255,255,255,0.35)',
+    },
+    heroOverlayBottom: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: space[4],
+      paddingBottom: space[5],
+      paddingTop: space[10],
+      gap: space[2],
     },
     heroMembers: {
       alignItems: 'center',
       gap: space[2],
-      paddingTop: space[2],
-      paddingBottom: space[1],
     },
     heroMemberLabel: {
       ...type.footnote,
-      color: palette.labelTertiary,
+      color: 'rgba(255,255,255,0.82)',
+      textAlign: 'center',
+      textShadowColor: 'rgba(0,0,0,0.35)',
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 2,
+    },
+    heroPhotoHint: {
+      ...type.caption1,
+      color: 'rgba(255,255,255,0.55)',
+      textAlign: 'center',
+      marginBottom: space[1],
     },
   });
 }
@@ -91,6 +139,7 @@ export function GroupDetailScreen() {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
+  const cardShadow = useCardShadow();
   const { fmt } = useCurrency();
   const currency = useProfileStore((s) => s.currency);
   const currencySymbol = CURRENCIES[currency]?.symbol ?? currency;
@@ -100,6 +149,7 @@ export function GroupDetailScreen() {
   const settlements = useGroupExpenseStore((s) => s.settlements);
   const activityLog = useGroupExpenseStore((s) => s.activityLog);
   const deleteGroup = useGroupExpenseStore((s) => s.deleteGroup);
+  const setGroupImage = useGroupExpenseStore((s) => s.setGroupImage);
 
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
@@ -146,9 +196,49 @@ export function GroupDetailScreen() {
     settlementSheetRef.current?.present(group.id);
   }, [group, summary]);
 
+  const openGroupPhotoOptions = useCallback(() => {
+    if (!group) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const choosePhoto = async () => {
+      const uri = await pickGroupPhotoFromLibrary();
+      if (uri) {
+        setGroupImage(group.id, uri);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    };
+
+    const buttons: {
+      text: string;
+      style?: 'destructive' | 'cancel';
+      onPress?: () => void;
+    }[] = [
+      { text: 'Choose photo', onPress: () => void choosePhoto() },
+    ];
+
+    if (group.imageUri) {
+      buttons.push({
+        text: 'Remove photo',
+        style: 'destructive',
+        onPress: () => {
+          setGroupImage(group.id, undefined);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+      });
+    }
+
+    buttons.push({ text: 'Cancel', style: 'cancel' });
+
+    Alert.alert('Group photo', 'Add or change the banner image for this group.', buttons);
+  }, [group, setGroupImage]);
+
   const showMenu = () => {
     if (!group) return;
     Alert.alert(group.name, undefined, [
+      {
+        text: 'Group photo',
+        onPress: () => openGroupPhotoOptions(),
+      },
       {
         text: 'Share summary',
         onPress: () =>
@@ -221,27 +311,67 @@ export function GroupDetailScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
           >
-            <GlassCard style={styles.heroCard}>
-              <Pressable
-                style={styles.heroMembers}
-                onPress={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  membersSheetRef.current?.present(group.id);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="View and manage group members"
-              >
-                <AvatarStack members={stackMembers} size={40} maxVisible={5} />
-                <Text style={styles.heroMemberLabel}>
-                  {group.members.length}{' '}
-                  {group.members.length === 1 ? 'member' : 'members'} · tap to manage
-                </Text>
-              </Pressable>
-              <GroupBalanceHero
-                summary={summary}
-                totalSpendMinor={summary.totalSpendMinor}
-              />
-            </GlassCard>
+            <View style={[styles.heroShell, cardShadow]}>
+              <View style={styles.heroMedia}>
+                {group.imageUri ? (
+                  <Image
+                    source={{ uri: group.imageUri }}
+                    style={styles.heroImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <View style={[styles.heroImage, { backgroundColor: palette.fill }]} />
+                )}
+
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={['rgba(0,0,0,0.25)', 'transparent', 'rgba(0,0,0,0.88)']}
+                  locations={[0, 0.38, 1]}
+                  style={styles.heroGradient}
+                />
+
+                <Pressable
+                  onPress={openGroupPhotoOptions}
+                  style={styles.heroCameraFab}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change group photo"
+                >
+                  <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
+                </Pressable>
+
+                <View style={styles.heroOverlayBottom} pointerEvents="box-none">
+                  {!group.imageUri ? (
+                    <Text style={styles.heroPhotoHint}>Add a cover photo · camera above</Text>
+                  ) : null}
+                  <Pressable
+                    style={styles.heroMembers}
+                    onPress={() => {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      membersSheetRef.current?.present(group.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="View and manage group members"
+                  >
+                    <AvatarStack
+                      members={stackMembers}
+                      size={40}
+                      maxVisible={5}
+                      overlay
+                    />
+                    <Text style={styles.heroMemberLabel}>
+                      {group.members.length}{' '}
+                      {group.members.length === 1 ? 'member' : 'members'} · tap to manage
+                    </Text>
+                  </Pressable>
+                  <GroupBalanceHero
+                    summary={summary}
+                    totalSpendMinor={summary.totalSpendMinor}
+                    overlay
+                  />
+                </View>
+              </View>
+            </View>
 
             <GroupQuickActions
               onAddExpense={() => expenseSheetRef.current?.present(group.id)}

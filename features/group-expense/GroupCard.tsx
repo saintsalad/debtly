@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
@@ -65,6 +66,17 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     positive: { color: palette.positive },
     negative: { color: palette.negative },
     neutral: { color: palette.labelTertiary },
+    groupThumb: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      overflow: 'hidden',
+      backgroundColor: palette.fill,
+    },
+    groupThumbImage: {
+      width: '100%',
+      height: '100%',
+    },
   });
 }
 
@@ -104,7 +116,18 @@ export function GroupCard({
         onPress={handlePress}
         accessibilityRole="button"
       >
-        <Avatar name={group.name} size={44} />
+        {group.imageUri ? (
+          <View style={styles.groupThumb}>
+            <Image
+              source={{ uri: group.imageUri }}
+              style={styles.groupThumbImage}
+              contentFit="cover"
+              transition={150}
+            />
+          </View>
+        ) : (
+          <Avatar name={group.name} size={44} />
+        )}
         <View style={styles.body}>
           <View style={styles.topRow}>
             <Text style={styles.name} numberOfLines={1}>

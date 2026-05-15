@@ -40,7 +40,13 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Debtly to choose a photo for your group."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

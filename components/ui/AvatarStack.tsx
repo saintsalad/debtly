@@ -26,9 +26,11 @@ interface AvatarStackProps {
   members: AvatarStackMember[];
   size?: number;
   maxVisible?: number;
+  /** Styling for rings / +N chip on dark hero backgrounds */
+  overlay?: boolean;
 }
 
-function createStyles(palette: ColorPalette, size: number) {
+function createStyles(palette: ColorPalette, size: number, overlay: boolean) {
   const outer = size + RING_WIDTH * 2;
   return StyleSheet.create({
     root: {
@@ -53,7 +55,7 @@ function createStyles(palette: ColorPalette, size: number) {
       height: outer,
       borderRadius: outer / 2,
       borderWidth: RING_WIDTH,
-      borderColor: palette.surface,
+      borderColor: overlay ? 'rgba(255,255,255,0.5)' : palette.surface,
     },
     overflow: {
       width: size,
@@ -61,12 +63,12 @@ function createStyles(palette: ColorPalette, size: number) {
       borderRadius: size / 2,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: palette.fill,
+      backgroundColor: overlay ? 'rgba(255,255,255,0.22)' : palette.fill,
     },
     overflowText: {
       ...type.caption2,
       fontWeight: '600',
-      color: palette.labelSecondary,
+      color: overlay ? 'rgba(255,255,255,0.95)' : palette.labelSecondary,
     },
   });
 }
@@ -104,9 +106,9 @@ function StackSlot({
   );
 }
 
-export function AvatarStack({ members, size = 36, maxVisible = 4 }: AvatarStackProps) {
+export function AvatarStack({ members, size = 36, maxVisible = 4, overlay }: AvatarStackProps) {
   const palette = useColors();
-  const styles = useMemo(() => createStyles(palette, size), [palette, size]);
+  const styles = useMemo(() => createStyles(palette, size, Boolean(overlay)), [palette, size, overlay]);
 
   if (members.length === 0) return null;
 
