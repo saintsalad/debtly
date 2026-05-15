@@ -1,42 +1,44 @@
-import React, { useCallback, useMemo, useRef } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Camera, MoreHorizontal, UserPlus } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { AvatarStack, sortMembersForStack } from '@/components/ui/AvatarStack';
 import { AppScreen } from '@/components/ui/AppScreen';
+import { AvatarStack, sortMembersForStack } from '@/components/ui/AvatarStack';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { ListDivider } from '@/components/ui/ListDivider';
-import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
-import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { buildGroupActivity } from '@/features/group-expense/activityFeed';
+import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
 import { isExpenseTappable } from '@/features/group-expense/activityLog';
-import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
-import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
-import { pickGroupPhotoFromLibrary } from '@/features/group-expense/pickGroupPhoto';
+import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
-import { shareGroupSummary, sendGroupReminder } from '@/features/group-expense/groupExpenseActions';
+import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
+import { sendGroupReminder, shareGroupSummary } from '@/features/group-expense/groupExpenseActions';
 import { GroupMembersSheet, type GroupMembersSheetHandle } from '@/features/group-expense/GroupMembersSheet';
+import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
 import { InviteMembersSheet, type InviteMembersSheetHandle } from '@/features/group-expense/InviteMembersSheet';
 import { MemberBalanceRow } from '@/features/group-expense/MemberBalanceRow';
+import { pickGroupPhotoFromLibrary } from '@/features/group-expense/pickGroupPhoto';
 import {
   RecordSettlementSheet,
   type RecordSettlementSheetHandle,
 } from '@/features/group-expense/RecordSettlementSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
-import { CURRENCIES } from '@/lib/utils';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
+import { CURRENCIES } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Camera, ChevronLeft, MoreHorizontal, UserPlus } from 'lucide-react-native';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const GROUP_HERO_MIN_HEIGHT = 248;
+const HERO_CARD_MIN_HEIGHT = 304;
+const HERO_GRADIENT_TOP = 56;
+const FOOTER_TOP_RADIUS = 20;
 
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
@@ -76,17 +78,21 @@ function createStyles(palette: ColorPalette) {
     heroShell: {
       borderRadius: radius.lg,
       overflow: 'hidden',
-    },
-    heroMedia: {
-      width: '100%',
-      minHeight: GROUP_HERO_MIN_HEIGHT,
       backgroundColor: palette.fill,
+    },
+    heroFullBleed: {
+      width: '100%',
+      minHeight: HERO_CARD_MIN_HEIGHT,
     },
     heroImage: {
       ...StyleSheet.absoluteFillObject,
     },
-    heroGradient: {
-      ...StyleSheet.absoluteFillObject,
+    heroGradientTop: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      height: HERO_GRADIENT_TOP,
     },
     heroCameraFab: {
       position: 'absolute',
@@ -101,33 +107,44 @@ function createStyles(palette: ColorPalette) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: 'rgba(255,255,255,0.35)',
     },
-    heroOverlayBottom: {
+    heroFooter: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
+      borderTopLeftRadius: FOOTER_TOP_RADIUS,
+      borderTopRightRadius: FOOTER_TOP_RADIUS,
+      overflow: 'hidden',
+    },
+    heroFooterGradient: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    heroFooterInner: {
       paddingHorizontal: space[4],
-      paddingBottom: space[5],
-      paddingTop: space[10],
-      gap: space[2],
+      paddingTop: space[3],
+      paddingBottom: space[4],
+    },
+    heroFooterDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      marginVertical: space[3],
+      alignSelf: 'stretch',
     },
     heroMembers: {
       alignItems: 'center',
       gap: space[2],
     },
     heroMemberLabel: {
-      ...type.footnote,
-      color: 'rgba(255,255,255,0.82)',
+      ...type.caption1,
+      fontWeight: '500',
+      color: 'rgba(255,255,255,0.92)',
       textAlign: 'center',
-      textShadowColor: 'rgba(0,0,0,0.35)',
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 2,
     },
     heroPhotoHint: {
       ...type.caption1,
-      color: 'rgba(255,255,255,0.55)',
       textAlign: 'center',
-      marginBottom: space[1],
+      marginBottom: space[2],
+      color: 'rgba(255,255,255,0.72)',
     },
   });
 }
@@ -213,8 +230,8 @@ export function GroupDetailScreen() {
       style?: 'destructive' | 'cancel';
       onPress?: () => void;
     }[] = [
-      { text: 'Choose photo', onPress: () => void choosePhoto() },
-    ];
+        { text: 'Choose photo', onPress: () => void choosePhoto() },
+      ];
 
     if (group.imageUri) {
       buttons.push({
@@ -312,7 +329,7 @@ export function GroupDetailScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={[styles.heroShell, cardShadow]}>
-              <View style={styles.heroMedia}>
+              <View style={styles.heroFullBleed}>
                 {group.imageUri ? (
                   <Image
                     source={{ uri: group.imageUri }}
@@ -326,9 +343,9 @@ export function GroupDetailScreen() {
 
                 <LinearGradient
                   pointerEvents="none"
-                  colors={['rgba(0,0,0,0.25)', 'transparent', 'rgba(0,0,0,0.88)']}
-                  locations={[0, 0.38, 1]}
-                  style={styles.heroGradient}
+                  colors={['rgba(0,0,0,0.28)', 'transparent']}
+                  locations={[0, 1]}
+                  style={styles.heroGradientTop}
                 />
 
                 <Pressable
@@ -340,35 +357,47 @@ export function GroupDetailScreen() {
                   <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
                 </Pressable>
 
-                <View style={styles.heroOverlayBottom} pointerEvents="box-none">
-                  {!group.imageUri ? (
-                    <Text style={styles.heroPhotoHint}>Add a cover photo · camera above</Text>
-                  ) : null}
-                  <Pressable
-                    style={styles.heroMembers}
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      membersSheetRef.current?.present(group.id);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="View and manage group members"
-                  >
-                    <AvatarStack
-                      members={stackMembers}
-                      size={40}
-                      maxVisible={5}
-                      overlay
-                    />
-                    <Text style={styles.heroMemberLabel}>
-                      {group.members.length}{' '}
-                      {group.members.length === 1 ? 'member' : 'members'} · tap to manage
-                    </Text>
-                  </Pressable>
-                  <GroupBalanceHero
-                    summary={summary}
-                    totalSpendMinor={summary.totalSpendMinor}
-                    overlay
+                <View style={styles.heroFooter}>
+                  <LinearGradient
+                    pointerEvents="none"
+                    colors={['transparent', 'rgba(0,0,0,0.22)', 'rgba(0,0,0,0.84)']}
+                    locations={[0, 0.32, 1]}
+                    style={styles.heroFooterGradient}
                   />
+                  <View style={styles.heroFooterInner}>
+                    {!group.imageUri ? (
+                      <Text style={styles.heroPhotoHint}>
+                        Add a cover photo — tap the camera on the image
+                      </Text>
+                    ) : null}
+                    <Pressable
+                      style={styles.heroMembers}
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        membersSheetRef.current?.present(group.id);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="View and manage group members"
+                    >
+                      <AvatarStack
+                        members={stackMembers}
+                        size={36}
+                        maxVisible={5}
+                        overlay
+                      />
+                      <Text style={styles.heroMemberLabel}>
+                        {group.members.length}{' '}
+                        {group.members.length === 1 ? 'member' : 'members'} · manage
+                      </Text>
+                    </Pressable>
+                    <View style={styles.heroFooterDivider} />
+                    <GroupBalanceHero
+                      summary={summary}
+                      totalSpendMinor={summary.totalSpendMinor}
+                      overlay
+                      compact
+                    />
+                  </View>
                 </View>
               </View>
             </View>
@@ -423,7 +452,7 @@ export function GroupDetailScreen() {
                         onPress={
                           isExpenseTappable(item.kind, item.expenseId, expenses)
                             ? () =>
-                                expenseSheetRef.current?.present(group.id, item.expenseId)
+                              expenseSheetRef.current?.present(group.id, item.expenseId)
                             : undefined
                         }
                       />
