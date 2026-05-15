@@ -30,26 +30,26 @@ export default function RootLayout() {
               <TransactionDetailProvider>
                 <StatusBarScrollFadeProvider>
                   <Stack>
-                  <Stack.Screen
-                    name="(tabs)"
-                    options={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: 'transparent' },
-                    }}
-                  />
-                  <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-                  <Stack.Screen
-                    name="add-transaction"
-                    options={{ presentation: 'fullScreenModal', headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="transaction/[id]"
-                    options={{ presentation: 'fullScreenModal', headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="edit-transaction/[id]"
-                    options={{ presentation: 'fullScreenModal', headerShown: false }}
-                  />
+                    <Stack.Screen
+                      name="(tabs)"
+                      options={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: 'transparent' },
+                      }}
+                    />
+                    <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                    <Stack.Screen
+                      name="add-transaction"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="transaction/[id]"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="edit-transaction/[id]"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
                   </Stack>
                 </StatusBarScrollFadeProvider>
               </TransactionDetailProvider>

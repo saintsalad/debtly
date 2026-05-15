@@ -1,4 +1,5 @@
 import { AppScreen } from '@/components/ui/AppScreen';
+import { ContextMenuDropdown, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -14,17 +15,27 @@ import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
-import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
+import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useDebtStore } from '@/stores/debtStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SearchField } from 'heroui-native';
-import { MoreHorizontal, Receipt, Search, SearchX, StickyNote, User, X } from 'lucide-react-native';
+import {
+  ArrowDownUp,
+  MoreHorizontal,
+  Receipt,
+  RotateCcw,
+  Search,
+  SearchX,
+  SlidersHorizontal,
+  StickyNote,
+  User,
+  X,
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   InteractionManager,
   LayoutChangeEvent,
   Platform,
@@ -269,8 +280,11 @@ export default function TransactionsScreen() {
   const [search, setSearch] = useState('');
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
   const [segmentIndex, setSegmentIndex] = useState(0);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [txSort, setTxSort] = useState<'entry_desc' | 'entry_asc' | 'name_asc'>('entry_desc');
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const filterSheetRef = useRef<TransactionFilterSheetHandle>(null);
+  const moreAnchorRef = useRef<React.ComponentRef<typeof View>>(null);
   const searchInputRef = useRef<TextInput>(null);
   const suppressSearchBlurRef = useRef(false);
   const searchFocusedRef = useRef(false);
@@ -302,6 +316,17 @@ export default function TransactionsScreen() {
   const debts = useDebtStore((s) => s.debts);
   const { open: openTransactionDetail } = useTransactionDetail();
   const hasActiveFilters = hasActiveTransactionFilters(filters);
+  const hasNonDefaultSort = txSort !== 'entry_desc';
+  const moreMenuShowsBadge = hasActiveFilters || hasNonDefaultSort;
+
+  const moreOptionsA11yLabel = useMemo(() => {
+    if (hasActiveFilters && hasNonDefaultSort) {
+      return 'More options, filters and sort are active';
+    }
+    if (hasActiveFilters) return 'More options, filters are active';
+    if (hasNonDefaultSort) return 'More options, custom sort is active';
+    return 'More options';
+  }, [hasActiveFilters, hasNonDefaultSort]);
 
   const filtered = useMemo(() => {
     let list = debts;
@@ -316,10 +341,16 @@ export default function TransactionsScreen() {
           (d.note ?? '').toLowerCase().includes(q)
       );
     }
-    return [...list].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  }, [debts, segmentIndex, search, filters]);
+    return [...list].sort((a, b) => {
+      if (txSort === 'entry_desc') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (txSort === 'entry_asc') {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      return a.personName.localeCompare(b.personName, undefined, { sensitivity: 'base' });
+    });
+  }, [debts, segmentIndex, search, filters, txSort]);
 
   const sections = useMemo(() => buildTransactionSections(filtered), [filtered]);
 
@@ -650,16 +681,76 @@ export default function TransactionsScreen() {
   }, []);
 
   const openMoreMenu = useCallback(() => {
-    Alert.alert('More', undefined, [
+    setMoreMenuOpen(true);
+  }, []);
+
+  const closeMoreMenu = useCallback(() => {
+    setMoreMenuOpen(false);
+  }, []);
+
+  const resetTransactionsView = useCallback(() => {
+    setFilters(DEFAULT_TRANSACTION_FILTERS);
+    setTxSort('entry_desc');
+    setSearch('');
+    setSegmentIndex(0);
+  }, []);
+
+  const moreMenuSections = useMemo((): ContextMenuSection[] => {
+    const sortSubtitle =
+      txSort === 'entry_desc'
+        ? 'Newest first'
+        : txSort === 'entry_asc'
+          ? 'Oldest first'
+          : 'Name (A–Z)';
+    return [
       {
-        text: 'Filter',
-        onPress: () => {
-          openFilters();
-        },
+        items: [
+          {
+            id: 'sort',
+            title: 'Sort by',
+            subtitle: sortSubtitle,
+            icon: ArrowDownUp,
+            submenu: [
+              {
+                id: 'entry_desc',
+                title: 'Entry date',
+                subtitle: 'Newest first',
+                onPress: () => setTxSort('entry_desc'),
+              },
+              {
+                id: 'entry_asc',
+                title: 'Entry date',
+                subtitle: 'Oldest first',
+                onPress: () => setTxSort('entry_asc'),
+              },
+              {
+                id: 'name_asc',
+                title: 'Name',
+                subtitle: 'A to Z',
+                onPress: () => setTxSort('name_asc'),
+              },
+            ],
+          },
+          {
+            id: 'filter',
+            title: 'Filter',
+            icon: SlidersHorizontal,
+            onPress: openFilters,
+          },
+        ],
       },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [openFilters]);
+      {
+        items: [
+          {
+            id: 'reset',
+            title: 'Reset',
+            icon: RotateCcw,
+            onPress: resetTransactionsView,
+          },
+        ],
+      },
+    ];
+  }, [txSort, openFilters, resetTransactionsView]);
 
   const emptySubtitle = useMemo(() => {
     if (search) return 'Try a different name or note.';
@@ -679,15 +770,15 @@ export default function TransactionsScreen() {
     () =>
       colorScheme === 'dark'
         ? {
-            backgroundColor: 'rgba(28, 28, 30, 0.42)',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: palette.opaqueSeparator,
-          }
+          backgroundColor: 'rgba(28, 28, 30, 0.42)',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: palette.opaqueSeparator,
+        }
         : {
-            backgroundColor: 'rgba(120, 120, 128, 0.14)',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: palette.separator,
-          },
+          backgroundColor: 'rgba(120, 120, 128, 0.14)',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: palette.separator,
+        },
     [colorScheme, palette.opaqueSeparator, palette.separator]
   );
 
@@ -729,191 +820,207 @@ export default function TransactionsScreen() {
         )}
         <View style={styles.contentShell}>
           <View style={styles.containerInner}>
-          <Animated.ScrollView
-            style={styles.list}
-            stickyHeaderIndices={[0]}
-            scrollEventThrottle={16}
-            onScroll={onListScroll}
-            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: listScrollBottomPadding },
-              listContentShouldGrow && styles.listEmpty,
-            ]}
-          >
-            <View
-              style={[styles.stickyHeaderCluster, { paddingTop: insets.top }]}
-              pointerEvents="box-none"
-              collapsable={false}
+            <Animated.ScrollView
+              style={styles.list}
+              stickyHeaderIndices={[0]}
+              scrollEventThrottle={16}
+              onScroll={onListScroll}
+              keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingBottom: listScrollBottomPadding },
+                listContentShouldGrow && styles.listEmpty,
+              ]}
             >
-              <Animated.View style={[txHeaderAnimatedStyle, styles.txHeaderClip]}>
-                <View onLayout={onTransactionHeaderLayout} style={styles.headerMeasureWrap}>
-                  <View style={styles.titleBlock}>
-                    <View style={styles.headerCopy}>
-                      <Text style={styles.title}>Transactions</Text>
-                      <Text style={styles.subtitle}>{filtered.length} records</Text>
-                    </View>
-                    <View style={styles.headerTrailing}>
-                      <View style={styles.toolbarIconWrap}>
-                        <HeaderIconButton
-                          icon={Search}
-                          accessibilityLabel={
-                            hasSearchQuery
-                              ? 'Search transactions, text filter is active'
-                              : 'Search transactions'
-                          }
-                          onPress={openSearchFromIcon}
-                          variant="secondary"
-                          iconSize={20}
-                        />
-                        {hasSearchQuery ? (
-                          <View
-                            style={styles.toolbarIconBadge}
-                            pointerEvents="none"
-                            accessibilityElementsHidden
-                            importantForAccessibility="no-hide-descendants"
+              <View
+                style={[styles.stickyHeaderCluster, { paddingTop: insets.top }]}
+                pointerEvents="box-none"
+                collapsable={false}
+              >
+                <Animated.View style={[txHeaderAnimatedStyle, styles.txHeaderClip]}>
+                  <View onLayout={onTransactionHeaderLayout} style={styles.headerMeasureWrap}>
+                    <View style={styles.titleBlock}>
+                      <View style={styles.headerCopy}>
+                        <Text style={styles.title}>Transactions</Text>
+                        <Text style={styles.subtitle}>{filtered.length} records</Text>
+                      </View>
+                      <View style={styles.headerTrailing}>
+                        <View style={styles.toolbarIconWrap}>
+                          <HeaderIconButton
+                            icon={Search}
+                            accessibilityLabel={
+                              hasSearchQuery
+                                ? 'Search transactions, text filter is active'
+                                : 'Search transactions'
+                            }
+                            onPress={openSearchFromIcon}
+                            variant="secondary"
+                            iconSize={20}
                           />
-                        ) : null}
+                          {hasSearchQuery ? (
+                            <View
+                              style={styles.toolbarIconBadge}
+                              pointerEvents="none"
+                              accessibilityElementsHidden
+                              importantForAccessibility="no-hide-descendants"
+                            />
+                          ) : null}
+                        </View>
+                        <View ref={moreAnchorRef} collapsable={false} style={styles.toolbarIconWrap}>
+                          <HeaderIconButton
+                            icon={MoreHorizontal}
+                            accessibilityLabel={moreOptionsA11yLabel}
+                            onPress={openMoreMenu}
+                            variant="secondary"
+                            iconSize={20}
+                          />
+                          {moreMenuShowsBadge ? (
+                            <View
+                              style={styles.toolbarIconBadge}
+                              pointerEvents="none"
+                              accessibilityElementsHidden
+                              importantForAccessibility="no-hide-descendants"
+                            />
+                          ) : null}
+                        </View>
                       </View>
-                      <HeaderIconButton
-                        icon={MoreHorizontal}
-                        accessibilityLabel="More options"
-                        onPress={openMoreMenu}
-                        variant="secondary"
-                        iconSize={20}
-                      />
                     </View>
                   </View>
-                </View>
-              </Animated.View>
+                </Animated.View>
 
-              <Animated.View style={txChromeAnimatedStyle}>
-                <View
-                  onLayout={onChromeRowLayout}
-                  style={[
-                    styles.chromeRow,
-                    Platform.OS === 'android' && { paddingTop: space[2] },
-                  ]}
-                >
-                  <View style={styles.toolbarMain}>
-                    <Animated.View
-                      style={[styles.toolbarLayer, idleToolbarStyle]}
-                      pointerEvents={searchFieldFocused ? 'none' : 'auto'}
-                      importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
-                    >
-                      <View style={styles.segmentIdleWrap}>
-                        <SegmentedControl
-                          variant="default"
-                          trackStyle={segmentedTrackStyle}
-                          options={['All', 'Owed you', 'You owe']}
-                          selectedIndex={segmentIndex}
-                          onChange={setSegmentIndex}
-                        />
-                      </View>
-                    </Animated.View>
-                    <Animated.View
-                      style={[styles.toolbarLayer, activeSearchToolbarStyle]}
-                      pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                      importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                    >
-                      <View style={styles.searchField}>
-                        <SearchField value={search} onChange={setSearch}>
-                          <SearchField.Group>
-                            <SearchField.SearchIcon />
-                            <SearchField.Input
-                              ref={searchInputRef}
-                              placeholder="Search by name or note"
-                              className="rounded-full h-9 py-0 bg-transparent"
-                              onFocus={handleSearchFocus}
-                              onBlur={handleSearchBlur}
-                            />
-                            <SearchField.ClearButton />
-                          </SearchField.Group>
-                        </SearchField>
-                      </View>
-                      <View style={styles.searchTrailing}>
-                        <Animated.View style={closeTrackAnimatedStyle}>
-                          <View
-                            style={styles.closeTrackInner}
-                            pointerEvents={searchFieldFocused ? 'auto' : 'none'}
-                            importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
-                          >
-                            <View style={{ width: space[2] }} />
-                            <View style={styles.closeSlot}>
-                              <HeaderIconButton
-                                icon={X}
-                                accessibilityLabel="Close search"
-                                onPress={handleCloseSearchChrome}
-                                variant="secondary"
-                                iconSize={20}
+                <Animated.View style={txChromeAnimatedStyle}>
+                  <View
+                    onLayout={onChromeRowLayout}
+                    style={[
+                      styles.chromeRow,
+                      Platform.OS === 'android' && { paddingTop: space[2] },
+                    ]}
+                  >
+                    <View style={styles.toolbarMain}>
+                      <Animated.View
+                        style={[styles.toolbarLayer, idleToolbarStyle]}
+                        pointerEvents={searchFieldFocused ? 'none' : 'auto'}
+                        importantForAccessibility={searchFieldFocused ? 'no-hide-descendants' : 'auto'}
+                      >
+                        <View style={styles.segmentIdleWrap}>
+                          <SegmentedControl
+                            variant="default"
+                            trackStyle={segmentedTrackStyle}
+                            options={['All', 'Owed you', 'You owe']}
+                            selectedIndex={segmentIndex}
+                            onChange={setSegmentIndex}
+                          />
+                        </View>
+                      </Animated.View>
+                      <Animated.View
+                        style={[styles.toolbarLayer, activeSearchToolbarStyle]}
+                        pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                        importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                      >
+                        <View style={styles.searchField}>
+                          <SearchField value={search} onChange={setSearch}>
+                            <SearchField.Group>
+                              <SearchField.SearchIcon />
+                              <SearchField.Input
+                                ref={searchInputRef}
+                                placeholder="Search by name or note"
+                                className="rounded-full h-9 py-0 bg-transparent"
+                                onFocus={handleSearchFocus}
+                                onBlur={handleSearchBlur}
                               />
+                              <SearchField.ClearButton />
+                            </SearchField.Group>
+                          </SearchField>
+                        </View>
+                        <View style={styles.searchTrailing}>
+                          <Animated.View style={closeTrackAnimatedStyle}>
+                            <View
+                              style={styles.closeTrackInner}
+                              pointerEvents={searchFieldFocused ? 'auto' : 'none'}
+                              importantForAccessibility={searchFieldFocused ? 'auto' : 'no-hide-descendants'}
+                            >
+                              <View style={{ width: space[2] }} />
+                              <View style={styles.closeSlot}>
+                                <HeaderIconButton
+                                  icon={X}
+                                  accessibilityLabel="Close search"
+                                  onPress={handleCloseSearchChrome}
+                                  variant="secondary"
+                                  iconSize={20}
+                                />
+                              </View>
                             </View>
-                          </View>
-                        </Animated.View>
-                      </View>
-                    </Animated.View>
+                          </Animated.View>
+                        </View>
+                      </Animated.View>
+                    </View>
                   </View>
-                </View>
-              </Animated.View>
-            </View>
-
-            {showSearchSuggestions ? (
-              <View style={styles.suggestedSection}>
-                <Text style={styles.suggestedHeader} accessibilityRole="header">
-                  Suggested
-                </Text>
-                <View style={styles.suggestionRow}>
-                  <View style={styles.suggestionIconTrack}>
-                    <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                  </View>
-                  <Text style={styles.suggestionLabel}>Name</Text>
-                </View>
-                <View style={styles.suggestionDivider} />
-                <View style={styles.suggestionRow}>
-                  <View style={styles.suggestionIconTrack}>
-                    <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                  </View>
-                  <Text style={styles.suggestionLabel}>Note</Text>
-                </View>
+                </Animated.View>
               </View>
-            ) : filtered.length === 0 ? (
-              <EmptyState
-                title={search || hasActiveFilters ? 'No results' : 'No transactions'}
-                subtitle={emptySubtitle}
-                icon={
-                  search || hasActiveFilters ? (
-                    <SearchX size={40} color={palette.labelTertiary} />
-                  ) : (
-                    <Receipt size={40} color={palette.labelTertiary} />
-                  )
-                }
-              />
-            ) : (
-              sections.map((section) => (
-                <View key={section.key} style={styles.sectionBlock}>
-                  <Text style={styles.sectionTitle}>{section.title}</Text>
-                  <View style={styles.sectionCard}>
-                    {section.data.map((debt, index) => (
-                      <TransactionRow
-                        key={debt.id}
-                        debt={debt}
-                        onPress={() => handleSelect(debt)}
-                        showSeparator={index < section.data.length - 1}
-                      />
-                    ))}
+
+              {showSearchSuggestions ? (
+                <View style={styles.suggestedSection}>
+                  <Text style={styles.suggestedHeader} accessibilityRole="header">
+                    Suggested
+                  </Text>
+                  <View style={styles.suggestionRow}>
+                    <View style={styles.suggestionIconTrack}>
+                      <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                    </View>
+                    <Text style={styles.suggestionLabel}>Name</Text>
+                  </View>
+                  <View style={styles.suggestionDivider} />
+                  <View style={styles.suggestionRow}>
+                    <View style={styles.suggestionIconTrack}>
+                      <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                    </View>
+                    <Text style={styles.suggestionLabel}>Note</Text>
                   </View>
                 </View>
-              ))
-            )}
-          </Animated.ScrollView>
+              ) : filtered.length === 0 ? (
+                <EmptyState
+                  title={search || hasActiveFilters ? 'No results' : 'No transactions'}
+                  subtitle={emptySubtitle}
+                  icon={
+                    search || hasActiveFilters ? (
+                      <SearchX size={40} color={palette.labelTertiary} />
+                    ) : (
+                      <Receipt size={40} color={palette.labelTertiary} />
+                    )
+                  }
+                />
+              ) : (
+                sections.map((section) => (
+                  <View key={section.key} style={styles.sectionBlock}>
+                    <Text style={styles.sectionTitle}>{section.title}</Text>
+                    <View style={styles.sectionCard}>
+                      {section.data.map((debt, index) => (
+                        <TransactionRow
+                          key={debt.id}
+                          debt={debt}
+                          onPress={() => handleSelect(debt)}
+                          showSeparator={index < section.data.length - 1}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))
+              )}
+            </Animated.ScrollView>
 
-          <TransactionFilterSheet
-            ref={filterSheetRef}
-            filters={filters}
-            onChange={setFilters}
-          />
+            <TransactionFilterSheet
+              ref={filterSheetRef}
+              filters={filters}
+              onChange={setFilters}
+            />
+            <ContextMenuDropdown
+              visible={moreMenuOpen}
+              onClose={closeMoreMenu}
+              anchorRef={moreAnchorRef}
+              sections={moreMenuSections}
+            />
           </View>
         </View>
       </View>
