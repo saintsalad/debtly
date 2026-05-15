@@ -15,7 +15,12 @@ import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
-import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
+import {
+  screenHeaderLayerStyle,
+  scrollContentLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useDebtStore } from '@/stores/debtStore';
 import { useFocusEffect } from '@react-navigation/native';
@@ -197,16 +202,27 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     headerMeasureWrap: {
       backgroundColor: 'transparent',
     },
-    /**
-     * First ScrollView child — sticks so rows draw underneath on iOS.
-     * `paddingTop: insets.top` matches Home: scroll `contentContainerStyle.paddingTop` + header’s own top padding.
-     */
-    stickyHeaderCluster: {
+  screenLayerStack: {
+      flex: 1,
+      position: 'relative',
       backgroundColor: 'transparent',
+    },
+    scrollTopSpacer: {
+      backgroundColor: 'transparent',
+    },
+    /** Fixed above scroll content and the status-bar fade strip. */
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
     },
     list: {
       flex: 1,
       backgroundColor: 'transparent',
+      ...scrollContentLayerStyle,
     },
     scrollContent: {
       backgroundColor: 'transparent',
@@ -418,7 +434,11 @@ export default function TransactionsScreen() {
     transform: [{ translateX: interpolate(searchProgress.value, [0, 1], [14, 0]) }],
   }));
 
-  const { scrollY: statusBarScrollY } = useStatusBarScrollFade();
+  const { scrollY: statusBarScrollY } = useStatusBarScrollFade({ overlayHost: 'screen' });
+
+  const scrollTopSpacerStyle = useAnimatedStyle(() => ({
+    height: insets.top + txHeaderHeight.value + txChromeHeight.value,
+  }));
 
   const onTransactionHeaderLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -820,22 +840,75 @@ export default function TransactionsScreen() {
         )}
         <View style={styles.contentShell}>
           <View style={styles.containerInner}>
-            <Animated.ScrollView
-              style={styles.list}
-              stickyHeaderIndices={[0]}
-              scrollEventThrottle={16}
-              onScroll={onListScroll}
-              keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={[
-                styles.scrollContent,
-                { paddingBottom: listScrollBottomPadding },
-                listContentShouldGrow && styles.listEmpty,
-              ]}
-            >
+            <View style={styles.screenLayerStack} collapsable={false}>
+              <Animated.ScrollView
+                style={styles.list}
+                scrollEventThrottle={16}
+                onScroll={onListScroll}
+                keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={[
+                  styles.scrollContent,
+                  { paddingBottom: listScrollBottomPadding },
+                  listContentShouldGrow && styles.listEmpty,
+                ]}
+              >
+                <Animated.View style={[styles.scrollTopSpacer, scrollTopSpacerStyle]} />
+                {showSearchSuggestions ? (
+                <View style={styles.suggestedSection}>
+                  <Text style={styles.suggestedHeader} accessibilityRole="header">
+                    Suggested
+                  </Text>
+                  <View style={styles.suggestionRow}>
+                    <View style={styles.suggestionIconTrack}>
+                      <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                    </View>
+                    <Text style={styles.suggestionLabel}>Name</Text>
+                  </View>
+                  <View style={styles.suggestionDivider} />
+                  <View style={styles.suggestionRow}>
+                    <View style={styles.suggestionIconTrack}>
+                      <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                    </View>
+                    <Text style={styles.suggestionLabel}>Note</Text>
+                  </View>
+                </View>
+              ) : filtered.length === 0 ? (
+                <EmptyState
+                  title={search || hasActiveFilters ? 'No results' : 'No transactions'}
+                  subtitle={emptySubtitle}
+                  icon={
+                    search || hasActiveFilters ? (
+                      <SearchX size={40} color={palette.labelTertiary} />
+                    ) : (
+                      <Receipt size={40} color={palette.labelTertiary} />
+                    )
+                  }
+                />
+              ) : (
+                sections.map((section) => (
+                  <View key={section.key} style={styles.sectionBlock}>
+                    <Text style={styles.sectionTitle}>{section.title}</Text>
+                    <View style={styles.sectionCard}>
+                      {section.data.map((debt, index) => (
+                        <TransactionRow
+                          key={debt.id}
+                          debt={debt}
+                          onPress={() => handleSelect(debt)}
+                          showSeparator={index < section.data.length - 1}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                ))
+              )}
+              </Animated.ScrollView>
+
+              <StatusBarScrollFadeStrip />
+
               <View
-                style={[styles.stickyHeaderCluster, { paddingTop: insets.top }]}
+                style={[styles.headerOverlay, { paddingTop: insets.top }]}
                 pointerEvents="box-none"
                 collapsable={false}
               >
@@ -959,56 +1032,7 @@ export default function TransactionsScreen() {
                   </View>
                 </Animated.View>
               </View>
-
-              {showSearchSuggestions ? (
-                <View style={styles.suggestedSection}>
-                  <Text style={styles.suggestedHeader} accessibilityRole="header">
-                    Suggested
-                  </Text>
-                  <View style={styles.suggestionRow}>
-                    <View style={styles.suggestionIconTrack}>
-                      <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                    </View>
-                    <Text style={styles.suggestionLabel}>Name</Text>
-                  </View>
-                  <View style={styles.suggestionDivider} />
-                  <View style={styles.suggestionRow}>
-                    <View style={styles.suggestionIconTrack}>
-                      <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                    </View>
-                    <Text style={styles.suggestionLabel}>Note</Text>
-                  </View>
-                </View>
-              ) : filtered.length === 0 ? (
-                <EmptyState
-                  title={search || hasActiveFilters ? 'No results' : 'No transactions'}
-                  subtitle={emptySubtitle}
-                  icon={
-                    search || hasActiveFilters ? (
-                      <SearchX size={40} color={palette.labelTertiary} />
-                    ) : (
-                      <Receipt size={40} color={palette.labelTertiary} />
-                    )
-                  }
-                />
-              ) : (
-                sections.map((section) => (
-                  <View key={section.key} style={styles.sectionBlock}>
-                    <Text style={styles.sectionTitle}>{section.title}</Text>
-                    <View style={styles.sectionCard}>
-                      {section.data.map((debt, index) => (
-                        <TransactionRow
-                          key={debt.id}
-                          debt={debt}
-                          onPress={() => handleSelect(debt)}
-                          showSeparator={index < section.data.length - 1}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ))
-              )}
-            </Animated.ScrollView>
+            </View>
 
             <TransactionFilterSheet
               ref={filterSheetRef}

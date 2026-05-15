@@ -34,7 +34,6 @@ import {
   RecurrenceFrequency,
 } from '@/features/debts/types';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
-import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
@@ -115,7 +114,6 @@ interface AddDebtFormProps {
   styles: ReturnType<typeof createStyles>;
   keyboardAppearance: 'light' | 'dark';
   contentBottomPadding: number;
-  scrollFadeOnScroll?: React.ComponentProps<typeof Animated.ScrollView>['onScroll'];
 }
 
 function AddDebtForm({
@@ -143,7 +141,6 @@ function AddDebtForm({
   styles,
   keyboardAppearance,
   contentBottomPadding,
-  scrollFadeOnScroll,
 }: AddDebtFormProps) {
   const { symbol } = useCurrency();
   const accentForeground = useThemeColor('accent-foreground');
@@ -152,8 +149,6 @@ function AddDebtForm({
     <Animated.ScrollView
       keyboardShouldPersistTaps="always"
       showsVerticalScrollIndicator={false}
-      scrollEventThrottle={16}
-      onScroll={scrollFadeOnScroll}
       contentContainerStyle={[styles.formContent, { paddingBottom: contentBottomPadding }]}
     >
       <View style={styles.typeRow}>
@@ -413,8 +408,6 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
     () => (existingDebt ? readDebtFormValues(existingDebt) : EMPTY_FORM_VALUES),
     [existingDebt]
   );
-  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
-
   const [personName, setPersonName] = useState(initialValues.personName);
   const [amount, setAmount] = useState(initialValues.amount);
   const [debtType, setDebtType] = useState<DebtType>(initialValues.debtType);
@@ -603,7 +596,6 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
             styles={styles}
             keyboardAppearance={keyboardAppearance}
             contentBottomPadding={insets.bottom + layout.screenPaddingBottom}
-            scrollFadeOnScroll={statusBarScrollFadeOnScroll}
           />
         </KeyboardAvoidingView>
       </HeroUINativeProvider>

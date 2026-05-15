@@ -20,7 +20,6 @@ import {
 } from '@/features/debts/transactionActions';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
-import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -244,8 +243,6 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
   const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
   const debt = useDebtStore((state) => state.debts.find((item) => item.id === debtId));
-  const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();
-
   useEffect(() => {
     if (!debt) {
       onClose();
@@ -375,8 +372,6 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
 
           <Animated.ScrollView
             showsVerticalScrollIndicator={false}
-            scrollEventThrottle={16}
-            onScroll={statusBarScrollFadeOnScroll}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[
               styles.content,
