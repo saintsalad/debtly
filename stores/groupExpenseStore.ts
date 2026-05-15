@@ -1,12 +1,25 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import {
+  getActorMemberId,
+  logExpenseAdded,
+  logExpenseDeleted,
+  logExpenseEdited,
+  logGroupCreated,
+  logGroupUpdated,
+  logMemberJoined,
+  logMemberRemoved,
+  logSettlement,
+  rebuildActivityLogFromState,
+} from '@/features/group-expense/activityLog';
+import {
   amountToMinor,
   createDefaultShares,
   validateExpenseShares,
 } from '@/features/group-expense/balanceEngine';
 import { migratePersistedState } from '@/features/group-expense/billSplitMigration';
 import type {
+  ActivityLogEntry,
   AddExpenseInput,
   CreateGroupInput,
   GroupExpense,
@@ -28,6 +41,13 @@ function generateInviteCode(): string {
 
 function bumpVersion(version: number): number {
   return version + 1;
+}
+
+function prependActivityLog(
+  activityLog: ActivityLogEntry[],
+  ...entries: ActivityLogEntry[]
+): ActivityLogEntry[] {
+  return [...entries, ...activityLog];
 }
 
 function syncLedgerForGroup(
@@ -103,12 +123,39 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           version: 1,
         };
 
-        set((state) => ({ groups: [group, ...state.groups] }));
+        const auditEntries: ActivityLogEntry[] = [
+          logGroupCreated(group, currentUser.id),
+        ];
+        for (const member of extraMembers) {
+          auditEntries.push(logMemberJoined(group, member.id, currentUser.id, now));
+        }
+
+        set((state) => ({
+          groups: [group, ...state.groups],
+          activityLog: prependActivityLog(state.activityLog, ...auditEntries),
+        }));
         return group.id;
       },
 
       updateGroup: (id, updates) => {
+        const existing = get().groups.find((g) => g.id === id);
+        if (!existing) return;
+
         const now = new Date().toISOString();
+        const actorId = getActorMemberId(existing);
+        const auditEntries: ActivityLogEntry[] = [];
+
+        if (updates.name?.trim() && updates.name.trim() !== existing.name) {
+          auditEntries.push(
+            logGroupUpdated(
+              { ...existing, name: updates.name.trim() },
+              actorId,
+              now,
+              `Name: ${existing.name} → ${updates.name.trim()}`
+            )
+          );
+        }
+
         set((state) => ({
           groups: state.groups.map((g) =>
             g.id === id
@@ -120,6 +167,10 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
                 }
               : g
           ),
+          activityLog:
+            auditEntries.length > 0
+              ? prependActivityLog(state.activityLog, ...auditEntries)
+              : state.activityLog,
         }));
         const { groups, expenses, settlements } = get();
         syncLedgerForGroup(id, groups, expenses, settlements);
@@ -130,6 +181,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           groups: state.groups.filter((g) => g.id !== id),
           expenses: state.expenses.filter((e) => e.groupId !== id),
           settlements: state.settlements.filter((s) => s.groupId !== id),
+          activityLog: state.activityLog.filter((e) => e.groupId !== id),
         }));
         useDebtStore.getState().removeGroupSyncedDebtsForGroup(id);
       },
@@ -145,44 +197,53 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
         const now = new Date().toISOString();
         const memberId = generateId();
 
-        let resolvedId: string | null = memberId;
+        const groupBefore = get().groups.find((g) => g.id === groupId);
+        if (!groupBefore) return null;
+
+        const duplicate = groupBefore.members.find(
+          (m) => m.displayName.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (duplicate) return duplicate.id;
+
+        const actorId = getActorMemberId(groupBefore);
+        const auditEntry = logMemberJoined(groupBefore, memberId, actorId, now);
+
         set((state) => ({
-          groups: state.groups.map((g) => {
-            if (g.id !== groupId) return g;
-            const existing = g.members.find(
-              (m) => m.displayName.toLowerCase() === trimmed.toLowerCase()
-            );
-            if (existing) {
-              resolvedId = existing.id;
-              return g;
-            }
-            return {
-              ...g,
-              members: [
-                ...g.members,
-                {
-                  id: memberId,
-                  displayName: trimmed,
-                  isCurrentUser: false,
-                  username,
-                  joinedAt: now,
-                },
-              ],
-              updatedAt: now,
-              version: bumpVersion(g.version),
-            };
-          }),
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  members: [
+                    ...g.members,
+                    {
+                      id: memberId,
+                      displayName: trimmed,
+                      isCurrentUser: false,
+                      username,
+                      joinedAt: now,
+                    },
+                  ],
+                  updatedAt: now,
+                  version: bumpVersion(g.version),
+                }
+              : g
+          ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
         syncLedgerForGroup(groupId, groups, expenses, settlements);
-        return resolvedId;
+        return memberId;
       },
 
       removeMember: (groupId, memberId) => {
         const group = get().groups.find((g) => g.id === groupId);
         const member = group?.members.find((m) => m.id === memberId);
-        if (!member || member.isCurrentUser) return;
+        if (!member || member.isCurrentUser || !group) return;
+
+        const now = new Date().toISOString();
+        const actorId = getActorMemberId(group);
+        const auditEntry = logMemberRemoved(group, member.displayName, actorId, now);
 
         set((state) => ({
           groups: state.groups.map((g) =>
@@ -190,7 +251,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
               ? {
                   ...g,
                   members: g.members.filter((m) => m.id !== memberId),
-                  updatedAt: new Date().toISOString(),
+                  updatedAt: now,
                   version: bumpVersion(g.version),
                 }
               : g
@@ -204,6 +265,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
                 }
               : e
           ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
@@ -251,11 +313,15 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           version: 1,
         };
 
+        const actorId = getActorMemberId(group);
+        const auditEntry = logExpenseAdded(group, expense, actorId);
+
         set((state) => ({
           expenses: [expense, ...state.expenses],
           groups: state.groups.map((g) =>
             g.id === input.groupId ? { ...g, updatedAt: now, version: bumpVersion(g.version) } : g
           ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
@@ -303,6 +369,9 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           version: bumpVersion(existing.version),
         };
 
+        const actorId = getActorMemberId(group);
+        const auditEntry = logExpenseEdited(group, existing, updated, actorId, now);
+
         set((state) => ({
           expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
           groups: state.groups.map((g) =>
@@ -310,6 +379,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
               ? { ...g, updatedAt: now, version: bumpVersion(g.version) }
               : g
           ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
@@ -321,11 +391,18 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
         const existing = get().expenses.find((e) => e.id === id);
         if (!existing) return;
 
+        const group = get().groups.find((g) => g.id === existing.groupId);
+        if (!group) return;
+
         const now = new Date().toISOString();
+        const actorId = getActorMemberId(group);
+        const auditEntry = logExpenseDeleted(group, existing, actorId, now);
+
         set((state) => ({
           expenses: state.expenses.map((e) =>
             e.id === id ? { ...e, deletedAt: now, updatedAt: now, version: bumpVersion(e.version) } : e
           ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
@@ -351,6 +428,9 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           version: 1,
         };
 
+        const actorId = getActorMemberId(group);
+        const auditEntry = logSettlement(group, settlement, actorId);
+
         set((state) => ({
           settlements: [settlement, ...state.settlements],
           groups: state.groups.map((g) =>
@@ -362,6 +442,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
                 }
               : g
           ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
         const { groups, expenses, settlements } = get();
@@ -400,14 +481,18 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
     }),
     {
       name: 'debtly-group-expenses',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => zustandStorage),
       migrate: (persistedState, version) => {
         if (version < 2) {
           return INITIAL_GROUP_EXPENSE_STATE;
         }
         const profileName = useProfileStore.getState().name || 'You';
-        return migratePersistedState(persistedState, profileName);
+        const migrated = migratePersistedState(persistedState, profileName);
+        if (version < 3 && migrated.activityLog.length === 0 && migrated.groups.length > 0) {
+          return { ...migrated, activityLog: rebuildActivityLogFromState(migrated) };
+        }
+        return migrated;
       },
       onRehydrateStorage: () => (state) => {
         void (async () => {

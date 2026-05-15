@@ -66,25 +66,31 @@ export interface PendingOp {
 }
 
 export type ActivityKind =
+  | 'group_created'
+  | 'group_updated'
   | 'expense_added'
   | 'expense_edited'
   | 'expense_deleted'
   | 'settlement_recorded'
   | 'member_joined'
-  | 'group_updated';
+  | 'member_removed';
 
-export interface ActivityItem {
+/** Immutable audit log entry — append-only for accountability. */
+export interface ActivityLogEntry {
   id: string;
   groupId: string;
   kind: ActivityKind;
   at: string;
-  actorMemberId?: string;
+  actorMemberId: string;
   expenseId?: string;
   settlementId?: string;
+  targetMemberId?: string;
   title: string;
   subtitle?: string;
   amountMinor?: number;
 }
+
+export type ActivityItem = ActivityLogEntry;
 
 export interface MemberBalance {
   memberId: string;
@@ -151,5 +157,6 @@ export interface GroupExpenseState {
   groups: SplitGroup[];
   expenses: GroupExpense[];
   settlements: Settlement[];
+  activityLog: ActivityLogEntry[];
   pendingOps: PendingOp[];
 }

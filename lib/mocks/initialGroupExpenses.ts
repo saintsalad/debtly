@@ -1,4 +1,5 @@
 import { subDays, subWeeks } from 'date-fns';
+import { rebuildActivityLogFromState } from '@/features/group-expense/activityLog';
 import type {
   GroupExpense,
   GroupExpenseState,
@@ -302,7 +303,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     },
   ];
 
-  return {
+  const base: GroupExpenseState = {
     groups: [
       scenarioHostOwed,
       scenarioGuestOwes,
@@ -312,6 +313,9 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     ],
     expenses,
     settlements,
+    activityLog: [],
     pendingOps: [],
   };
+
+  return { ...base, activityLog: rebuildActivityLogFromState(base) };
 })();

@@ -12,6 +12,7 @@ import { ListDivider } from '@/components/ui/ListDivider';
 import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
 import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { buildGroupActivity } from '@/features/group-expense/activityFeed';
+import { isExpenseTappable } from '@/features/group-expense/activityLog';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
 import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
 import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
@@ -84,6 +85,7 @@ export function GroupDetailScreen() {
   const group = useGroupExpenseStore((s) => s.getGroup(id ?? ''));
   const expenses = useGroupExpenseStore((s) => s.expenses);
   const settlements = useGroupExpenseStore((s) => s.settlements);
+  const activityLog = useGroupExpenseStore((s) => s.activityLog);
   const deleteGroup = useGroupExpenseStore((s) => s.deleteGroup);
 
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
@@ -97,8 +99,8 @@ export function GroupDetailScreen() {
 
   const activity = useMemo(() => {
     if (!group) return [];
-    return buildGroupActivity(group, expenses, settlements);
-  }, [group, expenses, settlements]);
+    return buildGroupActivity(group, activityLog);
+  }, [group, activityLog]);
 
   const openSettle = useCallback(() => {
     if (!group || !summary) return;
@@ -255,7 +257,7 @@ export function GroupDetailScreen() {
                       <ActivityFeedItem
                         item={item}
                         onPress={
-                          item.expenseId
+                          isExpenseTappable(item.kind, item.expenseId, expenses)
                             ? () =>
                                 expenseSheetRef.current?.present(group.id, item.expenseId)
                             : undefined

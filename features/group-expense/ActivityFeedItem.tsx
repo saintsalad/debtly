@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { ChevronRight, HandCoins, Receipt } from 'lucide-react-native';
+import { ChevronRight, HandCoins, Pencil, Receipt, Trash2, UserMinus, UserPlus, Users } from 'lucide-react-native';
 import { formatActivityDate } from '@/features/group-expense/activityFeed';
 import type { ActivityItem, ActivityKind } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -14,12 +14,32 @@ interface ActivityFeedItemProps {
   onPress?: () => void;
 }
 
-function isExpenseKind(kind: ActivityKind): boolean {
-  return kind === 'expense_added' || kind === 'expense_edited';
+function isProminentExpense(kind: ActivityKind): boolean {
+  return kind === 'expense_added';
 }
 
 function isMutedKind(kind: ActivityKind): boolean {
-  return kind === 'settlement_recorded' || kind === 'expense_deleted';
+  return kind !== 'expense_added';
+}
+
+function activityIcon(kind: ActivityKind) {
+  switch (kind) {
+    case 'settlement_recorded':
+      return HandCoins;
+    case 'expense_edited':
+      return Pencil;
+    case 'expense_deleted':
+      return Trash2;
+    case 'member_joined':
+      return UserPlus;
+    case 'member_removed':
+      return UserMinus;
+    case 'group_created':
+    case 'group_updated':
+      return Users;
+    default:
+      return Receipt;
+  }
 }
 
 function createStyles(palette: ColorPalette, rowPressedColor: string) {
@@ -92,6 +112,10 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       ...type.subheadline,
       color: palette.labelSecondary,
     },
+    metaAudit: {
+      ...type.caption1,
+      color: palette.labelTertiary,
+    },
     amount: {
       ...type.callout,
       fontWeight: '600',
@@ -122,10 +146,9 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
   );
   const { fmt } = useCurrency();
 
-  const isExpense = isExpenseKind(item.kind);
+  const isExpense = isProminentExpense(item.kind);
   const isMuted = isMutedKind(item.kind);
-  const isSettlement = item.kind === 'settlement_recorded';
-  const Icon = isSettlement ? HandCoins : Receipt;
+  const Icon = activityIcon(item.kind);
 
   const handlePress = useCallback(() => {
     if (!onPress) return;
@@ -135,7 +158,9 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
 
   const accessibilityLabel = isExpense
     ? `Expense ${item.title}, ${item.amountMinor != null ? fmt(minorToMajor(item.amountMinor)) : ''}, ${item.subtitle ?? ''}, double tap to edit`
-    : item.title;
+    : item.subtitle
+      ? `${item.title}. ${item.subtitle}`
+      : item.title;
 
   return (
     <Pressable
@@ -170,12 +195,23 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
         >
           {item.title}
         </Text>
-        <Text style={isExpense ? styles.metaExpense : styles.meta} numberOfLines={1}>
-          {isExpense ? item.subtitle : formatActivityDate(item.at)}
-        </Text>
         {isExpense ? (
-          <Text style={styles.meta}>{formatActivityDate(item.at)}</Text>
-        ) : null}
+          <>
+            <Text style={styles.metaExpense} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+            <Text style={styles.meta}>{formatActivityDate(item.at)}</Text>
+          </>
+        ) : (
+          <>
+            {item.subtitle ? (
+              <Text style={styles.metaAudit} numberOfLines={2}>
+                {item.subtitle}
+              </Text>
+            ) : null}
+            <Text style={styles.meta}>{formatActivityDate(item.at)}</Text>
+          </>
+        )}
       </View>
       {item.amountMinor != null ? (
         <Text
@@ -188,7 +224,7 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
           {fmt(minorToMajor(item.amountMinor))}
         </Text>
       ) : null}
-      {isExpense && onPress ? (
+      {onPress ? (
         <ChevronRight
           size={18}
           color={palette.labelTertiary}

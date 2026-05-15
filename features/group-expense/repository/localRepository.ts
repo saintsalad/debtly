@@ -7,8 +7,9 @@ import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
  */
 export const localGroupExpenseRepository: IGroupExpenseRepository = {
   async load() {
-    const { groups, expenses, settlements, pendingOps } = useGroupExpenseStore.getState();
-    return { groups, expenses, settlements, pendingOps };
+    const { groups, expenses, settlements, activityLog, pendingOps } =
+      useGroupExpenseStore.getState();
+    return { groups, expenses, settlements, activityLog, pendingOps };
   },
   async createGroup(input) {
     const id = useGroupExpenseStore.getState().createGroup(input);
