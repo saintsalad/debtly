@@ -21,7 +21,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SearchField } from 'heroui-native';
-import { MoreHorizontal, Receipt, Search, SearchX, X } from 'lucide-react-native';
+import { MoreHorizontal, Receipt, Search, SearchX, StickyNote, User, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -51,6 +51,10 @@ const TX_SCROLL_HEADER_SHOW_HIDE = {
   duration: 300,
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
 } as const;
+
+/** iOS Journal–style suggested row: fixed icon column + full-width divider. */
+const SUGGESTED_ICON_SIZE = 18;
+const SUGGESTED_ICON_TRACK = 24;
 
 function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
   return StyleSheet.create({
@@ -214,6 +218,43 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       overflow: 'hidden',
       ...shadow,
     },
+    /** iOS Journal search — flat list, no grouped card. */
+    suggestedSection: {
+      marginBottom: space[6],
+      backgroundColor: 'transparent',
+    },
+    suggestedHeader: {
+      ...type.title1,
+      color: palette.label,
+      letterSpacing: type.title1.letterSpacing,
+      marginBottom: space[3],
+      paddingTop: space[1],
+    },
+    suggestionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[3],
+      paddingVertical: space[3] + 1,
+      minHeight: 48,
+      backgroundColor: 'transparent',
+    },
+    suggestionIconTrack: {
+      width: SUGGESTED_ICON_TRACK,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    suggestionLabel: {
+      ...type.body,
+      fontWeight: '400',
+      color: palette.label,
+      flex: 1,
+    },
+    suggestionDivider: {
+      height: StyleSheet.hairlineWidth,
+      width: '100%',
+      alignSelf: 'stretch',
+      backgroundColor: palette.separator,
+    },
   });
 }
 
@@ -226,6 +267,7 @@ export default function TransactionsScreen() {
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const closeTrackMax = space[2] + 36;
   const [search, setSearch] = useState('');
+  const [searchFieldFocused, setSearchFieldFocused] = useState(false);
   const [segmentIndex, setSegmentIndex] = useState(0);
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
   const filterSheetRef = useRef<TransactionFilterSheetHandle>(null);
@@ -281,14 +323,14 @@ export default function TransactionsScreen() {
 
   const sections = useMemo(() => buildTransactionSections(filtered), [filtered]);
 
+  const showSearchSuggestions = searchFieldFocused && !search.trim();
+
   const handleSelect = useCallback(
     (debt: Debt) => {
       openTransactionDetail(debt);
     },
     [openTransactionDetail]
   );
-
-  const [searchFieldFocused, setSearchFieldFocused] = useState(false);
 
   const endTxScrollClipAnimation = useCallback(() => {
     txScrollClipLayoutMuteSV.value = 0;
@@ -633,6 +675,8 @@ export default function TransactionsScreen() {
 
   const listScrollBottomPadding = layout.screenPaddingBottom;
 
+  const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
+
   const segmentedTrackStyle = useMemo(
     () =>
       colorScheme === 'dark'
@@ -698,7 +742,7 @@ export default function TransactionsScreen() {
             contentContainerStyle={[
               styles.scrollContent,
               { paddingBottom: listScrollBottomPadding },
-              filtered.length === 0 && styles.listEmpty,
+              listContentShouldGrow && styles.listEmpty,
             ]}
           >
             <View
@@ -817,7 +861,26 @@ export default function TransactionsScreen() {
               </Animated.View>
             </View>
 
-            {filtered.length === 0 ? (
+            {showSearchSuggestions ? (
+              <View style={styles.suggestedSection}>
+                <Text style={styles.suggestedHeader} accessibilityRole="header">
+                  Suggested
+                </Text>
+                <View style={styles.suggestionRow}>
+                  <View style={styles.suggestionIconTrack}>
+                    <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                  </View>
+                  <Text style={styles.suggestionLabel}>Name</Text>
+                </View>
+                <View style={styles.suggestionDivider} />
+                <View style={styles.suggestionRow}>
+                  <View style={styles.suggestionIconTrack}>
+                    <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
+                  </View>
+                  <Text style={styles.suggestionLabel}>Note</Text>
+                </View>
+              </View>
+            ) : filtered.length === 0 ? (
               <EmptyState
                 title={search || hasActiveFilters ? 'No results' : 'No transactions'}
                 subtitle={emptySubtitle}
