@@ -34,6 +34,8 @@ function activityIcon(kind: ActivityKind) {
       return UserPlus;
     case 'member_removed':
       return UserMinus;
+    case 'member_renamed':
+      return Pencil;
     case 'group_created':
     case 'group_updated':
       return Users;
@@ -50,36 +52,23 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       paddingHorizontal: space[4],
       paddingVertical: space[4],
       gap: space[3],
-      minHeight: 64,
-    },
-    rowExpense: {
       minHeight: 68,
     },
     rowMuted: {
-      minHeight: 52,
-      paddingVertical: space[3],
       opacity: 0.72,
     },
     rowPressed: { backgroundColor: rowPressedColor },
-    iconTrack: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: palette.fill,
-    },
-    iconTrackExpense: {
+    iconColumn: {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: palette.tintMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      backgroundColor: palette.fill,
     },
-    iconTrackMuted: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
-      backgroundColor: 'transparent',
+    iconColumnExpense: {
+      backgroundColor: palette.tintMuted,
     },
     body: { flex: 1, minWidth: 0, gap: 2 },
     expenseLabel: {
@@ -131,8 +120,11 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       fontWeight: '500',
       color: palette.labelTertiary,
     },
-    chevron: {
-      marginLeft: space[1],
+    trailing: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[1],
+      flexShrink: 0,
     },
   });
 }
@@ -166,7 +158,6 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
     <Pressable
       style={({ pressed }) => [
         styles.row,
-        isExpense && styles.rowExpense,
         isMuted && styles.rowMuted,
         pressed && onPress && styles.rowPressed,
       ]}
@@ -175,13 +166,7 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityLabel={accessibilityLabel}
     >
-      <View
-        style={[
-          styles.iconTrack,
-          isExpense && styles.iconTrackExpense,
-          isMuted && styles.iconTrackMuted,
-        ]}
-      >
+      <View style={[styles.iconColumn, isExpense && styles.iconColumnExpense]}>
         <Icon
           size={isExpense ? 20 : 16}
           color={isExpense ? palette.tint : palette.labelTertiary}
@@ -205,7 +190,10 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
         ) : (
           <>
             {item.subtitle ? (
-              <Text style={styles.metaAudit} numberOfLines={2}>
+              <Text
+                style={styles.metaAudit}
+                numberOfLines={item.kind === 'expense_edited' ? 5 : 2}
+              >
                 {item.subtitle}
               </Text>
             ) : null}
@@ -213,23 +201,23 @@ export function ActivityFeedItem({ item, onPress }: ActivityFeedItemProps) {
           </>
         )}
       </View>
-      {item.amountMinor != null ? (
-        <Text
-          style={[
-            styles.amount,
-            isExpense && styles.amountExpense,
-            isMuted && styles.amountMuted,
-          ]}
-        >
-          {fmt(minorToMajor(item.amountMinor))}
-        </Text>
-      ) : null}
-      {onPress ? (
-        <ChevronRight
-          size={18}
-          color={palette.labelTertiary}
-          style={styles.chevron}
-        />
+      {item.amountMinor != null || onPress ? (
+        <View style={styles.trailing}>
+          {item.amountMinor != null ? (
+            <Text
+              style={[
+                styles.amount,
+                isExpense && styles.amountExpense,
+                isMuted && styles.amountMuted,
+              ]}
+            >
+              {fmt(minorToMajor(item.amountMinor))}
+            </Text>
+          ) : null}
+          {onPress ? (
+            <ChevronRight size={18} color={palette.labelTertiary} />
+          ) : null}
+        </View>
       ) : null}
     </Pressable>
   );

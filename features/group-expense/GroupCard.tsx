@@ -65,7 +65,6 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     positive: { color: palette.positive },
     negative: { color: palette.negative },
     neutral: { color: palette.labelTertiary },
-    cardGap: { height: space[3] },
   });
 }
 
@@ -136,7 +135,6 @@ export function GroupCard({
         <ChevronRight size={16} color={palette.labelTertiary} />
       </Pressable>
       {showSeparator ? <ListDivider bleedHorizontal={space[4]} variant={dividerVariant} /> : null}
-      {showSeparator ? <View style={styles.cardGap} /> : null}
     </>
   );
 }

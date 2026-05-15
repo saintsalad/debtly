@@ -1,9 +1,11 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, MoreHorizontal, UserPlus } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { AvatarStack, sortMembersForStack } from '@/components/ui/AvatarStack';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { GlassCard } from '@/components/ui/GlassCard';
@@ -17,6 +19,7 @@ import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
 import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
 import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
 import { shareGroupSummary, sendGroupReminder } from '@/features/group-expense/groupExpenseActions';
+import { GroupMembersSheet, type GroupMembersSheetHandle } from '@/features/group-expense/GroupMembersSheet';
 import { InviteMembersSheet, type InviteMembersSheetHandle } from '@/features/group-expense/InviteMembersSheet';
 import { MemberBalanceRow } from '@/features/group-expense/MemberBalanceRow';
 import {
@@ -68,6 +71,16 @@ function createStyles(palette: ColorPalette) {
     heroCard: {
       paddingVertical: space[2],
     },
+    heroMembers: {
+      alignItems: 'center',
+      gap: space[2],
+      paddingTop: space[2],
+      paddingBottom: space[1],
+    },
+    heroMemberLabel: {
+      ...type.footnote,
+      color: palette.labelTertiary,
+    },
   });
 }
 
@@ -91,6 +104,7 @@ export function GroupDetailScreen() {
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
   const inviteSheetRef = useRef<InviteMembersSheetHandle>(null);
+  const membersSheetRef = useRef<GroupMembersSheetHandle>(null);
 
   const summary = useMemo(
     () => (group ? selectGroupBalances(group, expenses, settlements) : null),
@@ -101,6 +115,11 @@ export function GroupDetailScreen() {
     if (!group) return [];
     return buildGroupActivity(group, activityLog);
   }, [group, activityLog]);
+
+  const stackMembers = useMemo(
+    () => (group ? sortMembersForStack(group.members) : []),
+    [group]
+  );
 
   const openSettle = useCallback(() => {
     if (!group || !summary) return;
@@ -203,6 +222,21 @@ export function GroupDetailScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <GlassCard style={styles.heroCard}>
+              <Pressable
+                style={styles.heroMembers}
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  membersSheetRef.current?.present(group.id);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="View and manage group members"
+              >
+                <AvatarStack members={stackMembers} size={40} maxVisible={5} />
+                <Text style={styles.heroMemberLabel}>
+                  {group.members.length}{' '}
+                  {group.members.length === 1 ? 'member' : 'members'} · tap to manage
+                </Text>
+              </Pressable>
               <GroupBalanceHero
                 summary={summary}
                 totalSpendMinor={summary.totalSpendMinor}
@@ -243,7 +277,7 @@ export function GroupDetailScreen() {
             <View>
               <Text style={styles.sectionTitle}>Expenses & activity</Text>
               <Text style={[styles.sectionHint, { color: palette.labelTertiary }]}>
-                Tap an expense to view or edit the split
+                Tap an expense to view or edit it
               </Text>
               {activity.length === 0 ? (
                 <EmptyState
@@ -264,7 +298,7 @@ export function GroupDetailScreen() {
                         }
                       />
                       {index < activity.length - 1 ? (
-                        <ListDivider variant="glass" />
+                        <ListDivider bleedHorizontal={space[4]} variant="glass" />
                       ) : null}
                     </View>
                   ))}
@@ -278,6 +312,7 @@ export function GroupDetailScreen() {
       <AddExpenseSheet ref={expenseSheetRef} />
       <RecordSettlementSheet ref={settlementSheetRef} />
       <InviteMembersSheet ref={inviteSheetRef} />
+      <GroupMembersSheet ref={membersSheetRef} />
     </AppScreen>
   );
 }

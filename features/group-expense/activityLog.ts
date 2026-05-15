@@ -9,7 +9,7 @@ import type {
   SplitGroup,
 } from '@/features/group-expense/types';
 import { getCurrentUserMember } from '@/features/group-expense/balanceEngine';
-import { generateId } from '@/lib/utils';
+import { CURRENCIES, generateId } from '@/lib/utils';
 
 function memberName(group: SplitGroup, memberId?: string): string {
   if (!memberId) return 'Someone';
@@ -47,9 +47,9 @@ export function createLogEntry(
   };
 }
 
-function fmtMinor(amountMinor: number, symbol = '₱'): string {
-  const major = minorToMajor(amountMinor);
-  return `${symbol}${major.toFixed(2)}`;
+function fmtMinor(amountMinor: number, currency: string): string {
+  const symbol = CURRENCIES[currency as keyof typeof CURRENCIES]?.symbol ?? currency;
+  return `${symbol}${minorToMajor(amountMinor).toFixed(2)}`;
 }
 
 export function describeExpenseChanges(
@@ -58,24 +58,33 @@ export function describeExpenseChanges(
   group: SplitGroup
 ): string {
   const parts: string[] = [];
+  const currency = after.currency;
+
   if (before.title !== after.title) {
     parts.push(`Title: ${before.title} → ${after.title}`);
   }
   if (before.amountMinor !== after.amountMinor) {
-    parts.push(`${fmtMinor(before.amountMinor)} → ${fmtMinor(after.amountMinor)}`);
+    parts.push(
+      `Amount: ${fmtMinor(before.amountMinor, currency)} → ${fmtMinor(after.amountMinor, currency)}`
+    );
   }
   if (before.paidByMemberId !== after.paidByMemberId) {
     parts.push(
-      `Payer: ${memberName(group, before.paidByMemberId)} → ${memberName(group, after.paidByMemberId)}`
+      `Paid by: ${memberName(group, before.paidByMemberId)} → ${memberName(group, after.paidByMemberId)}`
     );
   }
   if (before.splitMethod !== after.splitMethod) {
-    parts.push(`Split: ${splitMethodLabel(before.splitMethod)} → ${splitMethodLabel(after.splitMethod)}`);
+    parts.push(
+      `Split: ${splitMethodLabel(before.splitMethod)} → ${splitMethodLabel(after.splitMethod)}`
+    );
   }
   if (before.includedMemberIds.length !== after.includedMemberIds.length) {
     parts.push('Participants updated');
+  } else if (JSON.stringify(before.shares) !== JSON.stringify(after.shares)) {
+    parts.push('Split amounts updated');
   }
-  return parts.length > 0 ? parts.join(' · ') : 'Details updated';
+
+  return parts.length > 0 ? parts.join('\n') : 'Details updated';
 }
 
 export function logExpenseAdded(
@@ -113,7 +122,6 @@ export function logExpenseEdited(
     expenseId: after.id,
     title: `${actor} edited ${after.title}`,
     subtitle: describeExpenseChanges(before, after, group),
-    amountMinor: after.amountMinor,
   });
 }
 
@@ -185,6 +193,26 @@ export function logMemberRemoved(
     at,
     actorMemberId,
     title: `${actor} removed ${removedName}`,
+  });
+}
+
+export function logMemberRenamed(
+  group: SplitGroup,
+  memberId: string,
+  previousName: string,
+  nextName: string,
+  actorMemberId: string,
+  at: string
+): ActivityLogEntry {
+  const actor = actorLabel(group, actorMemberId);
+  return createLogEntry({
+    groupId: group.id,
+    kind: 'member_renamed',
+    at,
+    actorMemberId,
+    targetMemberId: memberId,
+    title: `${actor} renamed ${previousName}`,
+    subtitle: `${previousName} → ${nextName}`,
   });
 }
 
@@ -266,5 +294,5 @@ export function isExpenseTappable(
   if (!expenseId) return false;
   const expense = expenses.find((e) => e.id === expenseId);
   if (!expense || expense.deletedAt) return false;
-  return kind === 'expense_added' || kind === 'expense_edited';
+  return kind === 'expense_added';
 }

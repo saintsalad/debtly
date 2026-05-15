@@ -9,6 +9,7 @@ import {
   logGroupUpdated,
   logMemberJoined,
   logMemberRemoved,
+  logMemberRenamed,
   logSettlement,
   rebuildActivityLogFromState,
 } from '@/features/group-expense/activityLog';
@@ -67,6 +68,7 @@ interface GroupExpenseStore extends GroupExpenseState {
   deleteGroup: (id: string) => void;
   setGroupImage: (id: string, imageUri: string | undefined) => void;
   addMember: (groupId: string, displayName: string, username?: string) => string | null;
+  renameMember: (groupId: string, memberId: string, displayName: string) => string | null;
   removeMember: (groupId: string, memberId: string) => void;
   addExpense: (input: AddExpenseInput) => string | null;
   updateExpense: (id: string, input: Partial<AddExpenseInput>) => string | null;
@@ -234,6 +236,53 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
         const { groups, expenses, settlements } = get();
         syncLedgerForGroup(groupId, groups, expenses, settlements);
         return memberId;
+      },
+
+      renameMember: (groupId, memberId, displayName) => {
+        const trimmed = displayName.trim();
+        if (!trimmed) return 'Enter a name.';
+
+        const group = get().groups.find((g) => g.id === groupId);
+        const member = group?.members.find((m) => m.id === memberId);
+        if (!member || member.isCurrentUser || !group) return 'Cannot rename this member.';
+
+        const duplicate = group.members.find(
+          (m) => m.id !== memberId && m.displayName.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (duplicate) return 'A member with this name already exists.';
+
+        if (member.displayName === trimmed) return null;
+
+        const now = new Date().toISOString();
+        const actorId = getActorMemberId(group);
+        const auditEntry = logMemberRenamed(
+          group,
+          memberId,
+          member.displayName,
+          trimmed,
+          actorId,
+          now
+        );
+
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              ? {
+                  ...g,
+                  members: g.members.map((m) =>
+                    m.id === memberId ? { ...m, displayName: trimmed } : m
+                  ),
+                  updatedAt: now,
+                  version: bumpVersion(g.version),
+                }
+              : g
+          ),
+          activityLog: prependActivityLog(state.activityLog, auditEntry),
+        }));
+
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(groupId, groups, expenses, settlements);
+        return null;
       },
 
       removeMember: (groupId, memberId) => {

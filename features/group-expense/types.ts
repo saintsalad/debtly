@@ -73,7 +73,8 @@ export type ActivityKind =
   | 'expense_deleted'
   | 'settlement_recorded'
   | 'member_joined'
-  | 'member_removed';
+  | 'member_removed'
+  | 'member_renamed';
 
 /** Immutable audit log entry — append-only for accountability. */
 export interface ActivityLogEntry {
