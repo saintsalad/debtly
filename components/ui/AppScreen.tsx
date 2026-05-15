@@ -8,9 +8,19 @@ interface AppScreenProps {
   style?: StyleProp<ViewStyle>;
   /** `gradient` = tab-style blue background; `solid` = flat surface (e.g. modals). */
   background?: 'gradient' | 'solid';
+  /**
+   * Reserve space above the floating tab bar on Android.
+   * Set false when the screen scroll view applies its own bottom inset.
+   */
+  reserveTabBarInset?: boolean;
 }
 
-export function AppScreen({ children, style, background = 'gradient' }: AppScreenProps) {
+export function AppScreen({
+  children,
+  style,
+  background = 'gradient',
+  reserveTabBarInset = Platform.OS !== 'ios',
+}: AppScreenProps) {
   const palette = useColors();
   const useGradient = background === 'gradient';
 
@@ -23,7 +33,17 @@ export function AppScreen({ children, style, background = 'gradient' }: AppScree
       ]}
     >
       {useGradient ? <ScreenBlueGradient /> : null}
-      <View style={styles.content}>{children}</View>
+      <View
+        style={[
+          styles.content,
+          {
+            paddingBottom:
+              Platform.OS === 'ios' || !reserveTabBarInset ? 0 : layout.screenPaddingBottom,
+          },
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
@@ -36,7 +56,5 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    /** iOS: tab clearance comes from each screen’s scroll `contentContainerStyle`; see `docs/fixes/ios-tab-bottom-inset.md`. */
-    paddingBottom: Platform.OS === 'ios' ? 0 : layout.screenPaddingBottom,
   },
 });

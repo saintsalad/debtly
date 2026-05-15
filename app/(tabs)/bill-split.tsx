@@ -11,10 +11,11 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { AddBillSplitSheet, type AddBillSplitSheetHandle } from '@/features/bill-split/AddBillSplitSheet';
 import { BillSplitCard } from '@/features/bill-split/BillSplitCard';
 import { useBillSplitStore } from '@/stores/billSplitStore';
-import { useCardShadow, useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { useGlassCardShadow, useGlassSurface } from '@/lib/glassSurface';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 
-function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
     header: {
       flexDirection: 'row',
@@ -41,10 +42,8 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       paddingHorizontal: space[4],
     },
     listGroup: {
-      backgroundColor: palette.surface,
       borderRadius: radius.lg,
       overflow: 'hidden',
-      ...shadow,
     },
     listEmpty: {
       flexGrow: 1,
@@ -54,8 +53,9 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 
 export default function BillSplitScreen() {
   const palette = useColors();
-  const shadow = useCardShadow();
-  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+  const glassSurface = useGlassSurface();
+  const glassShadow = useGlassCardShadow();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const splits = useBillSplitStore((s) => s.splits);
   const sheetRef = useRef<AddBillSplitSheetHandle>(null);
   const insets = useSafeAreaInsets();
@@ -92,7 +92,7 @@ export default function BillSplitScreen() {
         contentContainerStyle={[
           styles.listContent,
           splits.length === 0 && styles.listEmpty,
-          splits.length > 0 && styles.listGroup,
+          splits.length > 0 && [styles.listGroup, glassSurface, glassShadow],
           Platform.OS === 'ios' && { paddingBottom: layout.screenPaddingBottom },
         ]}
         renderItem={({ item, index }) => (

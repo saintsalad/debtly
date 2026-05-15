@@ -7,15 +7,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatDate, getComputedStatus } from '@/lib/utils';
+import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface TransactionRowProps {
   debt: Debt;
   onPress: () => void;
   showSeparator?: boolean;
+  dividerVariant?: 'default' | 'glass';
 }
 
-function createStyles(palette: ColorPalette) {
+function createStyles(palette: ColorPalette, rowPressedColor: string) {
   return StyleSheet.create({
     row: {
       flexDirection: 'row',
@@ -26,7 +28,7 @@ function createStyles(palette: ColorPalette) {
       minHeight: 68,
     },
     rowPressed: {
-      backgroundColor: palette.fill,
+      backgroundColor: rowPressedColor,
     },
     body: { flex: 1, gap: space[1] },
     topRow: {
@@ -70,9 +72,15 @@ function createStyles(palette: ColorPalette) {
   });
 }
 
-export function TransactionRow({ debt, onPress, showSeparator = false }: TransactionRowProps) {
+export function TransactionRow({
+  debt,
+  onPress,
+  showSeparator = false,
+  dividerVariant = 'default',
+}: TransactionRowProps) {
   const palette = useColors();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const rowPressedColor = useGlassSurfacePressed();
+  const styles = useMemo(() => createStyles(palette, rowPressedColor), [palette, rowPressedColor]);
   const { fmt } = useCurrency();
   const status = getComputedStatus(debt);
   const isCredit = debt.type === 'owed_to_me';
@@ -137,7 +145,7 @@ export function TransactionRow({ debt, onPress, showSeparator = false }: Transac
           </View>
         </View>
       </Pressable>
-      {showSeparator ? <ListDivider /> : null}
+      {showSeparator ? <ListDivider variant={dividerVariant} /> : null}
     </>
   );
 }

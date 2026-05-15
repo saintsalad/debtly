@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SystemUI from 'expo-system-ui';
 import { AppScreen } from '@/components/ui/AppScreen';
+import { GlassCard } from '@/components/ui/GlassCard';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -17,7 +18,8 @@ import { TransactionRow } from '@/features/debts/TransactionRow';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { getComputedStatus } from '@/lib/utils';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
@@ -37,10 +39,14 @@ function useFadeUp(delay = 0) {
   }));
 }
 
-function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+function createStyles(
+  palette: ColorPalette,
+  glassSeparator: string,
+  scrollBottomPadding: number
+) {
   return StyleSheet.create({
     content: {
-      paddingBottom: layout.screenPaddingBottom,
+      paddingBottom: scrollBottomPadding,
     },
 
     header: {
@@ -62,12 +68,9 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     netCard: {
       marginHorizontal: space[4],
       marginBottom: space[6],
-      backgroundColor: palette.surface,
-      borderRadius: radius.xl,
       paddingHorizontal: space[5],
       paddingVertical: space[6],
       alignItems: 'center',
-      ...shadow,
     },
     netLabel: {
       ...type.subheadline,
@@ -90,12 +93,9 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     overviewCard: {
       marginHorizontal: space[4],
       marginBottom: space[3],
-      backgroundColor: palette.surface,
-      borderRadius: radius.lg,
       flexDirection: 'row',
       alignItems: 'stretch',
       paddingVertical: space[5],
-      ...shadow,
     },
     overviewHalf: {
       flex: 1,
@@ -105,7 +105,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     },
     overviewDivider: {
       width: StyleSheet.hairlineWidth,
-      backgroundColor: palette.separator,
+      backgroundColor: glassSeparator,
       marginVertical: space[1],
     },
     overviewLabel: {
@@ -137,19 +137,19 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       color: palette.label,
       marginBottom: space[3],
     },
-    recentCard: {
-      backgroundColor: palette.surface,
-      borderRadius: radius.lg,
-      overflow: 'hidden',
-      ...shadow,
-    },
+    recentCard: {},
   });
 }
 
 export default function HomeScreen() {
   const palette = useColors();
-  const shadow = useCardShadow();
-  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+  const glassSeparator = useGlassSeparatorColor();
+  const scrollBottomPadding =
+    Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
+  const styles = useMemo(
+    () => createStyles(palette, glassSeparator, scrollBottomPadding),
+    [palette, glassSeparator, scrollBottomPadding]
+  );
   const { debts, owedToMe, iOwe, totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
   const { fmt } = useCurrency();
@@ -191,7 +191,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <AppScreen>
+    <AppScreen reserveTabBarInset={false}>
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -203,17 +203,20 @@ export default function HomeScreen() {
           <Text style={styles.name}>{name}</Text>
         </View>
 
-        <Animated.View style={[styles.netCard, heroStyle]}>
-          <Text style={styles.netLabel}>Net balance</Text>
-          <Text style={[styles.netAmount, { color: isPositive ? palette.positive : palette.negative }]}>
-            {isPositive ? '+' : '−'}{fmt(Math.abs(netBalance))}
-          </Text>
-          <Text style={styles.netSub}>
-            {isPositive ? "You're receiving more than you owe" : "You owe more than you're owed"}
-          </Text>
+        <Animated.View style={heroStyle}>
+          <GlassCard style={styles.netCard} borderRadius={radius.xl}>
+            <Text style={styles.netLabel}>Net balance</Text>
+            <Text style={[styles.netAmount, { color: isPositive ? palette.positive : palette.negative }]}>
+              {isPositive ? '+' : '−'}{fmt(Math.abs(netBalance))}
+            </Text>
+            <Text style={styles.netSub}>
+              {isPositive ? "You're receiving more than you owe" : "You owe more than you're owed"}
+            </Text>
+          </GlassCard>
         </Animated.View>
 
-        <Animated.View style={[styles.overviewCard, overviewStyle]}>
+        <Animated.View style={overviewStyle}>
+          <GlassCard style={styles.overviewCard}>
           <View style={styles.overviewHalf}>
             <Text style={styles.overviewLabel}>Receivable</Text>
             <Text style={[styles.overviewAmount, { color: palette.positive }]}>
@@ -229,6 +232,7 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.overviewMeta}>{iOwe.length} pending</Text>
           </View>
+          </GlassCard>
         </Animated.View>
 
         <Text style={styles.statusLine}>
@@ -238,16 +242,17 @@ export default function HomeScreen() {
         {recentDebts.length > 0 ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent activity</Text>
-            <View style={styles.recentCard}>
+            <GlassCard style={styles.recentCard}>
               {recentDebts.map((debt, index) => (
                 <TransactionRow
                   key={debt.id}
                   debt={debt}
                   onPress={() => openTransactionDetail(debt)}
                   showSeparator={index < recentDebts.length - 1}
+                  dividerVariant="glass"
                 />
               ))}
-            </View>
+            </GlassCard>
           </View>
         ) : (
           <EmptyState

@@ -15,6 +15,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppScreen } from '@/components/ui/AppScreen';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
@@ -23,7 +24,8 @@ import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useCardShadow, useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 
 interface RowProps {
@@ -61,7 +63,7 @@ function ToggleRow({ icon: Icon, label, value, onValueChange, last, palette, sty
           ios_backgroundColor={palette.fill}
         />
       </View>
-      {!last ? <ListDivider /> : null}
+      {!last ? <ListDivider variant="glass" /> : null}
     </>
   );
 }
@@ -88,7 +90,7 @@ function Row({ icon: Icon, label, value, onPress, destructive, last, palette, st
           ) : null}
         </View>
       </TouchableOpacity>
-      {!last ? <ListDivider /> : null}
+      {!last ? <ListDivider variant="glass" /> : null}
     </>
   );
 }
@@ -105,12 +107,14 @@ function Section({
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
+      <GlassCard style={styles.sectionCard} borderRadius={radius.card}>
+        {children}
+      </GlassCard>
     </View>
   );
 }
 
-function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+function createStyles(palette: ColorPalette, glassSeparator: string) {
   return StyleSheet.create({
     content: {},
     header: {
@@ -124,12 +128,9 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[4],
-      backgroundColor: palette.surface,
       marginHorizontal: space[5],
-      borderRadius: radius.card,
       padding: space[4],
       marginBottom: space[3],
-      ...shadow,
     },
     identityBody: { flex: 1 },
     identityName: { ...type.title3, color: palette.label },
@@ -155,19 +156,16 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 
     statsRow: {
       flexDirection: 'row',
-      backgroundColor: palette.surface,
       marginHorizontal: space[5],
-      borderRadius: radius.card,
       paddingVertical: space[4],
       marginBottom: space[5],
-      ...shadow,
     },
     statCell: { flex: 1, alignItems: 'center', gap: 3 },
     statValue: { fontSize: 18, fontWeight: '600', letterSpacing: -0.4 },
     statLabel: { ...type.caption2, color: palette.labelSecondary, fontWeight: '500' },
     statDivider: {
       width: StyleSheet.hairlineWidth,
-      backgroundColor: palette.opaqueSeparator,
+      backgroundColor: glassSeparator,
       marginVertical: space[1],
     },
 
@@ -178,12 +176,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       marginBottom: space[2],
       paddingLeft: space[1],
     },
-    sectionCard: {
-      backgroundColor: palette.surface,
-      borderRadius: radius.card,
-      overflow: 'hidden',
-      ...shadow,
-    },
+    sectionCard: {},
     row: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -201,8 +194,8 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
 export default function ProfileScreen() {
   const colorScheme = useAppColorScheme();
   const palette = useColors();
-  const shadow = useCardShadow();
-  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+  const glassSeparator = useGlassSeparatorColor();
+  const styles = useMemo(() => createStyles(palette, glassSeparator), [palette, glassSeparator]);
 
   const { totalOwedToMe, totalIOwe, settledCount } = useDebtSummary();
   const name = useProfileStore((s) => s.name);
@@ -262,7 +255,7 @@ export default function ProfileScreen() {
           <Text style={styles.pageTitle}>Profile</Text>
         </View>
 
-        <View style={styles.identityCard}>
+        <GlassCard style={styles.identityCard} borderRadius={radius.card}>
           <Avatar name={name} size={60} />
           <View style={styles.identityBody}>
             {editing ? (
@@ -289,9 +282,9 @@ export default function ProfileScreen() {
             <View style={styles.offlineDot} />
             <Text style={styles.offlineLabel}>Offline</Text>
           </View>
-        </View>
+        </GlassCard>
 
-        <View style={styles.statsRow}>
+        <GlassCard style={styles.statsRow} borderRadius={radius.card}>
           <View style={styles.statCell}>
             <Text style={[styles.statValue, { color: palette.positive }]}>{fmt(totalOwedToMe)}</Text>
             <Text style={styles.statLabel}>Receivable</Text>
@@ -306,7 +299,7 @@ export default function ProfileScreen() {
             <Text style={[styles.statValue, { color: palette.tint }]}>{settledCount}</Text>
             <Text style={styles.statLabel}>Settled</Text>
           </View>
-        </View>
+        </GlassCard>
 
         <Section title="Preferences" styles={styles}>
           <ToggleRow

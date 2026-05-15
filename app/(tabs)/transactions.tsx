@@ -1,4 +1,5 @@
 import { AppScreen } from '@/components/ui/AppScreen';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { ContextMenuDropdown, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
@@ -15,7 +16,8 @@ import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { glassBorderStyle, glassBorderWidth } from '@/lib/glassBorder';
-import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
+import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import {
   screenHeaderLayerStyle,
   scrollContentLayerStyle,
@@ -71,7 +73,7 @@ const TX_SCROLL_HEADER_SHOW_HIDE = {
 const SUGGESTED_ICON_SIZE = 18;
 const SUGGESTED_ICON_TRACK = 24;
 
-function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardShadow>) {
+function createStyles(palette: ColorPalette, glassSeparator: string) {
   return StyleSheet.create({
     containerRoot: {
       flex: 1,
@@ -237,12 +239,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       color: palette.labelSecondary,
       marginBottom: space[2],
     },
-    sectionCard: {
-      backgroundColor: palette.surface,
-      borderRadius: radius.lg,
-      overflow: 'hidden',
-      ...shadow,
-    },
+    sectionCard: {},
     /** iOS Journal search — flat list, no grouped card. */
     suggestedSection: {
       marginBottom: space[6],
@@ -278,7 +275,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       height: StyleSheet.hairlineWidth,
       width: '100%',
       alignSelf: 'stretch',
-      backgroundColor: palette.separator,
+      backgroundColor: glassSeparator,
     },
   });
 }
@@ -287,8 +284,8 @@ export default function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useAppColorScheme();
   const palette = useColors();
-  const shadow = useCardShadow();
-  const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
+  const glassSeparator = useGlassSeparatorColor();
+  const styles = useMemo(() => createStyles(palette, glassSeparator), [palette, glassSeparator]);
   const closeTrackMax = space[2] + 36;
   const [search, setSearch] = useState('');
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
@@ -779,7 +776,7 @@ export default function TransactionsScreen() {
 
   const hasSearchQuery = search.trim().length > 0;
 
-  const listScrollBottomPadding = layout.screenPaddingBottom;
+  const listScrollBottomPadding = Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
 
   const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
 
@@ -793,7 +790,7 @@ export default function TransactionsScreen() {
   );
 
   return (
-    <AppScreen>
+    <AppScreen reserveTabBarInset={false}>
       <StatusBar
         style={colorScheme === 'dark' ? 'light' : 'dark'}
         translucent
@@ -852,16 +849,17 @@ export default function TransactionsScreen() {
                   sections.map((section) => (
                     <View key={section.key} style={styles.sectionBlock}>
                       <Text style={styles.sectionTitle}>{section.title}</Text>
-                      <View style={styles.sectionCard}>
+                      <GlassCard style={styles.sectionCard}>
                         {section.data.map((debt, index) => (
                           <TransactionRow
                             key={debt.id}
                             debt={debt}
                             onPress={() => handleSelect(debt)}
                             showSeparator={index < section.data.length - 1}
+                            dividerVariant="glass"
                           />
                         ))}
-                      </View>
+                      </GlassCard>
                     </View>
                   ))
                 )}

@@ -1,14 +1,11 @@
-import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
-import { LiquidTabBar } from '@/components/ui/LiquidTabBar';
-import { AndroidTabBar } from '@/components/ui/AndroidTabBar';
+import { FloatingPillTabBar } from '@/components/ui/FloatingPillTabBar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-const TabBar = Platform.OS === 'android' ? AndroidTabBar : LiquidTabBar;
 
 export default function TabLayout() {
   return (
     <Tabs
-      tabBar={(props) => <TabBar {...props} />}
+      tabBar={(props) => <FloatingPillTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen

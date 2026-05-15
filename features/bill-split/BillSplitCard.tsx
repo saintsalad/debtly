@@ -5,14 +5,16 @@ import { BillSplit } from '@/features/bill-split/types';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ListDivider } from '@/components/ui/ListDivider';
+import { useGlassInsetFill } from '@/lib/glassSurface';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface BillSplitCardProps {
   split: BillSplit;
   showSeparator?: boolean;
+  dividerVariant?: 'default' | 'glass';
 }
 
-function createStyles(palette: ColorPalette) {
+function createStyles(palette: ColorPalette, insetFill: string) {
   return StyleSheet.create({
     card: {
       paddingHorizontal: space[4],
@@ -43,7 +45,7 @@ function createStyles(palette: ColorPalette) {
       paddingVertical: space[2],
       paddingHorizontal: space[3],
       borderRadius: 12,
-      backgroundColor: palette.fillSecondary,
+      backgroundColor: insetFill,
     },
     totalLabel: {
       ...type.subheadline,
@@ -94,9 +96,14 @@ function createStyles(palette: ColorPalette) {
   });
 }
 
-export function BillSplitCard({ split, showSeparator = false }: BillSplitCardProps) {
+export function BillSplitCard({
+  split,
+  showSeparator = false,
+  dividerVariant = 'glass',
+}: BillSplitCardProps) {
   const palette = useColors();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const insetFill = useGlassInsetFill();
+  const styles = useMemo(() => createStyles(palette, insetFill), [palette, insetFill]);
   const { fmt } = useCurrency();
   const toggleParticipantPaid = useBillSplitStore((s) => s.toggleParticipantPaid);
   const deleteSplit = useBillSplitStore((s) => s.deleteSplit);
@@ -153,7 +160,7 @@ export function BillSplitCard({ split, showSeparator = false }: BillSplitCardPro
               </Text>
             </Pressable>
             {index < split.participants.length - 1 ? (
-              <ListDivider bleedHorizontal={space[4]} />
+              <ListDivider bleedHorizontal={space[4]} variant={dividerVariant} />
             ) : null}
           </View>
         ))}
