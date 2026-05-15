@@ -14,6 +14,7 @@ import {
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { glassBorderStyle } from '@/lib/glassBorder';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
@@ -787,19 +788,12 @@ export default function TransactionsScreen() {
   const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
 
   const segmentedTrackStyle = useMemo(
-    () =>
-      colorScheme === 'dark'
-        ? {
-          backgroundColor: 'rgba(28, 28, 30, 0.42)',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: palette.opaqueSeparator,
-        }
-        : {
-          backgroundColor: 'rgba(120, 120, 128, 0.14)',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: palette.separator,
-        },
-    [colorScheme, palette.opaqueSeparator, palette.separator]
+    () => ({
+      backgroundColor:
+        colorScheme === 'dark' ? 'rgba(28, 28, 30, 0.42)' : 'rgba(120, 120, 128, 0.14)',
+      ...glassBorderStyle(colorScheme, 'surface'),
+    }),
+    [colorScheme]
   );
 
   const bleedTop = insets.top;

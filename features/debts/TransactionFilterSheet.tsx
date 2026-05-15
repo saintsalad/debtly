@@ -20,7 +20,9 @@ import {
   type TransactionFilters,
 } from '@/features/debts/transactionFilters';
 import { DebtStatus } from '@/features/debts/types';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { glassBorderStyle } from '@/lib/glassBorder';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
 export interface TransactionFilterSheetHandle {
@@ -48,7 +50,7 @@ const DUE_DATE_OPTIONS: { value: DueDateFilter; label: string }[] = [
   { value: 'no_due_date', label: 'No due date' },
 ];
 
-function createStyles(palette: ColorPalette) {
+function createStyles(palette: ColorPalette, scheme: 'light' | 'dark') {
   return StyleSheet.create({
     sheet: {
       borderTopLeftRadius: radius.xl,
@@ -106,9 +108,11 @@ function createStyles(palette: ColorPalette) {
       paddingHorizontal: space[3],
       paddingVertical: space[2],
       backgroundColor: palette.fill,
+      ...glassBorderStyle(scheme, 'secondary'),
     },
     chipActive: {
       backgroundColor: palette.tintMuted,
+      ...glassBorderStyle(scheme, 'tint'),
     },
     chipLabel: {
       ...type.footnote,
@@ -139,7 +143,8 @@ export const TransactionFilterSheet = forwardRef<
   TransactionFilterSheetProps
 >(function TransactionFilterSheet({ filters, onChange }, ref) {
   const palette = useColors();
-  const styles = useMemo(() => createStyles(palette), [palette]);
+  const colorScheme = useAppColorScheme();
+  const styles = useMemo(() => createStyles(palette, colorScheme), [palette, colorScheme]);
   const {
     topInset,
     bottomInset,

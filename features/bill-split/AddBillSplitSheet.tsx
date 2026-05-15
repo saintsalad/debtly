@@ -9,7 +9,8 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useColors, space, type ColorPalette } from '@/lib/platform';
@@ -169,13 +170,13 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
       <HeroUINativeProvider>
         <BottomSheetView style={styles.contentContainer}>
           <View style={styles.header}>
-            <Button variant="ghost" size="sm" onPress={close}>
-              <Button.Label>Cancel</Button.Label>
-            </Button>
+            <GlassButton variant="ghost" size="sm" onPress={close}>
+              <GlassButton.Label>Cancel</GlassButton.Label>
+            </GlassButton>
             <Text style={styles.title}>New split</Text>
-            <Button variant="primary" size="sm" onPress={handleSubmit}>
-              <Button.Label>Save</Button.Label>
-            </Button>
+            <GlassButton variant="primary" size="sm" onPress={handleSubmit}>
+              <GlassButton.Label>Save</GlassButton.Label>
+            </GlassButton>
           </View>
 
           <BottomSheetScrollView

@@ -173,6 +173,38 @@ Avoid:
 
 If spacing and layering are correct, borders should be minimal.
 
+#### Liquid glass button rims
+
+Interactive buttons (circular icon controls, pills, segmented tracks, and primary CTAs) use a **hairline light rim** to mimic iOS liquid glass — a soft highlight edge, not a hard frame.
+
+Implementation (`lib/glassBorder.ts`):
+
+* `glassBorderWidth` → `StyleSheet.hairlineWidth`
+* `glassBorderColor(scheme, variant)` → translucent white by variant
+* `useGlassBorder(variant)` → `{ borderWidth, borderColor }` for Pressables
+* `GlassButton` (`components/ui/GlassButton.tsx`) → HeroUI `Button` wrapper with automatic rims
+
+Variants:
+
+| Variant | Use |
+|--------|-----|
+| `secondary` | Frosted / fill backgrounds (header icon buttons, inactive segments) |
+| `tint` | Primary / accent fills (FAB, tab create, active chips) |
+| `positive` | Success-tinted controls |
+| `surface` | Ghost buttons, translucent segmented tracks |
+
+Color tokens (approximate):
+
+* **Light:** `rgba(255, 255, 255, 0.72)` secondary · `0.28` tint · `0.65` surface
+* **Dark:** `rgba(255, 255, 255, 0.16)` secondary · `0.28` tint · `0.14` surface
+
+Rules:
+
+* Always pair rim with existing fill — never border-only buttons
+* Apply to **all** tappable button surfaces for consistency (`HeaderIconButton`, `GlassButton`, `FAB`, tab create, `SegmentedControl` track + thumb, filter chips)
+* Do not add glass rims to non-interactive surfaces (cards, list rows, dividers)
+* HeroUI buttons: use `GlassButton`, not raw `Button`, unless explicitly exempt
+
 ---
 
 ## Typography

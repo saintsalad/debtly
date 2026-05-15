@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Platform, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
+import { useGlassBorder } from '@/lib/glassBorder';
 import { colors, radius } from '@/lib/platform';
 
 interface FABProps {
@@ -12,11 +13,12 @@ interface FABProps {
 export function FAB({ onPress, bottom = 100 }: FABProps) {
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const glassBorder = useGlassBorder('tint');
 
   return (
     <Animated.View style={[styles.wrapper, { bottom }, animStyle]}>
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.button, glassBorder, pressed && styles.pressed]}
         onPressIn={() => { scale.value = withSpring(0.93, { damping: 14 }); }}
         onPressOut={() => {
           scale.value = withSpring(1, { damping: 14 });

@@ -4,7 +4,7 @@ import * as SystemUI from 'expo-system-ui';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button } from 'heroui-native';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { Users } from 'lucide-react-native';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -78,9 +78,9 @@ export default function BillSplitScreen() {
               : `${splits.length} active ${splits.length === 1 ? 'split' : 'splits'}`}
           </Text>
         </View>
-        <Button size="sm" variant="primary" onPress={() => sheetRef.current?.present()}>
-          <Button.Label>New split</Button.Label>
-        </Button>
+        <GlassButton size="sm" variant="primary" onPress={() => sheetRef.current?.present()}>
+          <GlassButton.Label>New split</GlassButton.Label>
+        </GlassButton>
       </View>
 
       <Animated.FlatList

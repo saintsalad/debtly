@@ -4,6 +4,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
+import { useGlassBorder } from '@/lib/glassBorder';
 import { useColors, type ColorPalette } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
@@ -46,6 +47,7 @@ function CreateButton({ palette }: { palette: ColorPalette }) {
   const { present } = useAddDebt();
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const glassBorder = useGlassBorder('tint');
 
   return (
     <View style={styles.createContainer}>
@@ -53,6 +55,7 @@ function CreateButton({ palette }: { palette: ColorPalette }) {
         <Pressable
           style={[
             styles.createButton,
+            glassBorder,
             {
               backgroundColor: palette.tint,
               shadowColor: palette.tint,

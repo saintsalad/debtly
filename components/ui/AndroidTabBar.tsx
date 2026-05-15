@@ -4,7 +4,8 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
-import { Button, useThemeColor } from 'heroui-native';
+import { useThemeColor } from 'heroui-native';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { useColors, type ColorPalette } from '@/lib/platform';
 import { useAddDebt } from '@/lib/addDebtContext';
 
@@ -50,17 +51,18 @@ function CreateButton({ palette }: { palette: ColorPalette }) {
 
   return (
     <View style={styles.createContainer}>
-      <Button
+      <GlassButton
         isIconOnly
         size="lg"
         variant="primary"
+        glassVariant="tint"
         feedbackVariant="scale-ripple"
         animation={{ scale: { value: 0.97 } }}
         className="self-center shadow-lg"
         onPress={present}
       >
         <Plus size={26} color={accentForeground} />
-      </Button>
+      </GlassButton>
     </View>
   );
 }

@@ -12,7 +12,8 @@ import {
 import Animated from 'react-native-reanimated';
 import { ArrowDown, ArrowUp, Check, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { FormSwitchRow } from '@/components/ui/FormSwitchRow';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -152,7 +153,7 @@ function AddDebtForm({
       contentContainerStyle={[styles.formContent, { paddingBottom: contentBottomPadding }]}
     >
       <View style={styles.typeRow}>
-        <Button
+        <GlassButton
           variant={debtType === 'owed_to_me' ? 'primary' : 'secondary'}
           className="flex-1"
           onPress={() => setDebtType('owed_to_me')}
@@ -161,9 +162,9 @@ function AddDebtForm({
             size={18}
             color={debtType === 'owed_to_me' ? accentForeground : palette.positive}
           />
-          <Button.Label>Owes Me</Button.Label>
-        </Button>
-        <Button
+          <GlassButton.Label>Owes Me</GlassButton.Label>
+        </GlassButton>
+        <GlassButton
           variant={debtType === 'i_owe' ? 'primary' : 'secondary'}
           className="flex-1"
           onPress={() => setDebtType('i_owe')}
@@ -172,8 +173,8 @@ function AddDebtForm({
             size={18}
             color={debtType === 'i_owe' ? accentForeground : palette.negative}
           />
-          <Button.Label>I Owe</Button.Label>
-        </Button>
+          <GlassButton.Label>I Owe</GlassButton.Label>
+        </GlassButton>
       </View>
 
       <TextField isRequired>
@@ -230,9 +231,9 @@ function AddDebtForm({
           placeholder="Select due date"
         />
         {dueDate ? (
-          <Button variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
-            <Button.Label>Clear due date</Button.Label>
-          </Button>
+          <GlassButton variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
+            <GlassButton.Label>Clear due date</GlassButton.Label>
+          </GlassButton>
         ) : null}
         <Description>Optional</Description>
       </TextField>

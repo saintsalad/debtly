@@ -25,7 +25,8 @@ import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Button, HeroUINativeProvider } from 'heroui-native';
+import { HeroUINativeProvider } from 'heroui-native';
+import { GlassButton } from '@/components/ui/GlassButton';
 import { Bell, MessageSquare, Pencil, Printer, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef } from 'react';
 import {
@@ -454,9 +455,9 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
 
             <View style={styles.actions}>
               {isPending ? (
-                <Button variant="primary" size="lg" className="w-full" onPress={handlePaymentPress}>
-                  <Button.Label>Record payment</Button.Label>
-                </Button>
+                <GlassButton variant="primary" size="lg" className="w-full" onPress={handlePaymentPress}>
+                  <GlassButton.Label>Record payment</GlassButton.Label>
+                </GlassButton>
               ) : null}
 
               <View style={styles.actionGroup}>

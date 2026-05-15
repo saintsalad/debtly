@@ -1,9 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { useGlassBorder, type GlassBorderVariant } from '@/lib/glassBorder';
 import { radius, useColors } from '@/lib/platform';
 
-export type HeaderIconButtonVariant = 'secondary' | 'tint' | 'positive';
+export type HeaderIconButtonVariant = GlassBorderVariant;
 
 interface HeaderIconButtonProps {
   icon: LucideIcon;
@@ -23,6 +24,7 @@ export function HeaderIconButton({
   iconSize = 20,
 }: HeaderIconButtonProps) {
   const palette = useColors();
+  const glassBorder = useGlassBorder(variant);
 
   const backgroundColor =
     variant === 'tint'
@@ -44,7 +46,12 @@ export function HeaderIconButton({
       hitSlop={8}
       onPressIn={onPressIn}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, { backgroundColor }, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.button,
+        glassBorder,
+        { backgroundColor },
+        pressed && styles.pressed,
+      ]}
       android_ripple={{ color: rippleColor, borderless: true }}
     >
       <Icon size={iconSize} color={iconColor} />

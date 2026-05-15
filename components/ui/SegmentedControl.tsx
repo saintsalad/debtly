@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { glassBorderStyle } from '@/lib/glassBorder';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
 interface SegmentedControlProps {
@@ -28,6 +29,7 @@ function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' |
       borderRadius: radius.md,
       padding: TRACK_PAD,
       minHeight: 36,
+      ...glassBorderStyle(dark ? 'dark' : 'light', 'surface'),
     },
     segment: {
       flex: 1,
@@ -39,6 +41,7 @@ function createStyles(palette: ColorPalette, dark: boolean, variant: 'default' |
     },
     activeSegment: {
       backgroundColor: dark ? palette.surfaceRaised : palette.surface,
+      ...glassBorderStyle(dark ? 'dark' : 'light', 'secondary'),
       ...(dark
         ? {}
         : {
