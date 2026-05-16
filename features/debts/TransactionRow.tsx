@@ -151,12 +151,7 @@ export function TransactionRow({
         }
         accessibilityHint={accessibilityHint}
       >
-        <Avatar
-          name={debt.personName}
-          size={40}
-          tone={avatarTone}
-          variant={isPaid ? 'muted' : 'default'}
-        />
+        <Avatar name={debt.personName} size={40} tone={avatarTone} />
 
         <View style={styles.body}>
           <View style={styles.topRow}>

@@ -5,39 +5,29 @@ import { getInitials, getAvatarColor } from '@/lib/utils';
 import { useColors } from '@/lib/platform';
 
 export type AvatarTone = 'credit' | 'debit';
-export type AvatarVariant = 'default' | 'muted';
 
 interface AvatarProps {
   name: string;
   size?: number;
   tone?: AvatarTone;
-  /** Muted styling for settled/paid rows; keeps credit/debit icon. */
-  variant?: AvatarVariant;
 }
 
-export function Avatar({ name, size = 44, tone, variant = 'default' }: AvatarProps) {
+export function Avatar({ name, size = 44, tone }: AvatarProps) {
   const palette = useColors();
-  const muted = variant === 'muted';
 
-  const bg = tone === 'credit'
-    ? muted
-      ? palette.fillSecondary
-      : palette.positiveSoft
-    : tone === 'debit'
-      ? muted
-        ? palette.fillSecondary
-        : palette.negativeSoft
-      : getAvatarColor(name);
+  const bg =
+    tone === 'credit'
+      ? palette.positiveSoft
+      : tone === 'debit'
+        ? palette.negativeSoft
+        : getAvatarColor(name);
 
-  const iconColor = tone === 'credit'
-    ? muted
-      ? palette.labelSecondary
-      : palette.positive
-    : tone === 'debit'
-      ? muted
-        ? palette.labelSecondary
-        : palette.negative
-      : '#fff';
+  const iconColor =
+    tone === 'credit'
+      ? palette.positive
+      : tone === 'debit'
+        ? palette.negative
+        : '#fff';
 
   const iconSize = Math.round(size * 0.45);
 

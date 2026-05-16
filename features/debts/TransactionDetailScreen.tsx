@@ -11,6 +11,8 @@ import {
   getTotalPaid,
 } from '@/features/debts/debtCalculations';
 import { getInterestAccrualLabel, interestRateFromBps } from '@/features/debts/interestEngine';
+import { formatPaymentDateTime } from '@/features/debts/paymentHistory';
+import { PaymentHistorySection } from '@/features/debts/PaymentHistorySection';
 import { PartialPaymentSheet, type PartialPaymentSheetHandle } from '@/features/debts/PartialPaymentSheet';
 import { PaymentProgress } from '@/features/debts/PaymentProgress';
 import { RecordPaymentSheet, type RecordPaymentSheetHandle } from '@/features/debts/RecordPaymentSheet';
@@ -299,7 +301,9 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const totalPaid = getTotalPaid(debt);
   const paymentProgress = getPaymentProgress(debt);
   const hasPartialPayment = totalPaid > 0 && isPending;
+  const hasPaymentHistory = (debt.payments?.length ?? 0) > 0;
   const isPaid = status === 'paid';
+  const showPaidOn = isPaid && Boolean(debt.paidAt) && !hasPaymentHistory;
 
   const amountColor = isPaid
     ? palette.labelSecondary
@@ -400,12 +404,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             ]}
           >
             <View style={styles.hero}>
-              <Avatar
-                name={debt.personName}
-                size={64}
-                tone={isCredit ? 'credit' : 'debit'}
-                variant={dueUI.tone === 'paid' ? 'muted' : 'default'}
-              />
+              <Avatar name={debt.personName} size={64} tone={isCredit ? 'credit' : 'debit'} />
               <Text style={styles.personName} numberOfLines={2}>
                 {debt.personName}
               </Text>
@@ -483,19 +482,21 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
                   showSeparator={Boolean(debt.note)}
                 />
               ) : null}
-              <DetailRow
-                label="Added"
-                value={formatFullDate(debt.createdAt)}
-                showSeparator={Boolean(debt.note || debt.dueDate)}
-              />
-              {debt.updatedAt !== debt.createdAt ? (
+              {showPaidOn ? (
                 <DetailRow
-                  label="Last updated"
-                  value={formatFullDate(debt.updatedAt)}
+                  label="Paid on"
+                  value={formatPaymentDateTime(debt.paidAt!)}
                   showSeparator
                 />
               ) : null}
+              <DetailRow
+                label="Added"
+                value={formatFullDate(debt.createdAt)}
+                showSeparator={Boolean(debt.note || debt.dueDate || showPaidOn)}
+              />
             </View>
+
+            {hasPaymentHistory ? <PaymentHistorySection debt={debt} /> : null}
 
             <View style={styles.actions}>
               {isPending ? (
