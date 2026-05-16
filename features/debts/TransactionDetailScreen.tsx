@@ -474,9 +474,13 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               {hasPartialPayment ? (
                 <DetailRow label="Remaining" value={fmt(remainingBalance)} showSeparator />
               ) : null}
-              {debt.isRecurring && debt.recurrenceInterval ? (
+              {(debt.isRecurring ||
+                (debt.instalmentCount != null && debt.recurrenceInterval)) &&
+              debt.recurrenceInterval ? (
                 <DetailRow
-                  label="Recurring"
+                  label={
+                    debt.instalmentCount != null && !debt.isRecurring ? 'Schedule' : 'Recurring'
+                  }
                   value={getRecurrenceLabel(debt.recurrenceInterval)}
                   showSeparator
                 />

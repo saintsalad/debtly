@@ -14,7 +14,7 @@ import {
   validateAddDebtInput,
 } from '@/features/debts/interestEngine';
 import { majorToMinor, minorToMajor } from '@/features/debts/money';
-import { parseLocalDate, toLocalDateString } from '@/features/debts/dates';
+import { advanceRecurringDueDate, parseLocalDate, toLocalDateString } from '@/features/debts/dates';
 import { generateId } from '@/lib/utils';
 import { isBefore, startOfDay } from 'date-fns';
 
@@ -85,6 +85,74 @@ export function createDebtFromInput(input: AddDebtInput, createdAt: string): Deb
     ...buildInterestFields(input, createdAt),
     ...buildRecurringFields(input, id, id),
   };
+}
+
+/**
+ * One instalment row per scheduled payment: same principal each cycle, spaced by recurrence.
+ * Entries are independent (no recurring spawn-on-settle).
+ */
+export function createInstalmentPlanDebts(input: AddDebtInput, createdAt: string): Debt[] {
+  const count = input.instalmentCount;
+  const interval = input.recurrenceInterval;
+  if (
+    count == null ||
+    count < 2 ||
+    !interval ||
+    !input.dueDate ||
+    !input.isRecurring
+  ) {
+    throw new Error('createInstalmentPlanDebts: invalid input');
+  }
+
+  const principalMinor = majorToMinor(input.amount);
+  const instalmentTotalMinor = principalMinor * count;
+  const groupId = generateId();
+  const startDateStr = input.startDate ? toLocalDateString(input.startDate) : undefined;
+
+  let currentDueLocal = toLocalDateString(input.dueDate);
+  const anchor = currentDueLocal;
+  const debts: Debt[] = [];
+
+  for (let instalmentIndex = 1; instalmentIndex <= count; instalmentIndex += 1) {
+    const id = generateId();
+    const dueISO = `${currentDueLocal}T12:00:00.000Z`;
+    const sliceInput: AddDebtInput = {
+      ...input,
+      dueDate: dueISO,
+      isRecurring: false,
+      instalmentTotal: instalmentTotalMinor,
+    };
+
+    const dueDateStored = currentDueLocal;
+
+    debts.push({
+      id,
+      personName: input.personName.trim(),
+      principalMinor,
+      type: input.type,
+      note: input.note?.trim() || undefined,
+      dueDate: dueDateStored,
+      startDate: startDateStr,
+      status: 'pending',
+      payments: [],
+      createdAt,
+      updatedAt: createdAt,
+      ...buildInterestFields(sliceInput, createdAt),
+      isRecurring: false,
+      recurrenceInterval: interval,
+      instalmentTotal: instalmentTotalMinor,
+      instalmentCount: count,
+      instalmentIndex,
+      recurringGroupId: groupId,
+      recurringSourceId: groupId,
+    });
+
+    if (instalmentIndex < count) {
+      currentDueLocal = advanceRecurringDueDate(anchor, currentDueLocal, interval);
+    }
+  }
+
+  return debts;
 }
 
 export function getDebtAmountMajor(debt: Debt): number {

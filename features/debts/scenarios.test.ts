@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest';
 import { advanceRecurringDueDate } from '@/features/debts/dates';
 import {
   createDebtFromInput,
+  createInstalmentPlanDebts,
   isDebtActive,
 } from '@/features/debts/debtCalculations';
+import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { projectDebtLedger } from '@/features/debts/debtLedger';
 import { buildInterestFields, validateAddDebtInput } from '@/features/debts/interestEngine';
 import {
@@ -125,6 +127,36 @@ describe('[validation] basic debt entry', () => {
 
   it('rejects negative amount', () => {
     expect(validateAddDebtInput(makeInput({ amount: -50 }))).not.toBeNull();
+  });
+
+  it('rejects instalment plan with carry-over', () => {
+    expect(
+      validateAddDebtInput(
+        makeInput({
+          isRecurring: true,
+          dueDate: '2026-01-15',
+          recurrenceInterval: 'monthly',
+          instalmentCount: 12,
+          carryOverBalance: true,
+        })
+      )
+    ).not.toBeNull();
+  });
+
+  it('rejects instalment plan combined with split', () => {
+    expect(
+      validateAddDebtInput(
+        makeInput({
+          personName: '',
+          splitPeople: ['A', 'B'],
+          amount: 100,
+          isRecurring: true,
+          dueDate: '2026-01-15',
+          recurrenceInterval: 'monthly',
+          instalmentCount: 6,
+        })
+      )
+    ).not.toBeNull();
   });
 });
 
@@ -652,6 +684,31 @@ describe('[SUPPORTED] instalment / amortisation plan', () => {
     );
     expect(shouldBeNull).toBeNull();
   });
+
+  it('creates separate ledger debts per instalment with grouped ids and spaced due dates', () => {
+    const debts = createInstalmentPlanDebts(
+      makeInput({
+        amount: 50,
+        dueDate: '2026-01-31',
+        isRecurring: true,
+        recurrenceInterval: 'monthly',
+        instalmentCount: 3,
+      }),
+      '2026-01-01T00:00:00.000Z'
+    );
+
+    expect(debts).toHaveLength(3);
+    expect(debts[0].principalMinor).toBe(5_000);
+    expect(debts[0].instalmentIndex).toBe(1);
+    expect(debts[2].instalmentIndex).toBe(3);
+    expect(debts[0].instalmentCount).toBe(3);
+    expect(debts[0].instalmentTotal).toBe(15_000);
+    expect(debts[0].recurringGroupId).toBe(debts[2].recurringGroupId);
+    expect(debts[0].isRecurring).toBe(false);
+    expect(debts[0].dueDate).toBe('2026-01-31');
+    expect(debts[1].dueDate).toBe('2026-02-28');
+    expect(debts[2].dueDate).toBe('2026-03-31');
+  });
 });
 
 describe('[SUPPORTED] future-dated debt (active from a start date)', () => {
@@ -730,5 +787,92 @@ describe('[SUPPORTED] interest carry-over across recurring cycles', () => {
     // New cycle always starts with 0 accrued interest (fresh period)
     expect(fields.accruedInterestMinor).toBe(0);
     expect(fields.interestPaidMinor).toBe(0);
+  });
+});
+
+describe('[SUPPORTED] transaction sections (month grouping)', () => {
+  it('bucket keys use due-month; with fixed today, splits future vs past tiers', () => {
+    const asOf = new Date('2026-04-10T12:00:00.000Z');
+    const later = makeDebt({
+      id: 'may',
+      dueDate: '2026-05-15',
+      createdAt: '2026-03-01T12:00:00.000Z',
+    });
+    const sooner = makeDebt({
+      id: 'mar',
+      dueDate: '2026-03-10',
+      createdAt: '2026-03-01T12:00:00.000Z',
+    });
+    const sections = buildTransactionSections([later, sooner], { asOf });
+    const monthly = sections.filter((s) => !s.isScheduled);
+
+    expect(monthly.map((s) => s.key)).toEqual(['2026-05', '2026-03']);
+  });
+
+  it('sorts tiers: dues this month, then future months, then past months', () => {
+    const asOf = new Date('2026-04-15T12:00:00.000Z');
+    const current = makeDebt({
+      id: 'c',
+      dueDate: '2026-04-20',
+      createdAt: '2026-01-01T12:00:00.000Z',
+    });
+    const future = makeDebt({
+      id: 'f',
+      dueDate: '2026-06-01',
+      createdAt: '2026-01-01T12:00:00.000Z',
+    });
+    const past = makeDebt({
+      id: 'p',
+      dueDate: '2026-02-10',
+      createdAt: '2026-01-01T12:00:00.000Z',
+    });
+    const sections = buildTransactionSections([past, future, current], { asOf });
+    const monthly = sections.filter((s) => !s.isScheduled);
+
+    expect(monthly.map((s) => s.key)).toEqual(['2026-04', '2026-06', '2026-02']);
+  });
+
+  it('within future months: soonest first; within past: most recent past first', () => {
+    const asOf = new Date('2026-04-01T12:00:00.000Z');
+    const pastJan = makeDebt({ id: 'pj', dueDate: '2026-01-05' });
+    const pastFeb = makeDebt({ id: 'pf', dueDate: '2026-02-05' });
+    const futureMay = makeDebt({ id: 'fm', dueDate: '2026-05-05' });
+    const futureJul = makeDebt({ id: 'fj', dueDate: '2026-07-05' });
+    const sections = buildTransactionSections(
+      [pastJan, pastFeb, futureJul, futureMay],
+      { asOf }
+    );
+    const monthly = sections.filter((s) => !s.isScheduled);
+
+    expect(monthly.map((s) => s.key)).toEqual(['2026-05', '2026-07', '2026-02', '2026-01']);
+  });
+
+  it('falls back to createdAt month when dueDate is omitted', () => {
+    const asOf = new Date('2026-07-10T12:00:00.000Z');
+    const noDue = makeDebt({
+      id: 'nodue',
+      dueDate: undefined,
+      createdAt: '2026-07-08T08:00:00.000Z',
+    });
+    const sections = buildTransactionSections([noDue], { asOf });
+    const monthly = sections.filter((s) => !s.isScheduled);
+
+    expect(monthly).toHaveLength(1);
+    expect(monthly[0]!.key).toBe('2026-07');
+    expect(monthly[0]!.dueMonthTier).toBe('current');
+  });
+
+  it('records dueMonthTier on each ledger month section', () => {
+    const asOf = new Date('2026-04-10T12:00:00.000Z');
+    const sections = buildTransactionSections(
+      [
+        makeDebt({ id: 'f', dueDate: '2026-06-01' }),
+        makeDebt({ id: 'c', dueDate: '2026-04-15' }),
+        makeDebt({ id: 'p', dueDate: '2026-01-08' }),
+      ],
+      { asOf }
+    );
+    const tiers = sections.filter((s) => !s.isScheduled).map((s) => `${s.key}:${s.dueMonthTier}`);
+    expect(tiers).toEqual(['2026-04:current', '2026-06:future', '2026-01:past']);
   });
 });

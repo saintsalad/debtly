@@ -57,8 +57,13 @@ export function buildTransactionSummary(debt: Debt, fmt: (amount: number) => str
   if (accruedInterest > 0) lines.push(`Accrued interest: ${fmt(accruedInterest)}`);
   if (totalPaid > 0) lines.push(`Paid to date: ${fmt(totalPaid)}`);
   if (totalDue !== principal) lines.push(`Total due: ${fmt(totalDue)}`);
-  if (debt.isRecurring && debt.recurrenceInterval) {
-    lines.push(`Recurring: ${getRecurrenceLabel(debt.recurrenceInterval)}`);
+  if (
+    debt.recurrenceInterval &&
+    (debt.isRecurring || debt.instalmentCount != null)
+  ) {
+    const label =
+      debt.instalmentCount != null && !debt.isRecurring ? 'Schedule' : 'Recurring';
+    lines.push(`${label}: ${getRecurrenceLabel(debt.recurrenceInterval)}`);
   }
   if (debt.note) lines.push(`Note: ${debt.note}`);
   if (debt.dueDate) lines.push(`Due: ${formatDate(debt.dueDate)}`);

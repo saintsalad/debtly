@@ -63,6 +63,21 @@ export function validateAddDebtInput(input: AddDebtInput): string | null {
   if (input.isRecurring) {
     if (!input.dueDate) return 'Recurring debts require a due date.';
     if (!input.recurrenceInterval) return 'Choose how often the debt repeats.';
+    if (
+      input.instalmentCount != null &&
+      input.instalmentCount >= 2 &&
+      input.carryOverBalance
+    ) {
+      return 'Carry-over unavailable with instalment plans — payments are scheduled up front.';
+    }
+  }
+
+  if (
+    splitAcrossMultiple &&
+    input.instalmentCount != null &&
+    input.instalmentCount >= 2
+  ) {
+    return 'Instalment plan cannot be combined with splitting across multiple people.';
   }
 
   return null;

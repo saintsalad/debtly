@@ -15,8 +15,13 @@ import {
 import { filterDebtsForTransactionsTab } from '@/features/debts/transactionList';
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
+import {
+  TRANSACTION_DEBT_SEGMENT_LABELS,
+  debtSegmentGlassTrack,
+  debtSegmentMinTouchHeight,
+} from '@/features/debts/debtSegmentedChrome';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { glassBorderStyle, glassBorderWidth } from '@/lib/glassBorder';
+import { glassBorderWidth } from '@/lib/glassBorder';
 import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import {
@@ -33,7 +38,9 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SearchField } from 'heroui-native';
 import {
+  ArrowDown,
   ArrowDownUp,
+  ArrowUp,
   MoreHorizontal,
   Receipt,
   RotateCcw,
@@ -74,6 +81,10 @@ const TX_SCROLL_HEADER_SHOW_HIDE = {
 /** iOS Journal–style suggested row: fixed icon column + full-width divider. */
 const SUGGESTED_ICON_SIZE = 18;
 const SUGGESTED_ICON_TRACK = 24;
+
+/** When chrome height animates ~0 during scroll/search collapse; keep clipping on. */
+const TX_CHROME_EXPANDED_CLIP_THRESHOLD = 4;
+const TX_CHROME_IOS_OVERFLOW_VISIBLE = Platform.OS === 'ios';
 
 function createStyles(palette: ColorPalette, glassSeparator: string) {
   return StyleSheet.create({
@@ -132,7 +143,8 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     toolbarMain: {
       flex: 1,
       minWidth: 0,
-      minHeight: 36,
+      /** Matches segmented track minHeight (toolbar layers are absolutely filled). */
+      minHeight: debtSegmentMinTouchHeight(),
       position: 'relative',
       backgroundColor: 'transparent',
     },
@@ -302,12 +314,12 @@ export default function TransactionsScreen() {
   const searchFocusedRef = useRef(false);
   const transactionHeaderNaturalHeight = useRef(0);
   const transactionChromeNaturalHeight = useRef(0);
-  const hasMeasuredTxHeader = useRef(false);
-  const hasMeasuredTxChrome = useRef(false);
   /** When true, skip writing `txHeaderHeight` from onLayout so iOS does not cancel the expand animation. */
   const txHeaderHeightExpandLockRef = useRef(false);
   const txHeaderHeight = useSharedValue(120);
   const txChromeHeight = useSharedValue(88);
+  /** Full height of the floating header overlay (incl. status-bar inset padding) — drives list top spacer via onLayout so it stays in sync with animations. */
+  const measuredTransactionsHeaderDockSV = useSharedValue(Math.max(insets.top + 200, 220));
   const naturalTitleBlockHeightSV = useSharedValue(120);
   const naturalChromeHeightSV = useSharedValue(88);
   const lastListScrollY = useSharedValue(-1);
@@ -411,7 +423,12 @@ export default function TransactionsScreen() {
 
   const txChromeAnimatedStyle = useAnimatedStyle(() => ({
     height: txChromeHeight.value,
-    overflow: 'hidden' as const,
+    overflow:
+      txChromeHeight.value < TX_CHROME_EXPANDED_CLIP_THRESHOLD
+        ? ('hidden' as const)
+        : TX_CHROME_IOS_OVERFLOW_VISIBLE
+          ? ('visible' as const)
+          : ('hidden' as const),
   }));
 
   const closeTrackAnimatedStyle = useAnimatedStyle(() => ({
@@ -433,9 +450,19 @@ export default function TransactionsScreen() {
 
   const { scrollY: statusBarScrollY } = useStatusBarScrollFade({ overlayHost: 'screen' });
 
-  const scrollTopSpacerStyle = useAnimatedStyle(() => ({
-    height: insets.top + txHeaderHeight.value + txChromeHeight.value,
+  const scrollHeaderDockSpacerStyle = useAnimatedStyle(() => ({
+    height: measuredTransactionsHeaderDockSV.value,
   }));
+
+  const onTransactionsHeaderDockLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const h = e.nativeEvent.layout.height;
+      if (h > 0) {
+        measuredTransactionsHeaderDockSV.value = h;
+      }
+    },
+    [measuredTransactionsHeaderDockSV]
+  );
 
   const onTransactionHeaderLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -451,10 +478,7 @@ export default function TransactionsScreen() {
           return;
         }
         if (!headerHiddenByScrollRef.current && !txHeaderHeightExpandLockRef.current) {
-          if (!hasMeasuredTxHeader.current) {
-            hasMeasuredTxHeader.current = true;
-            txHeaderHeight.value = stable;
-          }
+          txHeaderHeight.value = stable;
         }
       }
     },
@@ -474,10 +498,7 @@ export default function TransactionsScreen() {
           return;
         }
         if (!headerHiddenByScrollRef.current) {
-          if (!hasMeasuredTxChrome.current) {
-            hasMeasuredTxChrome.current = true;
-            txChromeHeight.value = stable;
-          }
+          txChromeHeight.value = stable;
         }
       }
     },
@@ -785,11 +806,15 @@ export default function TransactionsScreen() {
 
   const segmentedTrackStyle = useMemo(
     () => ({
-      backgroundColor:
-        colorScheme === 'dark' ? 'rgba(28, 28, 30, 0.42)' : 'rgba(120, 120, 128, 0.14)',
-      ...glassBorderStyle(colorScheme, 'surface'),
+      ...debtSegmentGlassTrack(colorScheme),
+      minHeight: debtSegmentMinTouchHeight(),
     }),
     [colorScheme]
+  );
+
+  const segmentedAccentByIndex = useMemo(
+    (): Array<string | undefined> => [undefined, palette.positive, palette.negative],
+    [palette.positive, palette.negative]
   );
 
   return (
@@ -816,7 +841,7 @@ export default function TransactionsScreen() {
                   listContentShouldGrow && styles.listEmpty,
                 ]}
               >
-                <Animated.View style={[styles.scrollTopSpacer, scrollTopSpacerStyle]} />
+                <Animated.View style={[styles.scrollTopSpacer, scrollHeaderDockSpacerStyle]} />
                 {showSearchSuggestions ? (
                   <View style={styles.suggestedSection}>
                     <Text style={styles.suggestedHeader} accessibilityRole="header">
@@ -851,7 +876,17 @@ export default function TransactionsScreen() {
                 ) : (
                   sections.map((section) => (
                     <View key={section.key} style={styles.sectionBlock}>
-                      <Text style={styles.sectionTitle}>{section.title}</Text>
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          section.dueMonthTier === 'past' && {
+                            color: palette.labelTertiary,
+                            fontWeight: '500' as const,
+                          },
+                        ]}
+                      >
+                        {section.title}
+                      </Text>
                       <GlassCard style={styles.sectionCard}>
                         {section.data.map((debt, index) => (
                           <TransactionRow
@@ -860,6 +895,7 @@ export default function TransactionsScreen() {
                             onPress={() => handleSelect(debt)}
                             showSeparator={index < section.data.length - 1}
                             dividerVariant="glass"
+                            dueMonthTier={section.dueMonthTier}
                           />
                         ))}
                       </GlassCard>
@@ -874,6 +910,7 @@ export default function TransactionsScreen() {
                 style={[styles.headerOverlay, { paddingTop: insets.top }]}
                 pointerEvents="box-none"
                 collapsable={false}
+                onLayout={onTransactionsHeaderDockLayout}
               >
                 <Animated.View style={[txHeaderAnimatedStyle, styles.txHeaderClip]}>
                   <View onLayout={onTransactionHeaderLayout} style={styles.headerMeasureWrap}>
@@ -945,7 +982,9 @@ export default function TransactionsScreen() {
                           <SegmentedControl
                             variant="inline"
                             trackStyle={segmentedTrackStyle}
-                            options={['All', 'Owed you', 'You owe']}
+                            icons={[undefined, ArrowDown, ArrowUp]}
+                            selectedForegroundByIndex={segmentedAccentByIndex}
+                            options={[...TRANSACTION_DEBT_SEGMENT_LABELS]}
                             selectedIndex={segmentIndex}
                             onChange={setSegmentIndex}
                           />

@@ -51,7 +51,7 @@ export interface Debt {
   carryOverBalance?: boolean;
   /** Minor-unit carry-over amount stored on a settled recurring cycle. */
   carryOverMinor?: number;
-  /** Total minor amount for an instalment plan (sum of all cycles). */
+  /** Planned obligation across all instalments (minor units): each cycle principal × instalmentCount. */
   instalmentTotal?: number;
   /** Total number of instalments in the plan. */
   instalmentCount?: number;
@@ -85,7 +85,7 @@ export interface AddDebtInput {
   recurrenceInterval?: RecurrenceFrequency;
   /** When true, unpaid balance rolls into the next recurring cycle. */
   carryOverBalance?: boolean;
-  /** Total amount for an instalment plan. When set, amount = instalmentTotal / instalmentCount. */
+  /** Sum of instalments over the plan (minor units). Mirrors each-cycle `amount × instalmentCount`. */
   instalmentTotal?: number;
   /** Number of instalments in the plan. */
   instalmentCount?: number;

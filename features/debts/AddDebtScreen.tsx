@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import {
+  ADD_DEBT_DIRECTION_LABELS,
+  debtSegmentGlassTrack,
+  debtSegmentMinTouchHeight,
+} from '@/features/debts/debtSegmentedChrome';
+import {
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -11,9 +16,9 @@ import {
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronRight, Plus, ArrowDown, ArrowUp, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { FormSwitchRow } from '@/components/ui/FormSwitchRow';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
@@ -49,8 +54,6 @@ const RECURRENCE_OPTIONS: RecurrenceFrequency[] = ['weekly', 'monthly', 'yearly'
 const INTEREST_ACCRUAL_OPTIONS: InterestAccrualFrequency[] = ['monthly', 'yearly'];
 const INTEREST_TYPE_OPTIONS: InterestType[] = ['simple', 'compound'];
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: palette.bg },
@@ -64,8 +67,16 @@ function createStyles(palette: ColorPalette) {
       borderBottomColor: palette.opaqueSeparator,
     },
     title: { flex: 1, ...type.headline, color: palette.label, textAlign: 'center' },
-    formContent: { flexGrow: 1, gap: space[4], paddingHorizontal: space[5], paddingTop: space[4] },
-    typeRow: { flexDirection: 'row', gap: space[3] },
+    // Match Transactions list shell horizontal inset (`layout.screenPaddingX`).
+    formContent: {
+      flexGrow: 1,
+      gap: space[4],
+      paddingHorizontal: layout.screenPaddingX,
+      paddingTop: space[4],
+    },
+    /** HeroUI TextField gap-1.5 (6); keeps Direction stack rhythm aligned with segmented fields elsewhere. */
+    directionBlock: { gap: 6 },
+    segmentIdleWrap: { width: '100%' },
     amountRow: { width: '100%', flexDirection: 'row', alignItems: 'center' },
     currencySymbol: {
       position: 'absolute',
@@ -184,8 +195,17 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
-  const accentForeground = useThemeColor('accent-foreground');
-
+  const directionTrackStyle = useMemo(
+    () => ({
+      ...debtSegmentGlassTrack(colorScheme),
+      minHeight: debtSegmentMinTouchHeight(),
+    }),
+    [colorScheme]
+  );
+  const directionSelectedFg = useMemo(
+    () => [palette.positive, palette.negative],
+    [palette.positive, palette.negative]
+  );
   const { addDebt, updateDebt } = useDebtStore();
   const { symbol } = useCurrency();
   const existingDebt = useDebtStore((s) => (debtId ? s.debts.find((d) => d.id === debtId) : undefined));
@@ -328,7 +348,10 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
       recurrenceInterval: isRecurring ? RECURRENCE_OPTIONS[recurrenceIndex] : undefined,
       carryOverBalance: isRecurring ? carryOverBalance : undefined,
       instalmentCount: parsedInstalmentCount,
-      instalmentTotal: parsedInstalmentCount ? Math.round(parsedAmount * 100) : undefined,
+      instalmentTotal:
+        parsedInstalmentCount != null
+          ? majorToMinor(parsedAmount) * parsedInstalmentCount
+          : undefined,
     };
 
     // ── Edit path ──────────────────────────────────────────────────────
@@ -428,24 +451,29 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
               { paddingBottom: insets.bottom + layout.screenPaddingBottom },
             ]}
           >
-            {/* ── Type selector ── */}
-            <View style={styles.typeRow}>
-              <GlassButton
-                variant={debtType === 'owed_to_me' ? 'primary' : 'secondary'}
-                className="flex-1"
-                onPress={() => setDebtType('owed_to_me')}
-              >
-                <ArrowDown size={18} color={debtType === 'owed_to_me' ? accentForeground : palette.positive} />
-                <GlassButton.Label>Owes Me</GlassButton.Label>
-              </GlassButton>
-              <GlassButton
-                variant={debtType === 'i_owe' ? 'primary' : 'secondary'}
-                className="flex-1"
-                onPress={() => setDebtType('i_owe')}
-              >
-                <ArrowUp size={18} color={debtType === 'i_owe' ? accentForeground : palette.negative} />
-                <GlassButton.Label>I Owe</GlassButton.Label>
-              </GlassButton>
+            {/* Direction — same segmented chrome + wrap as Transactions; outside TextField so label/desc aren’t inset vs the track */}
+            <View style={styles.directionBlock}>
+              <Label className="px-1.5">Direction</Label>
+              <View style={styles.segmentIdleWrap}>
+                <SegmentedControl
+                  variant="inline"
+                  options={[...ADD_DEBT_DIRECTION_LABELS]}
+                  icons={[ArrowDown, ArrowUp]}
+                  selectedForegroundByIndex={directionSelectedFg}
+                  selectedIndex={debtType === 'owed_to_me' ? 0 : 1}
+                  onChange={(index) => {
+                    const nextType: DebtType = index === 0 ? 'owed_to_me' : 'i_owe';
+                    setDebtType(nextType);
+                    if (nextType === 'i_owe') setIsSplitWithOthers(false);
+                  }}
+                  trackStyle={directionTrackStyle}
+                />
+              </View>
+              <Description className="px-1.5" numberOfLines={1}>
+                {debtType === 'owed_to_me'
+                  ? "Money others should repay to you."
+                  : "Money you'll repay to someone else."}
+              </Description>
             </View>
 
             {/* ── Person / Split ── */}
@@ -481,7 +509,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
 
             {/* ── Amount ── */}
             <TextField isRequired>
-              <Label>Amount</Label>
+              <Label>{isRecurring && isInstalmentPlan ? 'Each payment' : 'Amount'}</Label>
               <View style={styles.amountRow}>
                 <Text style={styles.currencySymbol}>{symbol}</Text>
                 <TextInput
@@ -495,6 +523,9 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                   keyboardAppearance={keyboardAppearance}
                 />
               </View>
+              {isRecurring && isInstalmentPlan ? (
+                <Description>Amount due each instalment (not overall financed); we won't split it automatically.</Description>
+              ) : null}
             </TextField>
 
             {/* ── Note ── */}
@@ -590,9 +621,13 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                     />
                     <FormSwitchRow
                       label="Instalment plan"
-                      description="Auto-stop after a set number of cycles."
+                      description="Creates one transaction per payment, due on schedule. No spawn after each payoff."
                       value={isInstalmentPlan}
-                      onValueChange={(v) => { setIsInstalmentPlan(v); if (!v) setInstalmentCount(''); }}
+                      onValueChange={(v) => {
+                        setIsInstalmentPlan(v);
+                        if (!v) setInstalmentCount('');
+                        if (v) setCarryOverBalance(false);
+                      }}
                     />
                     {isInstalmentPlan ? (
                       <TextField>
@@ -606,11 +641,6 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                           keyboardType="number-pad"
                           keyboardAppearance={keyboardAppearance}
                         />
-                        {parsedAmount > 0 && parseInt(instalmentCount, 10) >= 2 ? (
-                          <Description>
-                            {symbol}{(parsedAmount / parseInt(instalmentCount, 10)).toFixed(2)} per payment · {instalmentCount} total
-                          </Description>
-                        ) : null}
                       </TextField>
                     ) : null}
                   </View>

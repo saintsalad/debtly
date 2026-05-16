@@ -9,6 +9,7 @@ import {
 import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expense/types';
 import {
   createDebtFromInput,
+  createInstalmentPlanDebts,
   getRemainingBalance,
   isDebtActive,
   validateAddDebtInput,
@@ -115,6 +116,23 @@ export const useDebtStore = create<DebtState>()(
           });
 
           set((state) => ({ debts: [...newDebts, ...withSyncedDebts(state.debts)] }));
+          return null;
+        }
+
+        // Feature: instalment plan — one ledger entry per payment, spaced by recurrence (no spawn-on-settle).
+        const instalmentCount =
+          input.instalmentCount != null && input.instalmentCount >= 2
+            ? input.instalmentCount
+            : null;
+        if (input.isRecurring && instalmentCount != null) {
+          try {
+            const instalmentDebts = createInstalmentPlanDebts(input, now);
+            set((state) => ({
+              debts: withSyncedDebts([...instalmentDebts, ...state.debts]),
+            }));
+          } catch {
+            return 'Could not create instalment plan.';
+          }
           return null;
         }
 

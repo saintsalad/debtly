@@ -39,7 +39,7 @@ Each scenario links to its test coverage in [`scenarios.test.ts`](./scenarios.te
 | 17 | Friend covered my hotel / travel share | ✅ | Bill Split group or manual `i_owe` entry |
 | 18 | Borrowed money to pay a bill | ✅ | `i_owe` entry with optional due date |
 | 19 | Personal loan from a family member | ✅ | `i_owe`; optional interest and due date |
-| 20 | Monthly instalment on a loan (fixed amount, N payments) | ✅ | Enable **Recurring** → enable **Instalment plan** → set number of payments; cycles auto-stop |
+| 20 | Monthly instalment on a loan (fixed amount, N payments) | ✅ | **Recurring** → **Instalment plan** → **Each payment**, number of payments, due date, frequency → **creates separate transactions upfront** with stepped due dates; carry-over unavailable |
 | 21 | Borrowed from a colleague | ✅ | Same as borrowing from a friend |
 | 22 | Owe back for a subscription a friend pays on my behalf | ✅ | Recurring `i_owe`, monthly |
 | 23 | Owe back for a gift bought on my behalf | ✅ | `i_owe` entry with note |
@@ -48,16 +48,20 @@ Each scenario links to its test coverage in [`scenarios.test.ts`](./scenarios.te
 
 ## Recurring debt: carry-over & instalment (FAQ)
 
-**Q: When does the next cycle appear?**
+**Q: When does the next cycle appear (repeating debt without Instalment plan)?**
 Only after the current cycle is marked paid. There is no pre-generated queue of future entries.
+
+**Q: What does Instalment plan do differently?**
+It creates **all payment rows upfront**—each appears as its own transaction with dues stepped by Weekly / Monthly / Yearly. Paying one off does **not** create another row. **Carry over unpaid balance** is disabled together with instalment plans.
 
 **Q: Can unpaid balance carry into the next cycle?**
 Yes. Enable **Carry over unpaid balance** when creating a recurring debt. When you mark a cycle paid, the remaining balance (including unpaid interest) is stored on that cycle and added to the next cycle's principal automatically.
 See test: `[SUPPORTED] recurring debt with carry-over unpaid balance`.
 
 **Q: How does the instalment plan work?**
-Enable **Instalment plan** under Recurring and enter the number of payments. Each time a cycle is settled, the engine increments the instalment index. Once the index reaches the total count, no new cycle is spawned.
-See test: `[SUPPORTED] instalment / amortisation plan`.
+Turn on **Instalment plan**, enter **number of payments**, **Each payment** (what you owe per instalment—not total financed—we don't derive it), a **due date** for payment 1, and **Repeats**. The app inserts one transaction per payment with matching schedule metadata (`n of total`). Entries share a **`recurringGroupId`** for traceability even though **`isRecurring`** is false (no spawn-on-settle).
+
+See tests: `[SUPPORTED] instalment / amortisation plan`.
 
 **Q: What happens to unpaid balance when I settle a recurring cycle without carry-over?**
 It is discarded. The next cycle starts with the original principal unchanged.
@@ -66,11 +70,12 @@ It is discarded. The next cycle starts with the original principal unchanged.
 The anchor day (31) is stored. The next due date is clamped to the last day of the short month (e.g. Feb 28). When the following month is long enough, the 31st is restored.
 See test: `[recurring] advanceRecurringDueDate`.
 
-**Q: Can two open cycles exist for the same recurring debt?**
-No. `canGenerateNextRecurringCycle` blocks generation when any unpaid cycle with the same `recurringGroupId` already exists.
+**Q: Can two unpaid rows exist for the same repeating group?**
+- **Repeating debt without Instalment plan:** only one unpaid row at a time; otherwise `canGenerateNextRecurringCycle` would not spawn the next cycle.
+- **Instalment plan:** yes—many unpaid rows are intentional (one per instalment).
 
 **Q: Is there an "upcoming months" preview?**
-No. Only one live cycle per recurring group exists at any time.
+For instalment plans, every payment is already a transaction in your list with its own due date. For repeating debt without instalment plan, still only one live cycle exists at once.
 
 ---
 
@@ -120,4 +125,4 @@ pnpm test
 npx vitest run features/debts/scenarios.test.ts
 ```
 
-Expected output: **75 tests, all passing**.
+Expected output: **83 tests, all passing**.
