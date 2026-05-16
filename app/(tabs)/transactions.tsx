@@ -12,6 +12,7 @@ import {
   hasActiveTransactionFilters,
   type TransactionFilters,
 } from '@/features/debts/transactionFilters';
+import { filterDebtsForTransactionsTab } from '@/features/debts/transactionList';
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
@@ -26,6 +27,7 @@ import {
 } from '@/lib/statusBarScrollFade';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
 import { useDebtStore } from '@/stores/debtStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
@@ -324,6 +326,7 @@ export default function TransactionsScreen() {
   const closeTrackWidth = useSharedValue(0);
   const searchProgress = useSharedValue(0);
   const debts = useDebtStore((s) => s.debts);
+  const showSplitBillsInTransactions = useProfileStore((s) => s.showSplitBillsInTransactions);
   const { open: openTransactionDetail } = useTransactionDetail();
   const hasActiveFilters = hasActiveTransactionFilters(filters);
   const hasNonDefaultSort = txSort !== 'entry_desc';
@@ -339,7 +342,7 @@ export default function TransactionsScreen() {
   }, [hasActiveFilters, hasNonDefaultSort]);
 
   const filtered = useMemo(() => {
-    let list = debts;
+    let list = filterDebtsForTransactionsTab(debts, showSplitBillsInTransactions);
     if (segmentIndex === 1) list = list.filter((d) => d.type === 'owed_to_me');
     if (segmentIndex === 2) list = list.filter((d) => d.type === 'i_owe');
     list = applyTransactionFilters(list, filters);
@@ -360,7 +363,7 @@ export default function TransactionsScreen() {
       }
       return a.personName.localeCompare(b.personName, undefined, { sensitivity: 'base' });
     });
-  }, [debts, segmentIndex, search, filters, txSort]);
+  }, [debts, showSplitBillsInTransactions, segmentIndex, search, filters, txSort]);
 
   const sections = useMemo(() => buildTransactionSections(filtered), [filtered]);
 

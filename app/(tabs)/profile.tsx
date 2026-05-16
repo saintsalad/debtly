@@ -16,7 +16,7 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { ChevronRight, Info, Moon, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
+import { ChevronRight, Info, Moon, Receipt, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useDebtStore } from '@/stores/debtStore';
@@ -184,6 +184,8 @@ export default function ProfileScreen() {
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
   const setAppearance = useProfileStore((s) => s.setAppearance);
+  const showSplitBillsInTransactions = useProfileStore((s) => s.showSplitBillsInTransactions);
+  const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
   const clearAll = useDebtStore((s) => s.clearAll);
   const { currency } = useCurrency();
 
@@ -280,6 +282,18 @@ export default function ProfileScreen() {
             label="Currency"
             value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
             onPress={pickCurrency}
+            palette={palette}
+            styles={styles}
+            last
+          />
+        </Section>
+
+        <Section title="Transactions" styles={styles}>
+          <ToggleRow
+            icon={Receipt}
+            label="Show split bills"
+            value={showSplitBillsInTransactions}
+            onValueChange={setShowSplitBillsInTransactions}
             palette={palette}
             styles={styles}
             last

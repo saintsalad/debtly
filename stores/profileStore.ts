@@ -8,9 +8,12 @@ interface ProfileState {
   name: string;
   currency: string;
   appearance: AppearancePreference;
+  /** When true, group-synced split bill balances appear on the Transactions tab. */
+  showSplitBillsInTransactions: boolean;
   setName: (name: string) => void;
   setCurrency: (currency: string) => void;
   setAppearance: (appearance: AppearancePreference) => void;
+  setShowSplitBillsInTransactions: (enabled: boolean) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -19,9 +22,12 @@ export const useProfileStore = create<ProfileState>()(
       name: 'Friend',
       currency: 'PHP',
       appearance: 'system',
+      showSplitBillsInTransactions: false,
       setName: (name) => set({ name }),
       setCurrency: (currency) => set({ currency }),
       setAppearance: (appearance) => set({ appearance }),
+      setShowSplitBillsInTransactions: (showSplitBillsInTransactions) =>
+        set({ showSplitBillsInTransactions }),
     }),
     {
       name: 'debtly-profile',

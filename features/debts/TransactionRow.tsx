@@ -6,9 +6,10 @@ import { getRemainingBalance, getTotalPaid } from '@/features/debts/debtCalculat
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
-import { formatDate, getComputedStatus } from '@/lib/utils';
+import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
+import { formatDate, getTransactionDuePresentation } from '@/lib/utils';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
-import { useColors, space, type, type ColorPalette } from '@/lib/platform';
+import { useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
 
 interface TransactionRowProps {
   debt: Debt;
@@ -49,25 +50,51 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       color: palette.label,
       flex: 1,
     },
+    namePaid: {
+      color: palette.labelSecondary,
+      fontWeight: '500',
+    },
     amount: {
       ...type.callout,
       fontWeight: '600',
       color: palette.label,
+    },
+    amountPaid: {
+      color: palette.labelSecondary,
+      fontWeight: '500',
     },
     note: {
       ...type.footnote,
       color: palette.labelSecondary,
       flex: 1,
     },
-    status: {
-      ...type.caption1,
+    notePaid: {
       color: palette.labelTertiary,
     },
-    statusOverdue: {
-      color: palette.negative,
+    statusPlain: {
+      ...type.caption1,
+      color: palette.labelTertiary,
+      flexShrink: 0,
+      maxWidth: '48%',
+      textAlign: 'right',
+    },
+    statusPending: {
+      color: palette.labelSecondary,
     },
     statusPaid: {
-      color: palette.labelSecondary,
+      color: palette.labelTertiary,
+      fontWeight: '400',
+    },
+    statusBadge: {
+      flexShrink: 0,
+      paddingHorizontal: space[2],
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      maxWidth: '52%',
+    },
+    statusBadgeLabel: {
+      ...type.caption1,
+      textAlign: 'center',
     },
   });
 }
@@ -82,24 +109,26 @@ export function TransactionRow({
   const rowPressedColor = useGlassSurfacePressed();
   const styles = useMemo(() => createStyles(palette, rowPressedColor), [palette, rowPressedColor]);
   const { fmt } = useCurrency();
-  const status = getComputedStatus(debt);
+  const dueUI = useMemo(() => getTransactionDuePresentation(debt), [debt]);
+  const badgeColors = useMemo(
+    () => dueUrgencyBadgeColors(palette, dueUI.tone),
+    [palette, dueUI.tone]
+  );
+
   const isCredit = debt.type === 'owed_to_me';
   const remainingBalance = getRemainingBalance(debt);
   const totalPaid = getTotalPaid(debt);
+  const isPaid = dueUI.tone === 'paid';
 
-  const statusLabel =
-    status === 'paid'
-      ? 'Paid'
-      : status === 'partial'
-      ? 'Partially paid'
-      : status === 'overdue'
-      ? 'Overdue'
-      : 'Pending';
+  const avatarTone = isCredit ? 'credit' : 'debit';
 
   const handlePress = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   }, [onPress]);
+
+  const accessibilityHint =
+    debt.dueDate && !isPaid ? `Calendar due date ${formatDate(debt.dueDate)}` : undefined;
 
   return (
     <>
@@ -108,40 +137,56 @@ export function TransactionRow({
         onPress={handlePress}
         android_ripple={{ color: palette.fill, borderless: false }}
         accessibilityRole="button"
-        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(remainingBalance)}`}
+        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(remainingBalance)}, ${dueUI.label}`}
+        accessibilityHint={accessibilityHint}
       >
-        <Avatar name={debt.personName} size={40} tone={isCredit ? 'credit' : 'debit'} />
+        <Avatar
+          name={debt.personName}
+          size={40}
+          tone={avatarTone}
+          variant={isPaid ? 'muted' : 'default'}
+        />
 
         <View style={styles.body}>
           <View style={styles.topRow}>
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={[styles.name, isPaid && styles.namePaid]} numberOfLines={1}>
               {debt.personName}
             </Text>
-            <Text style={styles.amount}>
-              {isCredit ? '+' : '−'}{fmt(remainingBalance)}
+            <Text style={[styles.amount, isPaid && styles.amountPaid]}>
+              {isCredit ? '+' : '−'}
+              {fmt(remainingBalance)}
             </Text>
           </View>
 
           <View style={styles.bottomRow}>
-            <Text style={styles.note} numberOfLines={1}>
+            <Text style={[styles.note, isPaid && styles.notePaid]} numberOfLines={1}>
               {debt.note ||
-                (totalPaid > 0
-                  ? `${fmt(totalPaid)} paid`
-                  : isCredit
-                  ? 'Owes you'
-                  : 'You owe')}
+                (totalPaid > 0 ? `${fmt(totalPaid)} paid` : isCredit ? 'Owes you' : 'You owe')}
             </Text>
-            <Text
-              style={[
-                styles.status,
-                status === 'overdue' && styles.statusOverdue,
-                status === 'paid' && styles.statusPaid,
-              ]}
-            >
-              {debt.dueDate && status !== 'paid'
-                ? `Due ${formatDate(debt.dueDate)}`
-                : statusLabel}
-            </Text>
+            {badgeColors ? (
+              <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
+                <Text
+                  style={[
+                    styles.statusBadgeLabel,
+                    { color: badgeColors.fg, fontWeight: badgeColors.fontWeight },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {dueUI.label}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={[
+                  styles.statusPlain,
+                  dueUI.tone === 'paid' && styles.statusPaid,
+                  dueUI.tone === 'pending_no_due' && styles.statusPending,
+                ]}
+                numberOfLines={2}
+              >
+                {dueUI.label}
+              </Text>
+            )}
           </View>
         </View>
       </Pressable>

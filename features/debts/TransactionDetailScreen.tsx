@@ -18,9 +18,11 @@ import {
   printTransaction,
   sendTransactionReminder,
 } from '@/features/debts/transactionActions';
+import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
+import { Debt } from '@/features/debts/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
-import { formatDate, getComputedStatus } from '@/lib/utils';
+import { getComputedStatus, getTransactionDuePresentation } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
@@ -159,6 +161,26 @@ function createStyles(palette: ColorPalette) {
     actionLabelDestructive: {
       color: palette.negative,
     },
+    dueDetailValueColumn: {
+      flex: 1.2,
+      alignItems: 'flex-end',
+      gap: space[2],
+    },
+    dueDetailCalendarText: {
+      ...type.subheadline,
+      color: palette.label,
+      textAlign: 'right',
+    },
+    dueUrgencyBadge: {
+      paddingHorizontal: space[2],
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      maxWidth: '100%',
+    },
+    dueUrgencyBadgeText: {
+      ...type.caption1,
+      textAlign: 'center',
+    },
   });
 }
 
@@ -180,6 +202,58 @@ function DetailRow({ label, value, valueColor, showSeparator = false }: DetailRo
         <Text style={styles.detailLabel}>{label}</Text>
         <View style={{ flex: 1.2 }}>
           <Text style={[styles.detailValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+interface DueDateDetailRowProps {
+  debt: Debt;
+  dueUI: ReturnType<typeof getTransactionDuePresentation>;
+  badgeColors: ReturnType<typeof dueUrgencyBadgeColors>;
+  styles: ReturnType<typeof createStyles>;
+  palette: ColorPalette;
+  showSeparator?: boolean;
+}
+
+function DueDateDetailRow({
+  debt,
+  dueUI,
+  badgeColors,
+  styles,
+  palette,
+  showSeparator = false,
+}: DueDateDetailRowProps) {
+  if (!debt.dueDate) return null;
+  const isPaidRow = dueUI.tone === 'paid';
+
+  return (
+    <>
+      {showSeparator ? <ListDivider /> : null}
+      <View style={styles.detailRow}>
+        <Text style={styles.detailLabel}>Due date</Text>
+        <View style={styles.dueDetailValueColumn}>
+          <Text
+            style={[
+              styles.dueDetailCalendarText,
+              isPaidRow ? { color: palette.labelTertiary } : null,
+            ]}
+          >
+            {formatFullDate(debt.dueDate)}
+          </Text>
+          {badgeColors && !isPaidRow ? (
+            <View style={[styles.dueUrgencyBadge, { backgroundColor: badgeColors.bg }]}>
+              <Text
+                style={[
+                  styles.dueUrgencyBadgeText,
+                  { color: badgeColors.fg, fontWeight: badgeColors.fontWeight },
+                ]}
+              >
+                {dueUI.label}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </>
@@ -257,6 +331,18 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
     };
   }, []);
 
+  const dueUI = useMemo(
+    () =>
+      debt
+        ? getTransactionDuePresentation(debt)
+        : ({ tone: 'paid', label: 'Paid' } as ReturnType<typeof getTransactionDuePresentation>),
+    [debt]
+  );
+  const dueBadgeColors = useMemo(
+    () => dueUrgencyBadgeColors(palette, dueUI.tone),
+    [palette, dueUI.tone]
+  );
+
   if (!debt) {
     return null;
   }
@@ -278,16 +364,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
         ? palette.positive
         : palette.negative;
 
-  const statusLabel =
-    status === 'paid'
-      ? 'Paid'
-      : status === 'partial'
-        ? 'Partially paid'
-        : status === 'overdue'
-          ? 'Overdue'
-          : 'Pending';
-
-  const summaryLine = [isCredit ? 'Owes you' : 'You owe', statusLabel].join(' · ');
+  const summaryLine = `${isCredit ? 'Owes you' : 'You owe'} · ${dueUI.label}`;
 
   const handleRecordPayment = (amount: number): boolean => {
     const error = recordPayment(debt.id, { amount });
@@ -380,7 +457,12 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             ]}
           >
             <View style={styles.hero}>
-              <Avatar name={debt.personName} size={64} tone={isCredit ? 'credit' : 'debit'} />
+              <Avatar
+                name={debt.personName}
+                size={64}
+                tone={isCredit ? 'credit' : 'debit'}
+                variant={dueUI.tone === 'paid' ? 'muted' : 'default'}
+              />
               <Text style={styles.personName} numberOfLines={2}>
                 {debt.personName}
               </Text>
@@ -432,10 +514,12 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               ) : null}
               {debt.note ? <DetailRow label="Note" value={debt.note} /> : null}
               {debt.dueDate ? (
-                <DetailRow
-                  label="Due date"
-                  value={formatDate(debt.dueDate)}
-                  valueColor={status === 'overdue' && isPending ? palette.negative : undefined}
+                <DueDateDetailRow
+                  debt={debt}
+                  dueUI={dueUI}
+                  badgeColors={dueBadgeColors}
+                  styles={styles}
+                  palette={palette}
                   showSeparator={Boolean(debt.note)}
                 />
               ) : null}

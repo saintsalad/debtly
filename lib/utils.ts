@@ -1,6 +1,16 @@
-import { format, isToday, isTomorrow, startOfDay } from 'date-fns';
+import { differenceInCalendarDays, format, isToday, isTomorrow, startOfDay } from 'date-fns';
 import { getRemainingBalance, getTotalPaid } from '@/features/debts/debtCalculations';
 import { Debt, DebtStatus } from '@/features/debts/types';
+
+/** List-row due urgency for unpaid debts with a due date (and paid / no-date fallbacks). */
+export type TransactionDuePresentationTone =
+  | 'paid'
+  | 'pending_no_due'
+  | 'due_later'
+  | 'due_within_week'
+  | 'due_tomorrow'
+  | 'due_today'
+  | 'overdue';
 
 export const CURRENCIES: Record<string, { symbol: string; label: string }> = {
   PHP: { symbol: '₱', label: 'Philippine Peso' },
@@ -38,6 +48,43 @@ export const getComputedStatus = (debt: Debt): DebtStatus => {
   }
   return 'pending';
 };
+
+/**
+ * Copy + tone for transaction rows: emphasizes near/overdue dues without crowding paid items.
+ */
+export function getTransactionDuePresentation(debt: Debt): {
+  tone: TransactionDuePresentationTone;
+  label: string;
+} {
+  const computed = getComputedStatus(debt);
+  if (computed === 'paid') {
+    return { tone: 'paid', label: 'Paid' };
+  }
+  if (!debt.dueDate) {
+    return {
+      tone: 'pending_no_due',
+      label: computed === 'partial' ? 'Partially paid' : 'Pending',
+    };
+  }
+
+  const due = startOfDay(new Date(debt.dueDate));
+  const today = startOfDay(new Date());
+  const delta = differenceInCalendarDays(due, today);
+
+  if (delta < 0) {
+    return { tone: 'overdue', label: 'Overdue' };
+  }
+  if (delta === 0) {
+    return { tone: 'due_today', label: 'Due today' };
+  }
+  if (delta === 1) {
+    return { tone: 'due_tomorrow', label: 'Due tomorrow' };
+  }
+  if (delta <= 7) {
+    return { tone: 'due_within_week', label: `Due in ${delta} days` };
+  }
+  return { tone: 'due_later', label: `Due ${formatDate(debt.dueDate)}` };
+}
 
 export const generateId = (): string =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
