@@ -97,6 +97,7 @@ pnpm test
 - [x] Glass / native-feel UI, floating pill tab bar, scroll header patterns
 - [x] Deep link handler for group invite codes (local join flow)
 - [x] Money input caps and validation tests
+- [x] Centralized design tokens (`lib/theme/tokens.ts`) for brand, semantic colors, and chrome (tab bar, glass, shadows)
 
 ### In progress / planned
 
