@@ -982,7 +982,7 @@ export default function TransactionsScreen() {
                           <SegmentedControl
                             variant="inline"
                             trackStyle={segmentedTrackStyle}
-                            icons={[undefined, ArrowDown, ArrowUp]}
+                            icons={[undefined, ArrowUp, ArrowDown]}
                             selectedForegroundByIndex={segmentedAccentByIndex}
                             options={[...TRANSACTION_DEBT_SEGMENT_LABELS]}
                             selectedIndex={segmentIndex}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { Plus } from 'lucide-react-native';
 import { useThemeColor } from 'heroui-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -66,6 +67,7 @@ function TabItem({
       <Pressable
         style={styles.tabPressable}
         onPressIn={() => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           scale.value = withSpring(0.84, { damping: 12, stiffness: 400 });
         }}
         onPressOut={() => {
@@ -97,6 +99,11 @@ function CreateButton({ elevation }: { elevation: ViewStyle }) {
   const { present } = useAddDebt();
   const accentForeground = useThemeColor('accent-foreground');
 
+  const handlePresent = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    present();
+  };
+
   return (
     <View style={[styles.fabSlot, Platform.OS === 'ios' && elevation]}>
       <GlassButton
@@ -107,7 +114,7 @@ function CreateButton({ elevation }: { elevation: ViewStyle }) {
         feedbackVariant="scale-ripple"
         animation={{ scale: { value: 0.97 } }}
         style={[styles.fabButton, Platform.OS === 'android' && elevation]}
-        onPress={present}
+        onPress={handlePresent}
       >
         <Plus size={22} color={accentForeground} />
       </GlassButton>

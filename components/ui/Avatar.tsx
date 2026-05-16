@@ -46,9 +46,9 @@ export function Avatar({
         accessibilityLabel={name}
       >
         {tone === 'credit' ? (
-          <BanknoteArrowUp size={iconSize} color={iconColor} strokeWidth={2.25} />
-        ) : (
           <BanknoteArrowDown size={iconSize} color={iconColor} strokeWidth={2.25} />
+        ) : (
+          <BanknoteArrowUp size={iconSize} color={iconColor} strokeWidth={2.25} />
         )}
       </View>
     );

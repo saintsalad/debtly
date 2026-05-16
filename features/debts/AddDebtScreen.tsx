@@ -458,7 +458,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                 <SegmentedControl
                   variant="inline"
                   options={[...ADD_DEBT_DIRECTION_LABELS]}
-                  icons={[ArrowDown, ArrowUp]}
+                  icons={[ArrowUp, ArrowDown]}
                   selectedForegroundByIndex={directionSelectedFg}
                   selectedIndex={debtType === 'owed_to_me' ? 0 : 1}
                   onChange={(index) => {
