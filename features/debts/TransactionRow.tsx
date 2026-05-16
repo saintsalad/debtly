@@ -2,7 +2,11 @@ import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Debt } from '@/features/debts/types';
-import { getRemainingBalance, getTotalPaid } from '@/features/debts/debtCalculations';
+import {
+  getRemainingBalance,
+  getSettledDisplayAmount,
+  getTotalPaid,
+} from '@/features/debts/debtCalculations';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -62,6 +66,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     amountPaid: {
       color: palette.labelSecondary,
       fontWeight: '500',
+      textDecorationLine: 'line-through',
     },
     note: {
       ...type.footnote,
@@ -117,8 +122,10 @@ export function TransactionRow({
 
   const isCredit = debt.type === 'owed_to_me';
   const remainingBalance = getRemainingBalance(debt);
+  const settledAmount = getSettledDisplayAmount(debt);
   const totalPaid = getTotalPaid(debt);
   const isPaid = dueUI.tone === 'paid';
+  const displayAmount = isPaid ? settledAmount : remainingBalance;
 
   const avatarTone = isCredit ? 'credit' : 'debit';
 
@@ -137,7 +144,11 @@ export function TransactionRow({
         onPress={handlePress}
         android_ripple={{ color: palette.fill, borderless: false }}
         accessibilityRole="button"
-        accessibilityLabel={`${debt.personName}, ${isCredit ? 'owes you' : 'you owe'} ${fmt(remainingBalance)}, ${dueUI.label}`}
+        accessibilityLabel={
+          isPaid
+            ? `${debt.personName}, paid ${fmt(settledAmount)}${dueUI.label ? `, ${dueUI.label}` : ''}`
+            : `${debt.personName}, ${isCredit ? '+' : '−'}${fmt(remainingBalance)}${dueUI.label ? `, ${dueUI.label}` : ''}`
+        }
         accessibilityHint={accessibilityHint}
       >
         <Avatar
@@ -153,15 +164,13 @@ export function TransactionRow({
               {debt.personName}
             </Text>
             <Text style={[styles.amount, isPaid && styles.amountPaid]}>
-              {isCredit ? '+' : '−'}
-              {fmt(remainingBalance)}
+              {isPaid ? fmt(displayAmount) : `${isCredit ? '+' : '−'}${fmt(displayAmount)}`}
             </Text>
           </View>
 
           <View style={styles.bottomRow}>
             <Text style={[styles.note, isPaid && styles.notePaid]} numberOfLines={1}>
-              {debt.note ||
-                (totalPaid > 0 ? `${fmt(totalPaid)} paid` : isCredit ? 'Owes you' : 'You owe')}
+              {debt.note || (totalPaid > 0 ? `${fmt(totalPaid)} paid` : '')}
             </Text>
             {badgeColors ? (
               <View style={[styles.statusBadge, { backgroundColor: badgeColors.bg }]}>
@@ -175,7 +184,7 @@ export function TransactionRow({
                   {dueUI.label}
                 </Text>
               </View>
-            ) : (
+            ) : dueUI.label ? (
               <Text
                 style={[
                   styles.statusPlain,
@@ -186,7 +195,7 @@ export function TransactionRow({
               >
                 {dueUI.label}
               </Text>
-            )}
+            ) : null}
           </View>
         </View>
       </Pressable>

@@ -43,6 +43,15 @@ export function getPrincipalAmount(debt: Debt): number {
   return getPrincipalMajor(debt);
 }
 
+/** Full settled obligation (principal + interest) for paid-row display. */
+export function getSettledDisplayAmount(debt: Debt): number {
+  const totalDue = getTotalDue(debt);
+  const totalPaid = getTotalPaid(debt);
+  if (totalDue > 0.009) return totalDue;
+  if (totalPaid > 0.009) return totalPaid;
+  return getPrincipalAmount(debt);
+}
+
 export { getPaymentProgress };
 
 export function createDebtFromInput(input: AddDebtInput, createdAt: string): Debt {

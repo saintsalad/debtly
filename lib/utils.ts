@@ -63,7 +63,7 @@ export function getTransactionDuePresentation(debt: Debt): {
   if (!debt.dueDate) {
     return {
       tone: 'pending_no_due',
-      label: computed === 'partial' ? 'Partially paid' : 'Pending',
+      label: computed === 'partial' ? 'Partially paid' : '',
     };
   }
 

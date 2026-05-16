@@ -7,6 +7,7 @@ import {
   getPrincipalAmount,
   getRecurrenceLabel,
   getRemainingBalance,
+  getSettledDisplayAmount,
   getTotalPaid,
 } from '@/features/debts/debtCalculations';
 import { getInterestAccrualLabel, interestRateFromBps } from '@/features/debts/interestEngine';
@@ -19,7 +20,6 @@ import {
   sendTransactionReminder,
 } from '@/features/debts/transactionActions';
 import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
-import { Debt } from '@/features/debts/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { getComputedStatus, getTransactionDuePresentation } from '@/lib/utils';
@@ -105,6 +105,11 @@ function createStyles(palette: ColorPalette) {
       letterSpacing: -0.8,
       marginTop: space[1],
     },
+    amountSettled: {
+      color: palette.labelSecondary,
+      fontWeight: '600',
+      textDecorationLine: 'line-through',
+    },
     detailsCard: {
       backgroundColor: palette.fillSecondary,
       borderRadius: radius.lg,
@@ -161,21 +166,10 @@ function createStyles(palette: ColorPalette) {
     actionLabelDestructive: {
       color: palette.negative,
     },
-    dueDetailValueColumn: {
-      flex: 1.2,
-      alignItems: 'flex-end',
-      gap: space[2],
-    },
-    dueDetailCalendarText: {
-      ...type.subheadline,
-      color: palette.label,
-      textAlign: 'right',
-    },
     dueUrgencyBadge: {
-      paddingHorizontal: space[2],
-      paddingVertical: 4,
+      paddingHorizontal: space[3],
+      paddingVertical: 5,
       borderRadius: radius.sm,
-      maxWidth: '100%',
     },
     dueUrgencyBadgeText: {
       ...type.caption1,
@@ -202,58 +196,6 @@ function DetailRow({ label, value, valueColor, showSeparator = false }: DetailRo
         <Text style={styles.detailLabel}>{label}</Text>
         <View style={{ flex: 1.2 }}>
           <Text style={[styles.detailValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
-        </View>
-      </View>
-    </>
-  );
-}
-
-interface DueDateDetailRowProps {
-  debt: Debt;
-  dueUI: ReturnType<typeof getTransactionDuePresentation>;
-  badgeColors: ReturnType<typeof dueUrgencyBadgeColors>;
-  styles: ReturnType<typeof createStyles>;
-  palette: ColorPalette;
-  showSeparator?: boolean;
-}
-
-function DueDateDetailRow({
-  debt,
-  dueUI,
-  badgeColors,
-  styles,
-  palette,
-  showSeparator = false,
-}: DueDateDetailRowProps) {
-  if (!debt.dueDate) return null;
-  const isPaidRow = dueUI.tone === 'paid';
-
-  return (
-    <>
-      {showSeparator ? <ListDivider /> : null}
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Due date</Text>
-        <View style={styles.dueDetailValueColumn}>
-          <Text
-            style={[
-              styles.dueDetailCalendarText,
-              isPaidRow ? { color: palette.labelTertiary } : null,
-            ]}
-          >
-            {formatFullDate(debt.dueDate)}
-          </Text>
-          {badgeColors && !isPaidRow ? (
-            <View style={[styles.dueUrgencyBadge, { backgroundColor: badgeColors.bg }]}>
-              <Text
-                style={[
-                  styles.dueUrgencyBadgeText,
-                  { color: badgeColors.fg, fontWeight: badgeColors.fontWeight },
-                ]}
-              >
-                {dueUI.label}
-              </Text>
-            </View>
-          ) : null}
         </View>
       </View>
     </>
@@ -352,19 +294,20 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const isPending = status !== 'paid';
   const canRemind = isCredit && isPending;
   const remainingBalance = getRemainingBalance(debt);
+  const settledAmount = getSettledDisplayAmount(debt);
   const accruedInterest = getAccruedInterest(debt);
   const totalPaid = getTotalPaid(debt);
   const paymentProgress = getPaymentProgress(debt);
   const hasPartialPayment = totalPaid > 0 && isPending;
+  const isPaid = status === 'paid';
 
-  const amountColor =
-    status === 'paid'
-      ? palette.labelTertiary
-      : isCredit
-        ? palette.positive
-        : palette.negative;
+  const amountColor = isPaid
+    ? palette.labelSecondary
+    : isCredit
+      ? palette.positive
+      : palette.negative;
 
-  const summaryLine = `${isCredit ? 'Owes you' : 'You owe'} · ${dueUI.label}`;
+  const showHeroDueStatus = Boolean(dueBadgeColors || dueUI.label);
 
   const handleRecordPayment = (amount: number): boolean => {
     const error = recordPayment(debt.id, { amount });
@@ -466,10 +409,29 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               <Text style={styles.personName} numberOfLines={2}>
                 {debt.personName}
               </Text>
-              <Text style={styles.summary}>{summaryLine}</Text>
-              <Text style={[styles.amount, { color: amountColor }]}>
-                {isCredit ? '+' : '−'}
-                {fmt(remainingBalance)}
+              {showHeroDueStatus ? (
+                dueBadgeColors ? (
+                  <View style={[styles.dueUrgencyBadge, { backgroundColor: dueBadgeColors.bg }]}>
+                    <Text
+                      style={[
+                        styles.dueUrgencyBadgeText,
+                        { color: dueBadgeColors.fg, fontWeight: dueBadgeColors.fontWeight },
+                      ]}
+                    >
+                      {dueUI.label}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.summary}>{dueUI.label}</Text>
+                )
+              ) : null}
+              <Text
+                style={[
+                  styles.amount,
+                  isPaid ? styles.amountSettled : { color: amountColor },
+                ]}
+              >
+                {isPaid ? fmt(settledAmount) : `${isCredit ? '+' : '−'}${fmt(remainingBalance)}`}
               </Text>
               {hasPartialPayment ? (
                 <PaymentProgress
@@ -514,12 +476,10 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               ) : null}
               {debt.note ? <DetailRow label="Note" value={debt.note} /> : null}
               {debt.dueDate ? (
-                <DueDateDetailRow
-                  debt={debt}
-                  dueUI={dueUI}
-                  badgeColors={dueBadgeColors}
-                  styles={styles}
-                  palette={palette}
+                <DetailRow
+                  label="Due date"
+                  value={formatFullDate(debt.dueDate)}
+                  valueColor={dueUI.tone === 'paid' ? palette.labelTertiary : undefined}
                   showSeparator={Boolean(debt.note)}
                 />
               ) : null}
