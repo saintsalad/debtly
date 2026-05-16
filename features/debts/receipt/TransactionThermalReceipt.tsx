@@ -73,14 +73,7 @@ export function TransactionThermalReceipt({
                 <Text style={styles.receiptHeaderDate}>{header.date}</Text>
               </View>
               <ReceiptRow row={{ label: 'Receipt Id', value: data.referenceId }} />
-              {hasPhoto ? (
-                <View style={styles.mediaBlock}>
-                  <ReceiptImageContainer uri={photoUri!} />
-                  <View style={styles.stamp}>
-                    <Text style={styles.stampText}>CERTIFIED</Text>
-                  </View>
-                </View>
-              ) : null}
+              {hasPhoto ? <ReceiptImageContainer uri={photoUri!} /> : null}
             </View>
 
             <ReceiptDottedRule />
@@ -171,23 +164,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flexShrink: 0,
   },
-  mediaBlock: {
-    position: 'relative',
-    alignSelf: 'stretch',
-  },
-  stamp: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: RECEIPT_INK,
-    borderRadius: 999,
-    transform: [{ rotate: '-8deg' }],
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    backgroundColor: RECEIPT_PAPER,
-  },
-  stampText: receiptType.stamp,
   subsection: {
     ...receiptType.subsection,
     marginTop: 0,

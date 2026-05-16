@@ -1,7 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -10,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Download, ImagePlus, Palette, Share2, X } from 'lucide-react-native';
+import { Download, Grid3x3, ImagePlus, Palette, Share2, X } from 'lucide-react-native';
 import { pickReceiptPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
@@ -20,6 +19,10 @@ import {
   ReceiptBackgroundSheet,
   type ReceiptBackgroundSheetHandle,
 } from '@/features/debts/receipt/ReceiptBackgroundSheet';
+import {
+  ReceiptBitmapLabSheet,
+  type ReceiptBitmapLabSheetHandle,
+} from '@/features/debts/receipt/ReceiptBitmapLabSheet';
 import { ReceiptCircleButton } from '@/features/debts/receipt/ReceiptCircleButton';
 import {
   getReceiptCanvasColor,
@@ -30,8 +33,14 @@ import {
   shareReceiptImage,
 } from '@/features/debts/receipt/shareReceiptImage';
 import { TransactionReceiptStoryFrame } from '@/features/debts/receipt/TransactionReceiptStoryFrame';
+import {
+  DEFAULT_THERMALIZE_OPTIONS,
+  processThermalImage,
+  type ThermalizeOptions,
+} from '@/features/debts/receipt/thermalPortrait';
 import type { Debt } from '@/features/debts/types';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { useProfileStore } from '@/stores/profileStore';
 
 interface TransactionReceiptScreenProps {
   debt: Debt;
@@ -99,10 +108,43 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
   const styles = useMemo(() => createStyles(palette), [palette]);
   const captureRef = useRef<View>(null);
   const backgroundSheetRef = useRef<ReceiptBackgroundSheetHandle>(null);
+  const bitmapLabRef = useRef<ReceiptBitmapLabSheetHandle>(null);
+  const receiptThermalLook = useProfileStore((s) => s.receiptThermalLook ?? true);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [canvasPreset, setCanvasPreset] = useState<ReceiptCanvasPresetId>('black');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [thermalOpts, setThermalOpts] = useState<ThermalizeOptions>(() => ({
+    ...DEFAULT_THERMALIZE_OPTIONS,
+  }));
+  const [thermalOutputUri, setThermalOutputUri] = useState<string | null>(null);
   const canvasColor = getReceiptCanvasColor(canvasPreset);
+
+  const displayPhotoUri = useMemo(() => {
+    if (!photoUri) return null;
+    if (!receiptThermalLook) return photoUri;
+    return thermalOutputUri ?? photoUri;
+  }, [photoUri, receiptThermalLook, thermalOutputUri]);
+
+  useEffect(() => {
+    if (!photoUri || !receiptThermalLook) {
+      setThermalOutputUri(null);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      void processThermalImage(photoUri, thermalOpts)
+        .then((out) => {
+          if (!cancelled) setThermalOutputUri(out);
+        })
+        .catch(() => {
+          if (!cancelled) setThermalOutputUri(null);
+        });
+    }, 320);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [photoUri, receiptThermalLook, thermalOpts]);
 
   const exportImage = useCallback(async () => captureStoryReceiptImage(captureRef), []);
 
@@ -126,7 +168,10 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
         },
         (index) => {
           if (index === 1) void pickPhoto();
-          if (index === 2) setPhotoUri(null);
+          if (index === 2) {
+            setPhotoUri(null);
+            setThermalOutputUri(null);
+          }
         }
       );
       return;
@@ -135,7 +180,14 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
     Alert.alert('Receipt photo', undefined, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Change photo', onPress: () => void pickPhoto() },
-      { text: 'Remove photo', style: 'destructive', onPress: () => setPhotoUri(null) },
+      {
+        text: 'Remove photo',
+        style: 'destructive',
+        onPress: () => {
+          setPhotoUri(null);
+          setThermalOutputUri(null);
+        },
+      },
     ]);
   }, [photoUri, pickPhoto]);
 
@@ -193,7 +245,7 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 debt={debt}
                 fmt={fmt}
                 backgroundColor={canvasColor}
-                photoUri={photoUri}
+                photoUri={displayPhotoUri}
               />
             </View>
           </ScrollView>
@@ -204,7 +256,7 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 debt={debt}
                 fmt={fmt}
                 backgroundColor={canvasColor}
-                photoUri={photoUri}
+                photoUri={displayPhotoUri}
               />
             </View>
           </View>
@@ -222,6 +274,12 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 label={photoUri ? 'Photo' : 'Add photo'}
                 onPress={handlePhotoPress}
                 disabled={isBusy}
+              />
+              <ReceiptCircleButton
+                icon={Grid3x3}
+                label="Bitmap lab"
+                onPress={() => bitmapLabRef.current?.present()}
+                disabled={isBusy || !photoUri}
               />
               <ReceiptCircleButton
                 icon={Download}
@@ -246,6 +304,12 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
             ref={backgroundSheetRef}
             selectedId={canvasPreset}
             onSelect={setCanvasPreset}
+          />
+          <ReceiptBitmapLabSheet
+            ref={bitmapLabRef}
+            thermalEnabled={receiptThermalLook}
+            options={thermalOpts}
+            onOptionsChange={setThermalOpts}
           />
         </View>
       </HeroUINativeProvider>

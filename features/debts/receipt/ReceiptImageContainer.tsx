@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, FeColorMatrix, Filter, Image as SvgImage } from 'react-native-svg';
+import Svg, { Image as SvgImage } from 'react-native-svg';
 import {
   RECEIPT_MUTED,
   RECEIPT_PHOTO_DISPLAY_HEIGHT,
@@ -14,6 +14,7 @@ interface ReceiptImageContainerProps {
 /**
  * Dashed thermal frame; image is center-cropped (`slice`) into the slot matching
  * {@link RECEIPT_PHOTO_CROP_ASPECT} from the picker on Android.
+ * Renders full color so thermal / bitmap-lab palette tints are visible (no grayscale matrix).
  */
 export function ReceiptImageContainer({ uri }: ReceiptImageContainerProps) {
   const w = RECEIPT_PHOTO_DISPLAY_WIDTH;
@@ -22,20 +23,11 @@ export function ReceiptImageContainer({ uri }: ReceiptImageContainerProps) {
   return (
     <View style={styles.frame}>
       <Svg width={w} height={h}>
-        <Defs>
-          <Filter id="receiptGrayscale">
-            <FeColorMatrix
-              type="matrix"
-              values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0"
-            />
-          </Filter>
-        </Defs>
         <SvgImage
           href={uri}
           width={w}
           height={h}
           preserveAspectRatio="xMidYMid slice"
-          filter="url(#receiptGrayscale)"
         />
       </Svg>
     </View>

@@ -16,7 +16,16 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { ChevronRight, Info, Moon, Receipt, Trash2, Wallet, type LucideIcon } from 'lucide-react-native';
+import {
+  ChevronRight,
+  Grid3x3,
+  Info,
+  Moon,
+  Receipt,
+  Trash2,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useDebtStore } from '@/stores/debtStore';
@@ -184,6 +193,8 @@ export default function ProfileScreen() {
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
   const setAppearance = useProfileStore((s) => s.setAppearance);
+  const receiptThermalLook = useProfileStore((s) => s.receiptThermalLook ?? true);
+  const setReceiptThermalLook = useProfileStore((s) => s.setReceiptThermalLook);
   const showSplitBillsInTransactions = useProfileStore((s) => s.showSplitBillsInTransactions);
   const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
   const clearAll = useDebtStore((s) => s.clearAll);
@@ -274,6 +285,14 @@ export default function ProfileScreen() {
             label="Dark appearance"
             value={colorScheme === 'dark'}
             onValueChange={(enabled) => setAppearance(enabled ? 'dark' : 'light')}
+            palette={palette}
+            styles={styles}
+          />
+          <ToggleRow
+            icon={Grid3x3}
+            label="Thermal receipt photos"
+            value={receiptThermalLook}
+            onValueChange={setReceiptThermalLook}
             palette={palette}
             styles={styles}
           />

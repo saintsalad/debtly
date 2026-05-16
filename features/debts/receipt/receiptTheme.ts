@@ -132,11 +132,4 @@ export const receiptType = {
     marginTop: 2,
     marginBottom: 8,
   },
-  stamp: {
-    fontFamily: RECEIPT_MONO,
-    fontSize: 8,
-    letterSpacing: 1,
-    color: RECEIPT_INK,
-    textTransform: 'uppercase' as const,
-  },
 };
