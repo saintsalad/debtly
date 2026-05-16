@@ -44,7 +44,6 @@ export function ReceiptImageContainer({ uri }: ReceiptImageContainerProps) {
 
 const styles = StyleSheet.create({
   frame: {
-    marginTop: 14,
     height: RECEIPT_PHOTO_DISPLAY_HEIGHT,
     alignSelf: 'stretch',
     borderWidth: StyleSheet.hairlineWidth,

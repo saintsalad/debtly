@@ -2,6 +2,9 @@ import {
   buildReceiptPaymentLines,
   buildReceiptRows,
   buildTransactionReceiptData,
+  formatPossessiveDebtTitle,
+  formatReceiptHeaderDate,
+  formatReceiptHeaderTitle,
   formatReceiptReferenceId,
 } from '@/features/debts/receipt/transactionReceiptData';
 import type { Debt, DebtPayment } from '@/features/debts/types';
@@ -26,16 +29,42 @@ function makeDebt(overrides: Partial<Debt> = {}): Debt {
 const fmt = (n: number) => `₱${n.toFixed(2)}`;
 
 describe('formatReceiptReferenceId', () => {
-  it('strips dashes and groups into segments of four', () => {
+  it('prefixes DBTLY and uses the last eight alphanumeric characters', () => {
     expect(formatReceiptReferenceId('a1b2c3d4-e5f6-7890-abcd-ef1234567890')).toBe(
-      'A1B2-C3D4-E5F6-7890-ABCD'
+      'DBTLY-34567890'
     );
   });
 
-  it('caps at 20 characters', () => {
-    const id = 'abcdefghijklmnopqrstuvwxyz';
-    const result = formatReceiptReferenceId(id);
-    expect(result.replace(/-/g, '').length).toBe(20);
+  it('pads short ids to eight characters', () => {
+    expect(formatReceiptReferenceId('abc')).toBe('DBTLY-00000ABC');
+  });
+});
+
+describe('formatPossessiveDebtTitle', () => {
+  it('adds possessive s for regular names', () => {
+    expect(formatPossessiveDebtTitle('Alex')).toBe("Alex's Debt");
+  });
+
+  it('uses trailing apostrophe for names ending in s', () => {
+    expect(formatPossessiveDebtTitle('James')).toBe("James' Debt");
+  });
+});
+
+describe('formatReceiptHeaderTitle', () => {
+  it('uses My Debt for i_owe entries', () => {
+    expect(formatReceiptHeaderTitle('i_owe', 'Alex')).toBe('My Debt');
+  });
+
+  it('uses possessive title for owed_to_me entries', () => {
+    expect(formatReceiptHeaderTitle('owed_to_me', 'Alex')).toBe("Alex's Debt");
+  });
+});
+
+describe('formatReceiptHeaderDate', () => {
+  it('formats in title case without uppercasing the month', () => {
+    const formatted = formatReceiptHeaderDate(new Date('2026-05-17T12:00:00.000Z'));
+    expect(formatted).toContain('2026');
+    expect(formatted).not.toBe(formatted.toUpperCase());
   });
 });
 
@@ -51,6 +80,31 @@ describe('buildReceiptRows', () => {
     expect(labels).not.toContain('Added');
     expect(labels).not.toContain('Updated');
     expect(rows.find((r) => r.label === 'Person')?.value).toBe('Victor');
+  });
+
+  it('omits person and remaining for compact receipt layout', () => {
+    const rows = buildReceiptRows(makeDebt(), fmt, { omitPerson: true, omitRemaining: true });
+    const labels = rows.map((r) => r.label);
+    expect(labels).not.toContain('Person');
+    expect(labels).not.toContain('Remaining');
+    expect(labels).toContain('Principal');
+    expect(labels).toContain('Status');
+  });
+
+  it('places note after due date at the bottom of the list', () => {
+    const rows = buildReceiptRows(
+      makeDebt({
+        note: 'Lunch split',
+        dueDate: '2026-06-01T00:00:00.000Z',
+      }),
+      fmt
+    );
+    const labels = rows.map((r) => r.label);
+    const dueIndex = labels.indexOf('Due date');
+    const noteIndex = labels.indexOf('Note');
+    expect(dueIndex).toBeGreaterThanOrEqual(0);
+    expect(noteIndex).toBeGreaterThan(dueIndex);
+    expect(noteIndex).toBe(labels.length - 1);
   });
 
   it('includes interest and paid fields when applicable', () => {
@@ -137,10 +191,32 @@ describe('buildTransactionReceiptData', () => {
   it('assembles reference id, timestamp, rows, and payment lines', () => {
     const printedAt = new Date('2026-05-16T09:27:53.000Z');
     const data = buildTransactionReceiptData(makeDebt(), fmt, printedAt);
-    expect(data.referenceId).toBe('A1B2-C3D4-E5F6-7890-ABCD');
+    expect(data.referenceId).toBe('DBTLY-34567890');
     expect(data.printedAt).toContain('May');
     expect(data.printedAt).toContain('2026');
     expect(data.rows.length).toBeGreaterThan(0);
     expect(data.paymentLines).toEqual([]);
+  });
+
+  it('builds receipt header with possessive title and amount for owed-to-me', () => {
+    const printedAt = new Date('2026-05-17T12:00:00.000Z');
+    const data = buildTransactionReceiptData(makeDebt({ personName: 'Alex' }), fmt, printedAt);
+    expect(data.header.title).toBe("Alex's Debt");
+    expect(data.header.date).toContain('2026');
+    expect(data.header.amount).toBe('₱950.00');
+    expect(data.rows.map((r) => r.label)).not.toContain('Person');
+    expect(data.rows.map((r) => r.label)).not.toContain('Remaining');
+  });
+
+  it('uses My Debt title for i_owe debts', () => {
+    const data = buildTransactionReceiptData(
+      makeDebt({ type: 'i_owe', personName: 'Alex' }),
+      fmt,
+      new Date('2026-05-17T12:00:00.000Z')
+    );
+    expect(data.header.title).toBe('My Debt');
+    expect(data.header.amount).toBe('₱950.00');
+    expect(data.rows.map((r) => r.label)).not.toContain('Person');
+    expect(data.rows.map((r) => r.label)).not.toContain('Remaining');
   });
 });

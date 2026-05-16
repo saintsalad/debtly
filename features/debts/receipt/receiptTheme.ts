@@ -15,6 +15,10 @@ export const RECEIPT_MUTED = '#8A8A8A';
 export const RECEIPT_SCRIM = '#F2D4D8';
 export const RECEIPT_MONO = Fonts.mono;
 export const RECEIPT_PAD_H = 22;
+/** Vertical space between receipt sections and cut lines. */
+export const RECEIPT_RULE_GAP = 10;
+/** Vertical space between rows within a padded section. */
+export const RECEIPT_CONTENT_GAP = 8;
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);

@@ -20,33 +20,43 @@ export interface ReceiptRow {
   value: string;
 }
 
-export interface ReceiptHero {
+export interface ReceiptHeader {
   title: string;
-  subtitle: string;
+  date: string;
+  amount: string;
 }
 
 export interface TransactionReceiptData {
   referenceId: string;
   printedAt: string;
-  heroDate: string;
-  heroLeft: ReceiptHero;
-  heroRight: ReceiptHero;
+  header: ReceiptHeader;
   rows: ReceiptRow[];
   paymentLines: ReceiptRow[];
 }
 
-function formatDebtTypeLabel(type: DebtType): string {
-  return type === 'owed_to_me' ? 'Owed to me' : 'I owe';
+export interface BuildReceiptRowsOptions {
+  omitPerson?: boolean;
+  omitRemaining?: boolean;
 }
 
-export function formatReceiptHeroDate(date: Date): string {
-  return date
-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    .toUpperCase();
+/** Receipt header date — title case (e.g. May 17, 2026). */
+export function formatReceiptHeaderDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const REFERENCE_LENGTH = 20;
-const SEGMENT_SIZE = 4;
+export function formatPossessiveDebtTitle(personName: string): string {
+  const name = personName.trim();
+  if (!name) return 'Debt';
+  const possessive = /s$/i.test(name) ? `${name}'` : `${name}'s`;
+  return `${possessive} Debt`;
+}
+
+export function formatReceiptHeaderTitle(type: DebtType, personName: string): string {
+  if (type === 'i_owe') return 'My Debt';
+  return formatPossessiveDebtTitle(personName);
+}
+
+const REFERENCE_SUFFIX_LENGTH = 8;
 
 function formatStatus(status: ReturnType<typeof getComputedStatus>): string {
   switch (status) {
@@ -61,14 +71,11 @@ function formatStatus(status: ReturnType<typeof getComputedStatus>): string {
   }
 }
 
-/** Groups a transaction id into thermal-receipt style segments (e.g. A1B2-C3D4-…). */
+/** Debtly receipt reference (e.g. DBTLY-34567890). */
 export function formatReceiptReferenceId(id: string): string {
-  const compact = id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, REFERENCE_LENGTH);
-  const segments: string[] = [];
-  for (let i = 0; i < compact.length; i += SEGMENT_SIZE) {
-    segments.push(compact.slice(i, i + SEGMENT_SIZE));
-  }
-  return segments.join('-');
+  const compact = id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const suffix = compact.slice(-REFERENCE_SUFFIX_LENGTH).padStart(REFERENCE_SUFFIX_LENGTH, '0');
+  return `DBTLY-${suffix}`;
 }
 
 /** Receipt header timestamp — day, date, and time. */
@@ -87,7 +94,11 @@ export function formatReceiptPrintedAt(date: Date = new Date()): string {
   return `${day}, ${datePart} • ${timePart}`;
 }
 
-export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): ReceiptRow[] {
+export function buildReceiptRows(
+  debt: Debt,
+  fmt: (amount: number) => string,
+  options: BuildReceiptRowsOptions = {}
+): ReceiptRow[] {
   const status = getComputedStatus(debt);
   const remaining = getRemainingBalance(debt);
   const totalDue = getTotalDue(debt);
@@ -95,12 +106,15 @@ export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): R
   const accruedInterest = getAccruedInterest(debt);
   const principal = getPrincipalAmount(debt);
 
-  const rows: ReceiptRow[] = [
-    { label: 'Person', value: debt.personName },
-    { label: 'Principal', value: fmt(principal) },
-    { label: 'Remaining', value: fmt(remaining) },
-    { label: 'Status', value: formatStatus(status) },
-  ];
+  const rows: ReceiptRow[] = [];
+  if (!options.omitPerson) {
+    rows.push({ label: 'Person', value: debt.personName });
+  }
+  rows.push({ label: 'Principal', value: fmt(principal) });
+  if (!options.omitRemaining) {
+    rows.push({ label: 'Remaining', value: fmt(remaining) });
+  }
+  rows.push({ label: 'Status', value: formatStatus(status) });
 
   if (debt.interestRateBps) {
     rows.push({
@@ -136,14 +150,14 @@ export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): R
       value: `${debt.instalmentIndex} of ${debt.instalmentCount}`,
     });
   }
-  if (debt.note) {
-    rows.push({ label: 'Note', value: debt.note });
-  }
   if (debt.dueDate) {
     rows.push({ label: 'Due date', value: formatDate(debt.dueDate) });
   }
   if (debt.paidAt) {
     rows.push({ label: 'Paid on', value: formatPaymentDateTime(debt.paidAt) });
+  }
+  if (debt.note) {
+    rows.push({ label: 'Note', value: debt.note });
   }
 
   return rows;
@@ -166,19 +180,17 @@ export function buildTransactionReceiptData(
   printedAt: Date = new Date()
 ): TransactionReceiptData {
   const remaining = getRemainingBalance(debt);
+  const rowOptions: BuildReceiptRowsOptions = { omitPerson: true, omitRemaining: true };
+
   return {
     referenceId: formatReceiptReferenceId(debt.id),
     printedAt: formatReceiptPrintedAt(printedAt),
-    heroDate: formatReceiptHeroDate(printedAt),
-    heroLeft: {
-      title: debt.personName.toUpperCase(),
-      subtitle: formatDebtTypeLabel(debt.type),
+    header: {
+      title: formatReceiptHeaderTitle(debt.type, debt.personName),
+      date: formatReceiptHeaderDate(printedAt),
+      amount: fmt(remaining),
     },
-    heroRight: {
-      title: fmt(remaining),
-      subtitle: formatReceiptHeroDate(printedAt),
-    },
-    rows: buildReceiptRows(debt, fmt),
+    rows: buildReceiptRows(debt, fmt, rowOptions),
     paymentLines: buildReceiptPaymentLines(debt, fmt),
   };
 }
