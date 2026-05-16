@@ -5,6 +5,7 @@ import { useGlassBorder, type GlassBorderVariant } from '@/lib/glassBorder';
 import { radius, useColors } from '@/lib/platform';
 
 export type HeaderIconButtonVariant = GlassBorderVariant;
+export type HeaderIconButtonAppearance = 'default' | 'onDark';
 
 interface HeaderIconButtonProps {
   icon: LucideIcon;
@@ -12,6 +13,7 @@ interface HeaderIconButtonProps {
   onPress: () => void;
   onPressIn?: () => void;
   variant?: HeaderIconButtonVariant;
+  appearance?: HeaderIconButtonAppearance;
   iconSize?: number;
 }
 
@@ -21,23 +23,34 @@ export function HeaderIconButton({
   onPress,
   onPressIn,
   variant = 'secondary',
+  appearance = 'default',
   iconSize = 20,
 }: HeaderIconButtonProps) {
   const palette = useColors();
-  const glassBorder = useGlassBorder(variant);
+  const glassBorder = useGlassBorder(appearance === 'onDark' ? 'surface' : variant);
+  const onDark = appearance === 'onDark';
 
-  const backgroundColor =
-    variant === 'tint'
+  const backgroundColor = onDark
+    ? 'rgba(255, 255, 255, 0.12)'
+    : variant === 'tint'
       ? palette.tint
       : variant === 'positive'
-      ? palette.positiveSoft
+        ? palette.positiveSoft
+        : palette.fill;
+
+  const iconColor = onDark
+    ? '#FFFFFF'
+    : variant === 'tint'
+      ? '#fff'
+      : variant === 'positive'
+        ? palette.positive
+        : palette.label;
+
+  const rippleColor = onDark
+    ? 'rgba(255,255,255,0.2)'
+    : variant === 'tint'
+      ? 'rgba(255,255,255,0.25)'
       : palette.fill;
-
-  const iconColor =
-    variant === 'tint' ? '#fff' : variant === 'positive' ? palette.positive : palette.label;
-
-  const rippleColor =
-    variant === 'tint' ? 'rgba(255,255,255,0.25)' : palette.fill;
 
   return (
     <Pressable

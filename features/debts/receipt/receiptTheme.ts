@@ -21,6 +21,14 @@ export const receiptType = {
     color: RECEIPT_INK,
     textTransform: 'uppercase' as const,
   },
+  miniMeta: {
+    fontFamily: RECEIPT_MONO,
+    fontSize: 9,
+    color: RECEIPT_INK,
+    opacity: 0.58,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+  },
   timestamp: {
     fontFamily: RECEIPT_MONO,
     fontSize: 10,
@@ -33,6 +41,13 @@ export const receiptType = {
     fontSize: 12,
     fontWeight: '600' as const,
     color: RECEIPT_INK,
+    textAlign: 'center' as const,
+  },
+  sectionSubline: {
+    fontFamily: RECEIPT_MONO,
+    fontSize: 10,
+    color: RECEIPT_INK,
+    opacity: 0.6,
     textAlign: 'center' as const,
   },
   reference: {
@@ -66,6 +81,14 @@ export const receiptType = {
     color: RECEIPT_INK,
     letterSpacing: 2,
     textAlign: 'center' as const,
+  },
+  footerTagline: {
+    fontFamily: RECEIPT_MONO,
+    fontSize: 9,
+    color: RECEIPT_INK,
+    opacity: 0.58,
+    textAlign: 'center' as const,
+    letterSpacing: 0.7,
   },
   subsection: {
     fontFamily: RECEIPT_MONO,
