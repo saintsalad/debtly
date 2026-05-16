@@ -1,28 +1,29 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
+import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+  DEFAULT_THERMALIZE_OPTIONS,
+  type ColorMode,
+  type PixelShape,
+  type ThermalizeOptions,
+} from '@/features/debts/receipt/thermalPortrait';
+import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
   BottomSheetScrollView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Check, X } from 'lucide-react-native';
 import { HeroUINativeProvider, Slider, type SliderValue } from 'heroui-native';
-import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
+import { Check, X } from 'lucide-react-native';
+import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import {
-  type ColorMode,
-  DEFAULT_THERMALIZE_OPTIONS,
-  type PixelShape,
-  type ThermalizeOptions,
-} from '@/features/debts/receipt/thermalPortrait';
-import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
-import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export interface ReceiptBitmapLabSheetHandle {
   present: () => void;
@@ -42,7 +43,7 @@ type DuotonePreset = { mode: 'duotone'; label: string; fg: RGB; bg: RGB };
 type TritonePreset = { mode: 'tritone'; label: string; fg: RGB; mid: RGB; bg: RGB };
 
 const DUOTONE_PRESETS: DuotonePreset[] = [
-  { mode: 'duotone', label: 'Light', fg: [28, 28, 28], bg: [248, 248, 248] },
+  { mode: 'duotone', label: 'Light', fg: [28, 28, 28], bg: [255, 255, 255] },
   { mode: 'duotone', label: 'Dark', fg: [240, 240, 240], bg: [18, 18, 18] },
   { mode: 'duotone', label: 'Amber', fg: [230, 140, 20], bg: [18, 8, 0] },
 ];
@@ -57,6 +58,16 @@ function thermalSliderNumber(value: SliderValue): number {
 }
 
 function createStyles(palette: ColorPalette) {
+  const segmentedActiveShadow =
+    Platform.OS === 'ios'
+      ? {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.08,
+          shadowRadius: 2,
+        }
+      : { elevation: 1 };
+
   return StyleSheet.create({
     sheet: {
       borderTopLeftRadius: radius.xl,
@@ -68,42 +79,117 @@ function createStyles(palette: ColorPalette) {
       backgroundColor: palette.opaqueSeparator,
     },
     content: {
-      paddingHorizontal: space[4],
+      paddingHorizontal: space[3],
+      paddingTop: 0,
       backgroundColor: palette.surface,
     },
-    header: {
+    headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
       paddingBottom: space[2],
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: palette.opaqueSeparator,
     },
-    title: {
+    headerCenter: {
       flex: 1,
+      alignItems: 'center',
+      paddingHorizontal: space[2],
+    },
+    title: {
       ...type.subheadline,
       fontWeight: '600',
       color: palette.label,
       textAlign: 'center',
     },
-    topToolbar: {
-      marginTop: space[2],
-      marginBottom: space[2],
-    },
     profileHint: {
       ...type.caption2,
       color: palette.labelSecondary,
+      textAlign: 'center',
+      marginTop: space[2],
+      marginBottom: space[2],
+      paddingHorizontal: space[1],
+      lineHeight: 15,
+    },
+    compactSection: {
       marginBottom: space[2],
     },
-    modeRowCompact: {
+    microLabel: {
+      ...type.caption2,
+      color: palette.labelTertiary,
+      fontWeight: '600',
+      letterSpacing: 0.8,
+      marginBottom: space[1],
+      textTransform: 'uppercase',
+    },
+    segmentedTrack: {
       flexDirection: 'row',
+      backgroundColor: palette.fill,
+      borderRadius: radius.pill,
+      padding: 2,
+    },
+    segmentedItem: {
+      flex: 1,
+      paddingVertical: 7,
+      paddingHorizontal: space[2],
+      borderRadius: radius.pill,
       alignItems: 'center',
-      justifyContent: 'flex-start',
-      gap: space[2],
+      justifyContent: 'center',
+    },
+    segmentedItemActive: {
+      backgroundColor: palette.surface,
+      ...segmentedActiveShadow,
+    },
+    segmentedLabel: {
+      ...type.caption1,
+      color: palette.labelSecondary,
+      fontWeight: '500',
+    },
+    segmentedLabelActive: {
+      color: palette.label,
+      fontWeight: '600',
+    },
+    presetScroll: {
+      marginLeft: -space[1],
+    },
+    presetChip: {
+      paddingHorizontal: space[2],
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: palette.opaqueSeparator,
+      backgroundColor: 'transparent',
+      minHeight: 32,
+      justifyContent: 'center',
+    },
+    presetChipActive: {
+      borderColor: palette.tint,
+      backgroundColor: palette.tintMuted,
+    },
+    presetChipText: {
+      ...type.caption1,
+      color: palette.labelSecondary,
+      fontWeight: '500',
+    },
+    presetChipTextActive: {
+      color: palette.label,
+      fontWeight: '600',
+    },
+    paletteHint: {
+      ...type.caption1,
+      color: palette.labelSecondary,
+      lineHeight: 18,
+    },
+    shapeRow: {
+      flexDirection: 'row',
+      gap: space[1],
+      alignItems: 'center',
     },
     tuningBlock: {
       marginBottom: space[2],
       width: '100%',
+    },
+    tuningBlockLast: {
+      marginBottom: 0,
     },
     tuningTopRow: {
       flexDirection: 'row',
@@ -114,62 +200,9 @@ function createStyles(palette: ColorPalette) {
     },
     tuningLabel: {
       ...type.caption1,
-      color: palette.labelSecondary,
-      letterSpacing: 0.5,
-      flexShrink: 0,
-    },
-    modeChip: {
-      paddingHorizontal: space[2],
-      paddingVertical: space[1],
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: palette.opaqueSeparator,
-    },
-    modeChipActive: {
-      borderColor: palette.tint,
-      backgroundColor: palette.fillSecondary,
-    },
-    modeChipText: {
-      ...type.caption2,
-      color: palette.labelSecondary,
-    },
-    modeChipTextActive: {
       color: palette.label,
-      fontWeight: '600',
-    },
-    presetScroll: {
-      marginBottom: space[2],
-    },
-    presetChip: {
-      paddingHorizontal: space[2],
-      paddingVertical: space[1],
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: palette.opaqueSeparator,
-    },
-    presetChipActive: {
-      borderColor: palette.tint,
-    },
-    presetChipText: {
-      ...type.caption2,
-      color: palette.labelSecondary,
-    },
-    shapeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[2],
-      marginBottom: space[2],
-    },
-    shapeLabel: {
-      ...type.caption2,
-      color: palette.labelTertiary,
-      width: 52,
-    },
-    shapeChips: {
-      flex: 1,
-      flexDirection: 'row',
-      gap: space[1],
-      justifyContent: 'flex-end',
+      fontWeight: '500',
+      flexShrink: 0,
     },
   });
 }
@@ -213,7 +246,7 @@ export const ReceiptBitmapLabSheet = forwardRef<
     presentSheet,
   } = useAppBottomSheetLayout();
   const sheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['38%'], []);
+  const snapPoints = useMemo(() => ['32%'], []);
 
   const dismiss = useCallback(() => {
     sheetRef.current?.dismiss();
@@ -239,7 +272,7 @@ export const ReceiptBitmapLabSheet = forwardRef<
         disappearsOnIndex={-1}
         appearsOnIndex={0}
         pressBehavior="close"
-        opacity={0.32}
+        opacity={0.22}
       />
     ),
     [],
@@ -256,7 +289,7 @@ export const ReceiptBitmapLabSheet = forwardRef<
           bgColor: [...p.bg],
           midColor: undefined,
         });
-      } else {
+      } else if (mode === 'tritone') {
         const p = TRITONE_PRESETS[0]!;
         onOptionsChange({
           ...options,
@@ -264,6 +297,12 @@ export const ReceiptBitmapLabSheet = forwardRef<
           fgColor: [...p.fg],
           midColor: [...p.mid],
           bgColor: [...p.bg],
+        });
+      } else {
+        onOptionsChange({
+          ...options,
+          colorMode: 'color',
+          midColor: undefined,
         });
       }
     },
@@ -322,9 +361,11 @@ export const ReceiptBitmapLabSheet = forwardRef<
           contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
+          <View style={styles.headerRow}>
             <HeaderIconButton icon={X} accessibilityLabel="Close" onPress={dismiss} />
-            <Text style={styles.title}>Bitmap lab</Text>
+            <View style={styles.headerCenter}>
+              <Text style={styles.title}>Bitmap lab</Text>
+            </View>
             <HeaderIconButton
               icon={Check}
               accessibilityLabel="Done"
@@ -333,81 +374,137 @@ export const ReceiptBitmapLabSheet = forwardRef<
             />
           </View>
 
-          <View style={styles.topToolbar}>
-            <View style={styles.modeRowCompact}>
+          {!thermalEnabled ? (
+            <Text style={styles.profileHint}>
+              Enable Thermal receipt photos in Profile to edit.
+            </Text>
+          ) : null}
+
+          <View style={styles.compactSection}>
+            <Text style={styles.microLabel}>Mode</Text>
+            <View style={styles.segmentedTrack}>
               <Pressable
+                disabled={!thermalEnabled}
                 onPress={() => setColorMode('duotone')}
-                style={[styles.modeChip, mode === 'duotone' && styles.modeChipActive]}
+                style={[
+                  styles.segmentedItem,
+                  mode === 'duotone' && styles.segmentedItemActive,
+                ]}
                 accessibilityRole="button"
-                accessibilityState={{ selected: mode === 'duotone' }}
+                accessibilityState={{ selected: mode === 'duotone', disabled: !thermalEnabled }}
               >
                 <Text
-                  style={[styles.modeChipText, mode === 'duotone' && styles.modeChipTextActive]}
+                  style={[
+                    styles.segmentedLabel,
+                    mode === 'duotone' && styles.segmentedLabelActive,
+                  ]}
                 >
                   2-color
                 </Text>
               </Pressable>
               <Pressable
+                disabled={!thermalEnabled}
                 onPress={() => setColorMode('tritone')}
-                style={[styles.modeChip, mode === 'tritone' && styles.modeChipActive]}
+                style={[
+                  styles.segmentedItem,
+                  mode === 'tritone' && styles.segmentedItemActive,
+                ]}
                 accessibilityRole="button"
-                accessibilityState={{ selected: mode === 'tritone' }}
+                accessibilityState={{ selected: mode === 'tritone', disabled: !thermalEnabled }}
               >
                 <Text
-                  style={[styles.modeChipText, mode === 'tritone' && styles.modeChipTextActive]}
+                  style={[
+                    styles.segmentedLabel,
+                    mode === 'tritone' && styles.segmentedLabelActive,
+                  ]}
                 >
                   3-color
+                </Text>
+              </Pressable>
+              <Pressable
+                disabled={!thermalEnabled}
+                onPress={() => setColorMode('color')}
+                style={[
+                  styles.segmentedItem,
+                  mode === 'color' && styles.segmentedItemActive,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: mode === 'color', disabled: !thermalEnabled }}
+              >
+                <Text
+                  style={[
+                    styles.segmentedLabel,
+                    mode === 'color' && styles.segmentedLabelActive,
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
+                  Color
                 </Text>
               </Pressable>
             </View>
           </View>
 
-          {!thermalEnabled ? (
-            <Text style={styles.profileHint}>
-              Turn on &quot;Thermal receipt photos&quot; in Profile to apply these settings.
-            </Text>
-          ) : null}
+          <View style={styles.compactSection}>
+            <Text style={styles.microLabel}>Palette</Text>
+            {mode === 'color' ? (
+              <Text style={styles.paletteHint}>
+                Uses each tile's average color from the photo; dither still follows brightness.
+              </Text>
+            ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.presetScroll}
+              contentContainerStyle={{ gap: space[1], paddingHorizontal: space[1], paddingRight: space[2] }}
+            >
+              {mode === 'duotone'
+                ? DUOTONE_PRESETS.map((p) => {
+                    const active = presetMatchesDuotone(options, p);
+                    return (
+                      <Pressable
+                        key={p.label}
+                        disabled={!thermalEnabled}
+                        onPress={() => applyDuotonePreset(p)}
+                        style={[styles.presetChip, active && styles.presetChipActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active, disabled: !thermalEnabled }}
+                      >
+                        <Text
+                          style={[styles.presetChipText, active && styles.presetChipTextActive]}
+                        >
+                          {p.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })
+                : TRITONE_PRESETS.map((p) => {
+                    const active = presetMatchesTritone(options, p);
+                    return (
+                      <Pressable
+                        key={p.label}
+                        disabled={!thermalEnabled}
+                        onPress={() => applyTritonePreset(p)}
+                        style={[styles.presetChip, active && styles.presetChipActive]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active, disabled: !thermalEnabled }}
+                      >
+                        <Text
+                          style={[styles.presetChipText, active && styles.presetChipTextActive]}
+                        >
+                          {p.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+            </ScrollView>
+            )}
+          </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.presetScroll}
-            contentContainerStyle={{ gap: space[2], paddingRight: space[2] }}
-          >
-            {mode === 'duotone'
-              ? DUOTONE_PRESETS.map((p) => {
-                  const active = presetMatchesDuotone(options, p);
-                  return (
-                    <Pressable
-                      key={p.label}
-                      onPress={() => applyDuotonePreset(p)}
-                      style={[styles.presetChip, active && styles.presetChipActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={styles.presetChipText}>{p.label}</Text>
-                    </Pressable>
-                  );
-                })
-              : TRITONE_PRESETS.map((p) => {
-                  const active = presetMatchesTritone(options, p);
-                  return (
-                    <Pressable
-                      key={p.label}
-                      onPress={() => applyTritonePreset(p)}
-                      style={[styles.presetChip, active && styles.presetChipActive]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                    >
-                      <Text style={styles.presetChipText}>{p.label}</Text>
-                    </Pressable>
-                  );
-                })}
-          </ScrollView>
-
-          <View style={styles.shapeRow}>
-            <Text style={styles.shapeLabel}>Shape</Text>
-            <View style={styles.shapeChips}>
+          <View style={styles.compactSection}>
+            <Text style={styles.microLabel}>Shape</Text>
+            <View style={styles.shapeRow}>
               {(
                 [
                   ['square', 'Grid'] as const,
@@ -419,88 +516,105 @@ export const ReceiptBitmapLabSheet = forwardRef<
                 return (
                   <Pressable
                     key={shape}
+                    disabled={!thermalEnabled}
                     onPress={() => setPixelShape(shape)}
-                    style={[styles.presetChip, active && styles.presetChipActive]}
+                    style={[
+                      styles.presetChip,
+                      { flex: 1, minWidth: 0 },
+                      active && styles.presetChipActive,
+                    ]}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
+                    accessibilityState={{ selected: active, disabled: !thermalEnabled }}
                   >
-                    <Text style={styles.presetChipText}>{label}</Text>
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        active && styles.presetChipTextActive,
+                        { textAlign: 'center' },
+                      ]}
+                    >
+                      {label}
+                    </Text>
                   </Pressable>
                 );
               })}
             </View>
           </View>
 
-          <View style={styles.tuningBlock}>
-            <Slider
-              className="w-full"
-              value={options.pixelSize}
-              onChange={(v) =>
-                onOptionsChange({ ...options, pixelSize: thermalSliderNumber(v) })
-              }
-              minValue={2}
-              maxValue={8}
-              step={1}
-              isDisabled={!thermalEnabled}
-              formatOptions={{ maximumFractionDigits: 0 }}
-            >
-              <View style={styles.tuningTopRow}>
-                <Text style={styles.tuningLabel}>Pixel size</Text>
-                <Slider.Output classNames={{ text: 'text-foreground' }} />
-              </View>
-              <Slider.Track>
-                <Slider.Fill />
-                <Slider.Thumb />
-              </Slider.Track>
-            </Slider>
-          </View>
+          <View style={styles.compactSection}>
+            <Text style={styles.microLabel}>Tune</Text>
 
-          <View style={styles.tuningBlock}>
-            <Slider
-              className="w-full"
-              value={options.contrast}
-              onChange={(v) =>
-                onOptionsChange({ ...options, contrast: thermalSliderNumber(v) })
-              }
-              minValue={0.6}
-              maxValue={2}
-              step={0.05}
-              isDisabled={!thermalEnabled}
-              formatOptions={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
-            >
-              <View style={styles.tuningTopRow}>
-                <Text style={styles.tuningLabel}>Contrast</Text>
-                <Slider.Output classNames={{ text: 'text-foreground' }} />
-              </View>
-              <Slider.Track>
-                <Slider.Fill />
-                <Slider.Thumb />
-              </Slider.Track>
-            </Slider>
-          </View>
+            <View style={styles.tuningBlock}>
+              <Slider
+                className="w-full"
+                value={options.pixelSize}
+                onChange={(v) =>
+                  onOptionsChange({ ...options, pixelSize: thermalSliderNumber(v) })
+                }
+                minValue={2}
+                maxValue={8}
+                step={1}
+                isDisabled={!thermalEnabled}
+                formatOptions={{ maximumFractionDigits: 0 }}
+              >
+                <View style={styles.tuningTopRow}>
+                  <Text style={styles.tuningLabel}>Pixel size</Text>
+                  <Slider.Output classNames={{ text: 'text-foreground' }} />
+                </View>
+                <Slider.Track>
+                  <Slider.Fill />
+                  <Slider.Thumb />
+                </Slider.Track>
+              </Slider>
+            </View>
 
-          <View style={styles.tuningBlock}>
-            <Slider
-              className="w-full"
-              value={options.intensity}
-              onChange={(v) =>
-                onOptionsChange({ ...options, intensity: thermalSliderNumber(v) })
-              }
-              minValue={0}
-              maxValue={1}
-              step={0.05}
-              isDisabled={!thermalEnabled}
-              formatOptions={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
-            >
-              <View style={styles.tuningTopRow}>
-                <Text style={styles.tuningLabel}>Dither</Text>
-                <Slider.Output classNames={{ text: 'text-foreground' }} />
-              </View>
-              <Slider.Track>
-                <Slider.Fill />
-                <Slider.Thumb />
-              </Slider.Track>
-            </Slider>
+            <View style={styles.tuningBlock}>
+              <Slider
+                className="w-full"
+                value={options.contrast}
+                onChange={(v) =>
+                  onOptionsChange({ ...options, contrast: thermalSliderNumber(v) })
+                }
+                minValue={0.6}
+                maxValue={2}
+                step={0.05}
+                isDisabled={!thermalEnabled}
+                formatOptions={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+              >
+                <View style={styles.tuningTopRow}>
+                  <Text style={styles.tuningLabel}>Contrast</Text>
+                  <Slider.Output classNames={{ text: 'text-foreground' }} />
+                </View>
+                <Slider.Track>
+                  <Slider.Fill />
+                  <Slider.Thumb />
+                </Slider.Track>
+              </Slider>
+            </View>
+
+            <View style={[styles.tuningBlock, styles.tuningBlockLast]}>
+              <Slider
+                className="w-full"
+                value={options.intensity}
+                onChange={(v) =>
+                  onOptionsChange({ ...options, intensity: thermalSliderNumber(v) })
+                }
+                minValue={0}
+                maxValue={1}
+                step={0.05}
+                isDisabled={!thermalEnabled}
+                formatOptions={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }}
+              >
+                <View style={styles.tuningTopRow}>
+                  <Text style={styles.tuningLabel}>Dither</Text>
+                  <Slider.Output classNames={{ text: 'text-foreground' }} />
+                </View>
+                <Slider.Track>
+                  <Slider.Fill />
+                  <Slider.Thumb />
+                </Slider.Track>
+              </Slider>
+            </View>
           </View>
         </BottomSheetScrollView>
       </HeroUINativeProvider>

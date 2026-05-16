@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Image as SvgImage } from 'react-native-svg';
 import {
-  RECEIPT_MUTED,
   RECEIPT_PHOTO_DISPLAY_HEIGHT,
   RECEIPT_PHOTO_DISPLAY_WIDTH,
 } from '@/features/debts/receipt/receiptTheme';
@@ -12,7 +11,7 @@ interface ReceiptImageContainerProps {
 }
 
 /**
- * Dashed thermal frame; image is center-cropped (`slice`) into the slot matching
+ * Image is center-cropped (`slice`) into the slot matching
  * {@link RECEIPT_PHOTO_CROP_ASPECT} from the picker on Android.
  * Renders full color so thermal / bitmap-lab palette tints are visible (no grayscale matrix).
  */
@@ -38,11 +37,6 @@ const styles = StyleSheet.create({
   frame: {
     height: RECEIPT_PHOTO_DISPLAY_HEIGHT,
     alignSelf: 'stretch',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
-    borderColor: RECEIPT_MUTED,
-    borderRadius: 2,
     overflow: 'hidden',
-    backgroundColor: '#ECECEC',
   },
 });

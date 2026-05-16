@@ -9,12 +9,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Download, Grid3x3, ImagePlus, Palette, Share2, X } from 'lucide-react-native';
+import { Download, Grid3x3, ImagePlus, Palette, Ratio, Share2, X } from 'lucide-react-native';
 import { pickReceiptPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { captureStoryReceiptImage } from '@/features/debts/receipt/captureReceiptImage';
+import {
+  ReceiptAspectSheet,
+  type ReceiptAspectSheetHandle,
+} from '@/features/debts/receipt/ReceiptAspectSheet';
 import {
   ReceiptBackgroundSheet,
   type ReceiptBackgroundSheetHandle,
@@ -25,7 +29,12 @@ import {
 } from '@/features/debts/receipt/ReceiptBitmapLabSheet';
 import { ReceiptCircleButton } from '@/features/debts/receipt/ReceiptCircleButton';
 import {
-  getReceiptCanvasColor,
+  getReceiptExportSize,
+  getReceiptAspectPreset,
+  type ReceiptAspectPresetId,
+} from '@/features/debts/receipt/receiptAspectPresets';
+import {
+  getReceiptCanvasBackground,
   type ReceiptCanvasPresetId,
 } from '@/features/debts/receipt/receiptCanvasPresets';
 import {
@@ -93,11 +102,16 @@ function createStyles(palette: ColorPalette) {
       borderTopColor: 'rgba(255,255,255,0.2)',
       backgroundColor: '#000000',
     },
-    actionsRow: {
+    actionsScroll: {
+      width: '100%',
+    },
+    actionsScrollContent: {
       flexDirection: 'row',
-      justifyContent: 'center',
       alignItems: 'flex-start',
       gap: space[4],
+      paddingHorizontal: space[1],
+      minWidth: '100%',
+      justifyContent: 'center',
     },
   });
 }
@@ -108,16 +122,20 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
   const styles = useMemo(() => createStyles(palette), [palette]);
   const captureRef = useRef<View>(null);
   const backgroundSheetRef = useRef<ReceiptBackgroundSheetHandle>(null);
+  const aspectSheetRef = useRef<ReceiptAspectSheetHandle>(null);
   const bitmapLabRef = useRef<ReceiptBitmapLabSheetHandle>(null);
   const receiptThermalLook = useProfileStore((s) => s.receiptThermalLook ?? true);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [canvasPreset, setCanvasPreset] = useState<ReceiptCanvasPresetId>('black');
+  const [aspectPresetId, setAspectPresetId] = useState<ReceiptAspectPresetId>('story');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [thermalOpts, setThermalOpts] = useState<ThermalizeOptions>(() => ({
     ...DEFAULT_THERMALIZE_OPTIONS,
   }));
   const [thermalOutputUri, setThermalOutputUri] = useState<string | null>(null);
-  const canvasColor = getReceiptCanvasColor(canvasPreset);
+  const canvasBackground = useMemo(() => getReceiptCanvasBackground(canvasPreset), [canvasPreset]);
+  const aspectPreset = useMemo(() => getReceiptAspectPreset(aspectPresetId), [aspectPresetId]);
+  const exportPixelSize = useMemo(() => getReceiptExportSize(aspectPreset), [aspectPreset]);
 
   const displayPhotoUri = useMemo(() => {
     if (!photoUri) return null;
@@ -146,7 +164,10 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
     };
   }, [photoUri, receiptThermalLook, thermalOpts]);
 
-  const exportImage = useCallback(async () => captureStoryReceiptImage(captureRef), []);
+  const exportImage = useCallback(
+    async () => captureStoryReceiptImage(captureRef, exportPixelSize),
+    [exportPixelSize],
+  );
 
   const pickPhoto = useCallback(async () => {
     const uri = await pickReceiptPhotoFromLibrary();
@@ -244,8 +265,10 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
               <TransactionReceiptStoryFrame
                 debt={debt}
                 fmt={fmt}
-                backgroundColor={canvasColor}
+                canvasBackground={canvasBackground}
                 photoUri={displayPhotoUri}
+                frameWidth={aspectPreset.frameWidth}
+                frameHeight={aspectPreset.frameHeight}
               />
             </View>
           </ScrollView>
@@ -255,18 +278,32 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
               <TransactionReceiptStoryFrame
                 debt={debt}
                 fmt={fmt}
-                backgroundColor={canvasColor}
+                canvasBackground={canvasBackground}
                 photoUri={displayPhotoUri}
+                frameWidth={aspectPreset.frameWidth}
+                frameHeight={aspectPreset.frameHeight}
               />
             </View>
           </View>
 
           <View style={[styles.footer, { paddingBottom: insets.bottom + space[4] }]}>
-            <View style={styles.actionsRow}>
+            <ScrollView
+              horizontal
+              style={styles.actionsScroll}
+              contentContainerStyle={styles.actionsScrollContent}
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               <ReceiptCircleButton
                 icon={Palette}
                 label="Background"
                 onPress={() => backgroundSheetRef.current?.present()}
+                disabled={isBusy}
+              />
+              <ReceiptCircleButton
+                icon={Ratio}
+                label="Size"
+                onPress={() => aspectSheetRef.current?.present()}
                 disabled={isBusy}
               />
               <ReceiptCircleButton
@@ -275,12 +312,14 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 onPress={handlePhotoPress}
                 disabled={isBusy}
               />
-              <ReceiptCircleButton
-                icon={Grid3x3}
-                label="Bitmap lab"
-                onPress={() => bitmapLabRef.current?.present()}
-                disabled={isBusy || !photoUri}
-              />
+              {photoUri ? (
+                <ReceiptCircleButton
+                  icon={Grid3x3}
+                  label="Bitmap lab"
+                  onPress={() => bitmapLabRef.current?.present()}
+                  disabled={isBusy}
+                />
+              ) : null}
               <ReceiptCircleButton
                 icon={Download}
                 label="Save"
@@ -297,13 +336,18 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 loading={busy === 'share'}
                 variant="primary"
               />
-            </View>
+            </ScrollView>
           </View>
 
           <ReceiptBackgroundSheet
             ref={backgroundSheetRef}
             selectedId={canvasPreset}
             onSelect={setCanvasPreset}
+          />
+          <ReceiptAspectSheet
+            ref={aspectSheetRef}
+            selectedId={aspectPresetId}
+            onSelect={setAspectPresetId}
           />
           <ReceiptBitmapLabSheet
             ref={bitmapLabRef}

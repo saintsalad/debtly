@@ -9,7 +9,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 
 export type PixelShape = 'square' | 'circle-solid' | 'circle-outline';
-export type ColorMode = 'duotone' | 'tritone';
+/** `color` = bitmap dither while keeping per-cell hues from the source image. */
+export type ColorMode = 'duotone' | 'tritone' | 'color';
 
 export interface ThermalizeOptions {
   pixelSize: number;
@@ -32,7 +33,7 @@ export const DEFAULT_THERMALIZE_OPTIONS: ThermalizeOptions = {
   pixelShape: 'square',
   colorMode: 'duotone',
   fgColor: [28, 28, 28],
-  bgColor: [248, 248, 248],
+  bgColor: [255, 255, 255],
 };
 
 /** Returns true if pixel at (lx, ly) within a cell of size (cw, ch) is inside the pixel shape. */
@@ -68,6 +69,28 @@ function grayToColor(
   return raw <= 127 ? fg : bg;
 }
 
+/** Dither output (0/255) mapped to two tones that preserve the cell's chroma. */
+function colorBitmapTones(
+  r: number,
+  g: number,
+  b: number,
+  lumaQuantized: number,
+): [number, number, number] {
+  const cr = Math.max(0, Math.min(255, r));
+  const cg = Math.max(0, Math.min(255, g));
+  const cb = Math.max(0, Math.min(255, b));
+  if (lumaQuantized <= 127) {
+    const k = 0.42;
+    return [cr * k, cg * k, cb * k];
+  }
+  const lift = 0.62;
+  return [
+    cr + (255 - cr) * lift,
+    cg + (255 - cg) * lift,
+    cb + (255 - cb) * lift,
+  ];
+}
+
 export function thermalizeRgba(
   src: Uint8Array | Uint8ClampedArray,
   width: number,
@@ -76,7 +99,7 @@ export function thermalizeRgba(
 ): Uint8Array {
   const { pixelSize, contrast, intensity } = opts;
   const fg = opts.fgColor ?? [28, 28, 28];
-  const bg = opts.bgColor ?? [248, 248, 248];
+  const bg = opts.bgColor ?? [255, 255, 255];
   const mid = opts.midColor;
   const colorMode = opts.colorMode ?? 'duotone';
   const pixelShape = opts.pixelShape ?? 'square';
@@ -87,6 +110,9 @@ export function thermalizeRgba(
   const bw = Math.max(2, Math.floor(width / Math.max(1, pixelSize)));
   const bh = Math.max(2, Math.floor(height / Math.max(1, pixelSize)));
   const grid = new Float32Array(bw * bh);
+  const cellR = new Float32Array(bw * bh);
+  const cellG = new Float32Array(bw * bh);
+  const cellB = new Float32Array(bw * bh);
 
   for (let gy = 0; gy < bh; gy++) {
     for (let gx = 0; gx < bw; gx++) {
@@ -94,21 +120,38 @@ export function thermalizeRgba(
       const x1 = Math.floor(((gx + 1) * width) / bw);
       const y0 = Math.floor((gy * height) / bh);
       const y1 = Math.floor(((gy + 1) * height) / bh);
-      let sum = 0;
+      let lumSum = 0;
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
       let count = 0;
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
           const i = (y * width + x) * 4;
-          sum +=
-            0.299 * (data[i] ?? 0) +
-            0.587 * (data[i + 1] ?? 0) +
-            0.114 * (data[i + 2] ?? 0);
+          const rp = data[i] ?? 0;
+          const gp = data[i + 1] ?? 0;
+          const bp = data[i + 2] ?? 0;
+          sumR += rp;
+          sumG += gp;
+          sumB += bp;
+          lumSum += 0.299 * rp + 0.587 * gp + 0.114 * bp;
           count++;
         }
       }
-      let gray = count ? sum / count : 0;
-      gray = (gray - 128) * contrast + 128;
-      grid[gy * bw + gx] = Math.max(0, Math.min(255, gray));
+      const ci = gy * bw + gx;
+      if (count) {
+        cellR[ci] = sumR / count;
+        cellG[ci] = sumG / count;
+        cellB[ci] = sumB / count;
+        let gray = lumSum / count;
+        gray = (gray - 128) * contrast + 128;
+        grid[ci] = Math.max(0, Math.min(255, gray));
+      } else {
+        cellR[ci] = 255;
+        cellG[ci] = 255;
+        cellB[ci] = 255;
+        grid[ci] = 255;
+      }
     }
   }
 
@@ -133,13 +176,19 @@ export function thermalizeRgba(
       const lx = x - x0;
       const ly = y - y0;
 
-      const raw = processed[gy * bw + gx] ?? 0;
+      const ci = gy * bw + gx;
+      const raw = processed[ci] ?? 0;
       const i = (y * width + x) * 4;
 
       const inside = inPixelShape(lx, ly, cw, ch, pixelShape);
 
       let color: [number, number, number];
-      if (inside) {
+      if (colorMode === 'color') {
+        const cr = cellR[ci] ?? 255;
+        const cg = cellG[ci] ?? 255;
+        const cb = cellB[ci] ?? 255;
+        color = inside ? colorBitmapTones(cr, cg, cb, raw) : colorBitmapTones(cr, cg, cb, 255);
+      } else if (inside) {
         color = grayToColor(raw, fg, bg, mid, colorMode);
       } else {
         color = bg;

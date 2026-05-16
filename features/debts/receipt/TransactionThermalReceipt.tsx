@@ -11,7 +11,6 @@ import {
   RECEIPT_INK,
   RECEIPT_PAD_H,
   RECEIPT_PAPER,
-  RECEIPT_SCRIM,
   RECEIPT_WIDTH,
   receiptType,
 } from '@/features/debts/receipt/receiptTheme';
@@ -24,14 +23,12 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 interface TransactionThermalReceiptProps {
   debt: Debt;
   fmt: (amount: number) => string;
-  backdropColor?: string;
   photoUri?: string | null;
 }
 
 export function TransactionThermalReceipt({
   debt,
   fmt,
-  backdropColor = RECEIPT_SCRIM,
   photoUri,
 }: TransactionThermalReceiptProps) {
   const data = useMemo(() => buildTransactionReceiptData(debt, fmt), [debt, fmt]);
@@ -41,20 +38,13 @@ export function TransactionThermalReceipt({
   const footerTagline = useMemo(() => getReceiptFooterTagline(), []);
 
   const tearEdge = (
-    <ReceiptTearEdge
-      width={RECEIPT_WIDTH}
-      color={RECEIPT_PAPER}
-      backdropColor={backdropColor}
-    />
+    <ReceiptTearEdge width={RECEIPT_WIDTH} color={RECEIPT_PAPER} />
   );
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.edgeStack}>
         <View style={styles.paper}>
-          <View style={[styles.sideNotchLeft, { backgroundColor: backdropColor }]} />
-          <View style={[styles.sideNotchRight, { backgroundColor: backdropColor }]} />
-
           <View style={styles.body}>
             <View style={styles.contentPad}>
               <View style={styles.topBar}>
@@ -168,24 +158,6 @@ const styles = StyleSheet.create({
     ...receiptType.subsection,
     marginTop: 0,
     marginBottom: 0,
-  },
-  sideNotchLeft: {
-    position: 'absolute',
-    left: -6,
-    top: '45%',
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    zIndex: 2,
-  },
-  sideNotchRight: {
-    position: 'absolute',
-    right: -6,
-    top: '45%',
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    zIndex: 2,
   },
   footer: {
     alignItems: 'center',

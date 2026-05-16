@@ -76,14 +76,11 @@ function buildCurvedTearPath(drawWidth: number, count: number, toothDepth: numbe
 interface ReceiptTearEdgeProps {
   width: number;
   color?: string;
-  /** Fills valleys between paper teeth / scallops (story scrim). */
-  backdropColor?: string;
 }
 
 export function ReceiptTearEdge({
   width,
   color = '#FFFFFF',
-  backdropColor = 'transparent',
 }: ReceiptTearEdgeProps) {
   const drawWidth = width;
   const layout = useMemo(() => getTearLayout(drawWidth), [drawWidth]);
@@ -106,7 +103,7 @@ export function ReceiptTearEdge({
           width: drawWidth,
           height: RECEIPT_TEAR_TOOTH_DEPTH,
           marginTop: -TEAR_SEAM_OVERLAP,
-          backgroundColor: backdropColor,
+          backgroundColor: 'transparent',
         },
       ]}
     >
