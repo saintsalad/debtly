@@ -685,7 +685,7 @@ export default function BillSplitScreen() {
                   <View onLayout={onBillSplitHeaderLayout} style={styles.headerMeasureWrap}>
                     <View style={styles.titleBlock}>
                       <View style={styles.headerCopy}>
-                        <Text style={styles.title}>Groups</Text>
+                        <Text style={styles.title}>Split bill</Text>
                         <Text style={styles.subtitle}>
                           Split bills · {filtered.length}{' '}
                           {filtered.length === 1 ? 'group' : 'groups'}

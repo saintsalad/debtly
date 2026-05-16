@@ -10,5 +10,14 @@ export default function TransactionDetailRoute() {
     return null;
   }
 
-  return <TransactionDetailScreen debtId={id} onClose={() => router.back()} />;
+  return (
+    <TransactionDetailScreen
+      debtId={id}
+      onClose={() => {
+        if (router.canGoBack()) {
+          router.back();
+        }
+      }}
+    />
+  );
 }

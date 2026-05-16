@@ -372,7 +372,6 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
         style: 'destructive',
         onPress: () => {
           deleteDebt(debt.id);
-          onClose();
         },
       },
     ]);
