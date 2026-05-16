@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { TransactionThermalReceipt } from '@/features/debts/receipt/TransactionThermalReceipt';
 import {
+  getReceiptTiltDegrees,
   STORY_FRAME_HEIGHT,
   STORY_FRAME_WIDTH,
 } from '@/features/debts/receipt/receiptTheme';
@@ -28,6 +29,7 @@ export function TransactionReceiptStoryFrame({
   photoUri,
 }: TransactionReceiptStoryFrameProps) {
   const [scale, setScale] = useState(1);
+  const tiltDeg = useMemo(() => getReceiptTiltDegrees(debt.id), [debt.id]);
 
   function onReceiptLayout(e: LayoutChangeEvent) {
     const h = e.nativeEvent.layout.height;
@@ -40,7 +42,7 @@ export function TransactionReceiptStoryFrame({
     <View style={[styles.frame, { backgroundColor }]}>
       <View
         onLayout={onReceiptLayout}
-        style={[styles.receiptWrap, { transform: [{ scale }] }]}
+        style={[styles.receiptWrap, { transform: [{ scale }, { rotate: `${tiltDeg}deg` }] }]}
       >
         <TransactionThermalReceipt
           debt={debt}

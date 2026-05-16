@@ -19,6 +19,22 @@ export const RECEIPT_PAD_H = 22;
 export const RECEIPT_RULE_GAP = 10;
 /** Vertical space between rows within a padded section. */
 export const RECEIPT_CONTENT_GAP = 8;
+/** Slight random tilt range (degrees) for the receipt paper on the story canvas. */
+export const RECEIPT_TILT_MIN_DEG = 1.5;
+export const RECEIPT_TILT_MAX_DEG = 3.5;
+
+/** Stable left/right tilt from debt id (same angle for preview and export). */
+export function getReceiptTiltDegrees(debtId: string): number {
+  let hash = 0;
+  for (let i = 0; i < debtId.length; i++) {
+    hash = Math.imul(31, hash) + debtId.charCodeAt(i);
+    hash |= 0;
+  }
+  const sign = Math.abs(hash) % 2 === 0 ? 1 : -1;
+  const t = (Math.abs(hash) % 1000) / 1000;
+  const magnitude = RECEIPT_TILT_MIN_DEG + t * (RECEIPT_TILT_MAX_DEG - RECEIPT_TILT_MIN_DEG);
+  return sign * magnitude;
+}
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
@@ -92,7 +108,6 @@ export const receiptType = {
     fontFamily: RECEIPT_MONO,
     fontSize: 18,
     fontWeight: '700' as const,
-    fontStyle: 'italic' as const,
     color: RECEIPT_INK,
     letterSpacing: 1.5,
     textAlign: 'center' as const,
@@ -104,7 +119,7 @@ export const receiptType = {
     textAlign: 'center' as const,
     letterSpacing: 0.6,
     textTransform: 'uppercase' as const,
-    marginTop: 6,
+    marginTop: 8,
   },
   subsection: {
     fontFamily: RECEIPT_MONO,

@@ -1,13 +1,10 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Receipt } from 'lucide-react-native';
-import type { Debt } from '@/features/debts/types';
+import { getReceiptFooterTagline } from '@/features/debts/receipt/receiptDeviceLabel';
 import { ReceiptDottedRule } from '@/features/debts/receipt/ReceiptDottedRule';
 import { ReceiptImageContainer } from '@/features/debts/receipt/ReceiptImageContainer';
 import { ReceiptRow } from '@/features/debts/receipt/ReceiptRow';
 import {
+  RECEIPT_TEAR_PAPER_OVERLAP,
   ReceiptTearEdge,
-  RECEIPT_TEAR_TOOTH_DEPTH,
 } from '@/features/debts/receipt/ReceiptTearEdge';
 import {
   RECEIPT_CONTENT_GAP,
@@ -19,6 +16,10 @@ import {
   receiptType,
 } from '@/features/debts/receipt/receiptTheme';
 import { buildTransactionReceiptData } from '@/features/debts/receipt/transactionReceiptData';
+import type { Debt } from '@/features/debts/types';
+import { Receipt } from 'lucide-react-native';
+import React, { useMemo } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 interface TransactionThermalReceiptProps {
   debt: Debt;
@@ -37,79 +38,82 @@ export function TransactionThermalReceipt({
   const hasPayments = data.paymentLines.length > 0;
   const hasPhoto = Boolean(photoUri);
   const { header } = data;
+  const footerTagline = useMemo(() => getReceiptFooterTagline(), []);
+
+  const tearEdge = (
+    <ReceiptTearEdge
+      width={RECEIPT_WIDTH}
+      color={RECEIPT_PAPER}
+      backdropColor={backdropColor}
+    />
+  );
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.paper}>
-        <View style={[styles.sideNotchLeft, { backgroundColor: backdropColor }]} />
-        <View style={[styles.sideNotchRight, { backgroundColor: backdropColor }]} />
+      <View style={styles.edgeStack}>
+        <View style={styles.paper}>
+          <View style={[styles.sideNotchLeft, { backgroundColor: backdropColor }]} />
+          <View style={[styles.sideNotchRight, { backgroundColor: backdropColor }]} />
 
-        <View style={styles.body}>
-          <View style={styles.contentPad}>
-            <View style={styles.topBar}>
-              <Receipt size={15} color={RECEIPT_INK} strokeWidth={2.5} />
-              <Text style={styles.headerLabel}>Debtly Receipt</Text>
+          <View style={styles.body}>
+            <View style={styles.contentPad}>
+              <View style={styles.topBar}>
+                <Receipt size={15} color={RECEIPT_INK} strokeWidth={2.5} />
+                <Text style={styles.headerLabel}>Debtly Receipt</Text>
+              </View>
             </View>
-          </View>
 
-          <ReceiptDottedRule />
+            <ReceiptDottedRule />
 
-          <View style={[styles.contentPad, styles.stack]}>
-            <View style={styles.receiptHeaderRow}>
-              <Text style={styles.receiptHeaderTitle} numberOfLines={2}>
-                {header.title}
-              </Text>
-              <Text style={styles.receiptHeaderDate}>{header.date}</Text>
-            </View>
-            <ReceiptRow row={{ label: 'Receipt Id', value: data.referenceId }} />
-            {hasPhoto ? (
-              <View style={styles.mediaBlock}>
-                <ReceiptImageContainer uri={photoUri!} />
-                <View style={styles.stamp}>
-                  <Text style={styles.stampText}>CERTIFIED</Text>
+            <View style={[styles.contentPad, styles.stack]}>
+              <View style={styles.receiptHeaderRow}>
+                <Text style={styles.receiptHeaderTitle} numberOfLines={2}>
+                  {header.title}
+                </Text>
+                <Text style={styles.receiptHeaderDate}>{header.date}</Text>
+              </View>
+              <ReceiptRow row={{ label: 'Receipt Id', value: data.referenceId }} />
+              {hasPhoto ? (
+                <View style={styles.mediaBlock}>
+                  <ReceiptImageContainer uri={photoUri!} />
+                  <View style={styles.stamp}>
+                    <Text style={styles.stampText}>CERTIFIED</Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
+            </View>
+
+            <ReceiptDottedRule />
+
+            <View style={[styles.contentPad, styles.stack]}>
+              {data.rows.map((row) => (
+                <ReceiptRow key={row.label} row={row} />
+              ))}
+            </View>
+
+            {hasPayments ? (
+              <>
+                <ReceiptDottedRule />
+                <View style={[styles.contentPad, styles.stack]}>
+                  <Text style={styles.subsection}>Payments</Text>
+                  {data.paymentLines.map((row, index) => (
+                    <ReceiptRow key={`${row.label}-${index}`} row={row} />
+                  ))}
+                </View>
+              </>
             ) : null}
-          </View>
 
-          <ReceiptDottedRule />
+            <ReceiptDottedRule />
 
-          <View style={[styles.contentPad, styles.stack]}>
-            {data.rows.map((row) => (
-              <ReceiptRow key={row.label} row={row} />
-            ))}
-          </View>
-
-          {hasPayments ? (
-            <>
-              <ReceiptDottedRule />
-              <View style={[styles.contentPad, styles.stack]}>
-                <Text style={styles.subsection}>Payments</Text>
-                {data.paymentLines.map((row, index) => (
-                  <ReceiptRow key={`${row.label}-${index}`} row={row} />
-                ))}
+            <View style={[styles.contentPad, styles.stack]}>
+              <ReceiptRow row={{ label: 'Amount', value: header.amount }} />
+              <View style={styles.footer}>
+                <Text style={styles.footerTagline}>{footerTagline}</Text>
               </View>
-            </>
-          ) : null}
-
-          <ReceiptDottedRule />
-
-          <View style={[styles.contentPad, styles.stack]}>
-            <ReceiptRow row={{ label: 'Amount', value: header.amount }} />
-            <View style={styles.footer}>
-              <Text style={styles.footerWordmark}>DEBTLY</Text>
-              <Text style={styles.footerTagline}>Generated by Debtly</Text>
             </View>
           </View>
         </View>
-      </View>
-
-      <View style={styles.tear}>
-        <ReceiptTearEdge
-          width={RECEIPT_WIDTH}
-          color={RECEIPT_PAPER}
-          backdropColor={backdropColor}
-        />
+        <View style={styles.tearSlot}>{tearEdge}</View>
       </View>
     </View>
   );
@@ -119,6 +123,14 @@ const styles = StyleSheet.create({
   wrapper: {
     width: RECEIPT_WIDTH,
     alignSelf: 'center',
+    alignItems: 'stretch',
+  },
+  edgeStack: {
+    width: RECEIPT_WIDTH,
+    position: 'relative',
+  },
+  tearSlot: {
+    zIndex: 0,
   },
   paper: {
     width: RECEIPT_WIDTH,
@@ -126,6 +138,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 4,
     borderTopRightRadius: 4,
     overflow: 'hidden',
+    zIndex: 1,
+    ...(Platform.OS === 'android'
+      ? { marginBottom: -RECEIPT_TEAR_PAPER_OVERLAP }
+      : null),
   },
   body: {
     paddingTop: 18,
@@ -197,11 +213,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    paddingTop: 2,
+    marginTop: 30,
+    paddingTop: 4,
   },
-  footerWordmark: receiptType.footer,
   footerTagline: receiptType.footerTagline,
-  tear: {
-    marginTop: -1,
-  },
 });
