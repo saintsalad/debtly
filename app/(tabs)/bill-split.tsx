@@ -79,7 +79,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       alignItems: 'flex-start',
       justifyContent: 'space-between',
       gap: space[3],
-      paddingTop: space[4],
+      paddingTop: space[3],
       paddingBottom: space[3],
       backgroundColor: 'transparent',
     },
@@ -127,7 +127,8 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
-      paddingBottom: space[6],
+      /** Matches title block bottom padding so header → content gap stays even. */
+      paddingBottom: space[3],
       backgroundColor: 'transparent',
     },
     toolbarMain: {
@@ -425,10 +426,11 @@ export default function BillSplitScreen() {
     const natural = billSplitHeaderNaturalHeight.current || 96;
     if (headerHiddenByScrollRef.current) {
       bsHeaderHeight.value = withTiming(0, { duration: 220 });
+      bsChromeHeight.value = withTiming(0, { duration: 220 });
     } else {
       bsHeaderHeight.value = withTiming(natural, { duration: 220 });
+      bsChromeHeight.value = withTiming(0, { duration: 220 });
     }
-    bsChromeHeight.value = withTiming(0, { duration: 220 });
   }, [searchFieldFocused, bsChromeHeight, bsHeaderHeight]);
 
   const onListScroll = useAnimatedScrollHandler(
@@ -725,17 +727,17 @@ export default function BillSplitScreen() {
                   </View>
                 </Animated.View>
 
-                <Animated.View style={bsChromeAnimatedStyle}>
-                  <View
-                    onLayout={onChromeRowLayout}
-                    style={[
-                      styles.chromeRow,
-                      Platform.OS === 'ios' && { paddingTop: glassBorderWidth },
-                      Platform.OS === 'android' && { paddingTop: space[2] },
-                    ]}
-                  >
-                    <View style={styles.toolbarMain}>
-                      {searchFieldFocused ? (
+                {searchFieldFocused ? (
+                  <Animated.View style={bsChromeAnimatedStyle}>
+                    <View
+                      onLayout={onChromeRowLayout}
+                      style={[
+                        styles.chromeRow,
+                        Platform.OS === 'ios' && { paddingTop: glassBorderWidth },
+                        Platform.OS === 'android' && { paddingTop: space[2] },
+                      ]}
+                    >
+                      <View style={styles.toolbarMain}>
                         <View style={styles.toolbarLayer}>
                           <View style={styles.searchField}>
                             <SearchField value={search} onChange={setSearch}>
@@ -769,10 +771,10 @@ export default function BillSplitScreen() {
                             </Animated.View>
                           </View>
                         </View>
-                      ) : null}
+                      </View>
                     </View>
-                  </View>
-                </Animated.View>
+                  </Animated.View>
+                ) : null}
               </View>
             </View>
 

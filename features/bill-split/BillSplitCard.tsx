@@ -89,6 +89,7 @@ function createStyles(palette: ColorPalette, insetFill: string) {
     },
     participantAmountPaid: {
       color: palette.labelTertiary,
+      textDecorationLine: 'line-through',
     },
     cardGap: {
       height: space[3],

@@ -6,7 +6,11 @@ import { Image } from 'expo-image';
 import { ChevronRight } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
-import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
+import {
+  getCurrentUserMember,
+  getMemberSettlementsTotalMinor,
+  selectGroupBalances,
+} from '@/features/group-expense/balanceEngine';
 import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
@@ -19,14 +23,6 @@ interface GroupCardProps {
   settlements: Settlement[];
   showSeparator?: boolean;
   dividerVariant?: 'default' | 'glass';
-}
-
-function balanceLine(summary: ReturnType<typeof selectGroupBalances>): string {
-  if (summary.isSettled) return 'All settled';
-  const net = summary.youAreOwedMinor - summary.youOweMinor;
-  if (net > 0) return 'You are owed';
-  if (net < 0) return 'You owe';
-  return 'In balance';
 }
 
 function createStyles(palette: ColorPalette, rowPressedColor: string) {
@@ -66,10 +62,15 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     positive: { color: palette.positive },
     negative: { color: palette.negative },
     neutral: { color: palette.labelTertiary },
+    amountSettled: {
+      color: palette.labelSecondary,
+      fontWeight: '500',
+      textDecorationLine: 'line-through',
+    },
     groupThumb: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       overflow: 'hidden',
       backgroundColor: palette.fill,
     },
@@ -102,7 +103,11 @@ export function GroupCard({
   );
 
   const net = summary.youAreOwedMinor - summary.youOweMinor;
-  const memberCount = group.members.length;
+  const currentUser = getCurrentUserMember(group.members);
+  const settledAmountMinor = useMemo(
+    () => getMemberSettlementsTotalMinor(group.id, currentUser?.id, settlements),
+    [group.id, currentUser?.id, settlements]
+  );
 
   const handlePress = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -126,7 +131,7 @@ export function GroupCard({
             />
           </View>
         ) : (
-          <Avatar name={group.name} variant="initials" size={44} />
+          <Avatar name={group.name} variant="initials" size={40} />
         )}
         <View style={styles.body}>
           <View style={styles.topRow}>
@@ -137,7 +142,9 @@ export function GroupCard({
               style={[
                 styles.amount,
                 summary.isSettled
-                  ? styles.neutral
+                  ? settledAmountMinor > 0
+                    ? styles.amountSettled
+                    : styles.neutral
                   : net > 0
                     ? styles.positive
                     : net < 0
@@ -146,12 +153,13 @@ export function GroupCard({
               ]}
             >
               {summary.isSettled
-                ? '—'
+                ? settledAmountMinor > 0
+                  ? fmt(minorToMajor(settledAmountMinor))
+                  : '—'
                 : fmt(minorToMajor(Math.abs(net)))}
             </Text>
           </View>
           <Text style={styles.meta} numberOfLines={1}>
-            {balanceLine(summary)} · {memberCount} members ·{' '}
             {fmt(minorToMajor(summary.totalSpendMinor))} spent
           </Text>
         </View>

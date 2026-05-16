@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { GroupBalanceSummary } from '@/features/group-expense/types';
+import { getMemberSettlementsTotalMinor } from '@/features/group-expense/balanceEngine';
+import type { GroupBalanceSummary, Settlement } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
@@ -8,6 +9,9 @@ import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 interface GroupBalanceHeroProps {
   summary: GroupBalanceSummary;
   totalSpendMinor: number;
+  groupId: string;
+  currentUserId?: string;
+  settlements: Settlement[];
   compact?: boolean;
   /** Light text over a dark image / gradient */
   overlay?: boolean;
@@ -49,6 +53,11 @@ function createStyles(palette: ColorPalette, compact: boolean, overlay: boolean)
       positive: { color: palette.positive },
       negative: { color: palette.negative },
       neutral: { color: '#FFFFFF' },
+      amountSettled: {
+        color: 'rgba(255,255,255,0.72)',
+        fontWeight: '600',
+        textDecorationLine: 'line-through',
+      },
     });
   }
 
@@ -77,12 +86,20 @@ function createStyles(palette: ColorPalette, compact: boolean, overlay: boolean)
     positive: { color: palette.positive },
     negative: { color: palette.negative },
     neutral: { color: palette.label },
+    amountSettled: {
+      color: palette.labelSecondary,
+      fontWeight: '600',
+      textDecorationLine: 'line-through',
+    },
   });
 }
 
 export function GroupBalanceHero({
   summary,
   totalSpendMinor,
+  groupId,
+  currentUserId,
+  settlements,
   compact,
   overlay,
 }: GroupBalanceHeroProps) {
@@ -94,6 +111,11 @@ export function GroupBalanceHero({
   const { fmt } = useCurrency();
 
   const net = summary.youAreOwedMinor - summary.youOweMinor;
+  const settledAmountMinor = getMemberSettlementsTotalMinor(
+    groupId,
+    currentUserId,
+    settlements
+  );
   const status =
     summary.isSettled
       ? 'All settled up'
@@ -103,15 +125,24 @@ export function GroupBalanceHero({
           ? 'You owe'
           : 'Balanced';
 
-  const amountStyle =
-    summary.isSettled ? styles.neutral : net > 0 ? styles.positive : net < 0 ? styles.negative : styles.neutral;
+  const amountStyle = summary.isSettled
+    ? settledAmountMinor > 0
+      ? styles.amountSettled
+      : styles.neutral
+    : net > 0
+      ? styles.positive
+      : net < 0
+        ? styles.negative
+        : styles.neutral;
 
   return (
     <View style={styles.root}>
       <Text style={styles.status}>{status}</Text>
       <Text style={[styles.amount, amountStyle]}>
         {summary.isSettled
-          ? fmt(0)
+          ? settledAmountMinor > 0
+            ? fmt(minorToMajor(settledAmountMinor))
+            : fmt(0)
           : fmt(minorToMajor(Math.abs(net)))}
       </Text>
       <Text style={styles.meta}>

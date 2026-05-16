@@ -413,3 +413,19 @@ export function createDefaultShares(
 export function getCurrentUserMember(members: GroupMember[]): GroupMember | undefined {
   return members.find((m) => m.isCurrentUser) ?? members[0];
 }
+
+/** Total settlement volume involving a member in a group (paid + received). */
+export function getMemberSettlementsTotalMinor(
+  groupId: string,
+  memberId: string | undefined,
+  settlements: Settlement[]
+): number {
+  if (!memberId) return 0;
+  return settlements
+    .filter(
+      (s) =>
+        s.groupId === groupId &&
+        (s.fromMemberId === memberId || s.toMemberId === memberId)
+    )
+    .reduce((sum, s) => sum + s.amountMinor, 0);
+}

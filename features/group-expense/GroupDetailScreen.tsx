@@ -434,6 +434,9 @@ export function GroupDetailScreen() {
                       <GroupBalanceHero
                         summary={summary}
                         totalSpendMinor={summary.totalSpendMinor}
+                        groupId={group.id}
+                        currentUserId={group.members.find((m) => m.isCurrentUser)?.id}
+                        settlements={settlements}
                         overlay
                         compact
                       />
@@ -480,6 +483,9 @@ export function GroupDetailScreen() {
                     <GroupBalanceHero
                       summary={summary}
                       totalSpendMinor={summary.totalSpendMinor}
+                      groupId={group.id}
+                      currentUserId={group.members.find((m) => m.isCurrentUser)?.id}
+                      settlements={settlements}
                       compact
                     />
                   </View>
