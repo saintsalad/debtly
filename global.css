@@ -2,4 +2,7 @@
 @import 'uniwind';
 @import 'heroui-native/styles';
 
+/* Design tokens for RN StyleSheet live in lib/theme/tokens.ts (accent / semantic colors).
+ * Override `@layer theme { :root { … } }` here when Uniwind / HeroUI surfaces must match. */
+
 @source './node_modules/heroui-native/lib';

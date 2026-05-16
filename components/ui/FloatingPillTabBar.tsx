@@ -13,6 +13,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useAddDebt } from '@/lib/addDebtContext';
 import { useGlassBorder } from '@/lib/glassBorder';
 import { useFloatingBarShadow, useFloatingFabShadow } from '@/lib/glassSurface';
+import { chrome, iosBlurScrim } from '@/lib/theme/tokens';
 import { space, useColors, type ColorPalette } from '@/lib/platform';
 
 /** Shared height for the tab pill and add button. */
@@ -22,12 +23,9 @@ const TAB_SLOT = BAR_HEIGHT;
 const BAR_HORIZONTAL_PADDING = space[4];
 const BAR_GAP = space[3];
 
-const TAB_ICON_ACTIVE_LIGHT = '#FFFFFF';
-const TAB_ICON_INACTIVE_LIGHT = 'rgba(255, 255, 255, 0.52)';
-
 /** Android tab bar stays dark in app light mode. */
 function androidPillBackground() {
-  return 'rgba(28, 28, 30, 0.9)';
+  return chrome.floatingTabBarAndroid;
 }
 
 function tabIconColor(
@@ -36,13 +34,13 @@ function tabIconColor(
   palette: ColorPalette
 ) {
   if (scheme === 'light') {
-    return isFocused ? TAB_ICON_ACTIVE_LIGHT : TAB_ICON_INACTIVE_LIGHT;
+    return isFocused ? chrome.floatingTabIconActiveOnGlass : chrome.floatingTabIconInactiveOnGlass;
   }
   return isFocused ? palette.tabActive : palette.tabInactive;
 }
 
 function iosPillBlurScrim(scheme: 'light' | 'dark') {
-  return scheme === 'dark' ? 'rgba(0, 0, 0, 0.38)' : 'rgba(0, 0, 0, 0.18)';
+  return iosBlurScrim[scheme];
 }
 
 function TabItem({
