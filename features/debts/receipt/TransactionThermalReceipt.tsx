@@ -16,9 +16,50 @@ import {
 } from '@/features/debts/receipt/receiptTheme';
 import { buildTransactionReceiptData } from '@/features/debts/receipt/transactionReceiptData';
 import type { Debt } from '@/features/debts/types';
+
+/** Side “perforation” holes; radius matches historical 12px diameter notches. */
+const SIDE_NOTCH_R = 6;
+/** Vertical position of notch centers (same as former absolute `top: 45%`). */
+const SIDE_NOTCH_Y_RATIO = 0.45;
+
+function ReceiptPaperFill({
+  width,
+  height,
+  maskId,
+}: {
+  width: number;
+  height: number;
+  maskId: string;
+}) {
+  const cy = SIDE_NOTCH_Y_RATIO * height;
+  return (
+    <Svg
+      width={width}
+      height={height}
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+    >
+      <Defs>
+        <Mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={0} width={width} height={height}>
+          <Rect width={width} height={height} fill="#FFFFFF" />
+          <Circle cx={0} cy={cy} r={SIDE_NOTCH_R} fill="#000000" />
+          <Circle cx={width} cy={cy} r={SIDE_NOTCH_R} fill="#000000" />
+        </Mask>
+      </Defs>
+      <Rect
+        width={width}
+        height={height}
+        fill={RECEIPT_PAPER}
+        mask={`url(#${maskId})`}
+      />
+    </Svg>
+  );
+}
 import { Receipt } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useCallback, useId, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 
 interface TransactionThermalReceiptProps {
   debt: Debt;
@@ -37,6 +78,18 @@ export function TransactionThermalReceipt({
   const { header } = data;
   const footerTagline = useMemo(() => getReceiptFooterTagline(), []);
 
+  const maskUid = useId();
+  const paperMaskId = useMemo(
+    () => `receiptPaperMask_${maskUid.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+    [maskUid],
+  );
+  const [paperHeight, setPaperHeight] = useState(0);
+
+  const onPaperLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setPaperHeight(h);
+  }, []);
+
   const tearEdge = (
     <ReceiptTearEdge width={RECEIPT_WIDTH} color={RECEIPT_PAPER} />
   );
@@ -44,7 +97,14 @@ export function TransactionThermalReceipt({
   return (
     <View style={styles.wrapper}>
       <View style={styles.edgeStack}>
-        <View style={styles.paper}>
+        <View style={[styles.paper, paperHeight > 0 && styles.paperNoFill]} onLayout={onPaperLayout}>
+          {paperHeight > 0 ? (
+            <ReceiptPaperFill
+              width={RECEIPT_WIDTH}
+              height={paperHeight}
+              maskId={paperMaskId}
+            />
+          ) : null}
           <View style={styles.body}>
             <View style={styles.contentPad}>
               <View style={styles.topBar}>
@@ -126,9 +186,13 @@ const styles = StyleSheet.create({
       ? { marginBottom: -RECEIPT_TEAR_PAPER_OVERLAP }
       : null),
   },
+  paperNoFill: {
+    backgroundColor: 'transparent',
+  },
   body: {
     paddingTop: 18,
     paddingBottom: 18,
+    zIndex: 1,
   },
   contentPad: {
     paddingHorizontal: RECEIPT_PAD_H,
