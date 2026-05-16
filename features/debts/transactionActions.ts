@@ -96,10 +96,6 @@ async function shareText(title: string, message: string) {
   }
 }
 
-export async function printTransaction(debt: Debt, fmt: (amount: number) => string) {
-  await shareText('Print transaction', buildTransactionSummary(debt, fmt));
-}
-
 export async function sendTransactionReminder(debt: Debt, fmt: (amount: number) => string) {
   await shareText('Payment reminder', buildReminderMessage(debt, fmt));
 }

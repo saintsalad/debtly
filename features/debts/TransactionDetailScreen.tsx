@@ -16,11 +16,7 @@ import { PaymentHistorySection } from '@/features/debts/PaymentHistorySection';
 import { PartialPaymentSheet, type PartialPaymentSheetHandle } from '@/features/debts/PartialPaymentSheet';
 import { PaymentProgress } from '@/features/debts/PaymentProgress';
 import { RecordPaymentSheet, type RecordPaymentSheetHandle } from '@/features/debts/RecordPaymentSheet';
-import {
-  openSmsReminder,
-  printTransaction,
-  sendTransactionReminder,
-} from '@/features/debts/transactionActions';
+import { openSmsReminder, sendTransactionReminder } from '@/features/debts/transactionActions';
 import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
@@ -353,7 +349,10 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   };
 
   const handlePrint = () => {
-    void printTransaction(debt, fmt);
+    router.push({
+      pathname: '/transaction-receipt/[id]',
+      params: { id: debt.id },
+    });
   };
 
   const handleSendReminder = () => {

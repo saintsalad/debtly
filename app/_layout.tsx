@@ -49,6 +49,10 @@ export default function RootLayout() {
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
                     <Stack.Screen
+                      name="transaction-receipt/[id]"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
                       name="edit-transaction/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />

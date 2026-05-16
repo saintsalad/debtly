@@ -46,6 +46,13 @@
         {
           "photosPermission": "Allow Debtly to choose a photo for your group."
         }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Debtly to save receipt images to your photo library.",
+          "savePhotosPermission": "Allow Debtly to save receipt images to your photo library."
+        }
       ]
     ],
     "experiments": {
