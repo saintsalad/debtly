@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
-import { RECEIPT_INK, RECEIPT_MONO } from '@/features/debts/receipt/receiptTheme';
+import { RECEIPT_MUTED, RECEIPT_MONO } from '@/features/debts/receipt/receiptTheme';
 
 export function ReceiptDottedRule() {
   if (Platform.OS === 'android') {
@@ -16,19 +16,17 @@ export function ReceiptDottedRule() {
 
 const styles = StyleSheet.create({
   rule: {
-    borderBottomWidth: 1,
-    borderStyle: 'dotted',
-    borderColor: RECEIPT_INK,
-    marginVertical: 8,
-    opacity: 0.35,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+    borderColor: RECEIPT_MUTED,
+    marginVertical: 14,
   },
   fallback: {
     fontFamily: RECEIPT_MONO,
     fontSize: 10,
-    color: RECEIPT_INK,
-    opacity: 0.35,
+    color: RECEIPT_MUTED,
     letterSpacing: 1,
-    marginVertical: 6,
+    marginVertical: 12,
     textAlign: 'center',
   },
 });

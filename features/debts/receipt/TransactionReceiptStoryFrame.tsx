@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { TransactionThermalReceipt } from '@/features/debts/receipt/TransactionThermalReceipt';
 import {
   STORY_FRAME_HEIGHT,
   STORY_FRAME_WIDTH,
 } from '@/features/debts/receipt/receiptTheme';
 import type { Debt } from '@/features/debts/types';
+
+const FRAME_PAD_V = 28;
+const AVAILABLE_HEIGHT = STORY_FRAME_HEIGHT - FRAME_PAD_V * 2;
 
 interface TransactionReceiptStoryFrameProps {
   debt: Debt;
@@ -14,25 +18,37 @@ interface TransactionReceiptStoryFrameProps {
   photoUri?: string | null;
 }
 
-/** Fixed 9:16 story canvas with receipt centered on the thermal scrim. */
+/** Fixed 9:16 story canvas with receipt centered on the thermal scrim.
+ *  Automatically scales the receipt down if its content is taller than the
+ *  available canvas height so it always fits within the 9:16 ratio. */
 export function TransactionReceiptStoryFrame({
   debt,
   fmt,
   backgroundColor,
   photoUri,
 }: TransactionReceiptStoryFrameProps) {
+  const [scale, setScale] = useState(1);
+
+  function onReceiptLayout(e: LayoutChangeEvent) {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) {
+      setScale(Math.min(1, AVAILABLE_HEIGHT / h));
+    }
+  }
+
   return (
     <View style={[styles.frame, { backgroundColor }]}>
-      <View style={styles.dotTopLeft} />
-      <View style={styles.dotBottomRight} />
-      <View style={styles.dotMidRight} />
-      <View style={styles.dotSoftCenter} />
-      <TransactionThermalReceipt
-        debt={debt}
-        fmt={fmt}
-        backdropColor={backgroundColor}
-        photoUri={photoUri}
-      />
+      <View
+        onLayout={onReceiptLayout}
+        style={[styles.receiptWrap, { transform: [{ scale }] }]}
+      >
+        <TransactionThermalReceipt
+          debt={debt}
+          fmt={fmt}
+          backdropColor={backgroundColor}
+          photoUri={photoUri}
+        />
+      </View>
     </View>
   );
 }
@@ -44,41 +60,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    paddingVertical: FRAME_PAD_V,
   },
-  dotTopLeft: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.32)',
-    top: -70,
-    left: -50,
-  },
-  dotBottomRight: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 999,
-    backgroundColor: 'rgba(236, 145, 151, 0.32)',
-    bottom: -90,
-    right: -90,
-  },
-  dotMidRight: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.42)',
-    top: 196,
-    right: 22,
-  },
-  dotSoftCenter: {
-    position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 999,
-    backgroundColor: 'rgba(247, 171, 177, 0.28)',
-    bottom: 180,
-    left: 36,
+  receiptWrap: {
+    transformOrigin: 'center',
   },
 });

@@ -1,13 +1,20 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Receipt } from 'lucide-react-native';
 import type { Debt } from '@/features/debts/types';
 import { ReceiptDottedRule } from '@/features/debts/receipt/ReceiptDottedRule';
+import { ReceiptImageContainer } from '@/features/debts/receipt/ReceiptImageContainer';
 import { ReceiptRow } from '@/features/debts/receipt/ReceiptRow';
-import { ReceiptTearEdge } from '@/features/debts/receipt/ReceiptTearEdge';
 import {
-  RECEIPT_SCRIM,
+  ReceiptTearEdge,
+  RECEIPT_TEAR_TOOTH_DEPTH,
+} from '@/features/debts/receipt/ReceiptTearEdge';
+import {
+  RECEIPT_INK,
+  RECEIPT_MIN_HEIGHT,
+  RECEIPT_PAD_H,
   RECEIPT_PAPER,
+  RECEIPT_SCRIM,
   RECEIPT_WIDTH,
   receiptType,
 } from '@/features/debts/receipt/receiptTheme';
@@ -28,6 +35,7 @@ export function TransactionThermalReceipt({
 }: TransactionThermalReceiptProps) {
   const data = useMemo(() => buildTransactionReceiptData(debt, fmt), [debt, fmt]);
   const hasPayments = data.paymentLines.length > 0;
+  const hasPhoto = Boolean(photoUri);
 
   return (
     <View style={styles.wrapper}>
@@ -35,57 +43,81 @@ export function TransactionThermalReceipt({
         <View style={[styles.sideNotchLeft, { backgroundColor: backdropColor }]} />
         <View style={[styles.sideNotchRight, { backgroundColor: backdropColor }]} />
 
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>store 014</Text>
-          <Text style={styles.metaText}>lane 03</Text>
-        </View>
+        <View style={styles.body}>
 
-        <Text style={styles.wordmark}>DEBTLY</Text>
-        <Text style={styles.timestamp}>{data.printedAt}</Text>
+          {/* ── Top bar: icon | "Transaction Receipt" ── */}
+          <View style={styles.topBar}>
+            <Receipt size={15} color={RECEIPT_INK} strokeWidth={2.5} />
+            <Text style={styles.headerLabel}>Transaction Receipt</Text>
+          </View>
 
-        <View style={styles.spacerSm} />
-        <Text style={styles.sectionTitle}>Transaction</Text>
-        <Text style={styles.sectionSubline}>share-friendly thermal ticket</Text>
+          <ReceiptDottedRule />
 
-        <Text style={styles.referenceLabel}>Reference Token</Text>
-        <View style={styles.referenceBox}>
-          <Text style={styles.reference}>{data.referenceId}</Text>
-        </View>
-        <View style={styles.stamp}>
-          <Text style={styles.stampText}>CERTIFIED</Text>
-        </View>
-
-        <ReceiptDottedRule />
-
-        {data.rows.map((row) => (
-          <ReceiptRow key={row.label} row={row} />
-        ))}
-
-        {hasPayments ? (
-          <>
-            <ReceiptDottedRule />
-            <Text style={styles.subsection}>Payments</Text>
-            {data.paymentLines.map((row, index) => (
-              <ReceiptRow key={`${row.label}-${index}`} row={row} />
-            ))}
-          </>
-        ) : null}
-
-        {photoUri ? (
-          <>
-            <ReceiptDottedRule />
-            <Text style={styles.subsection}>Receipt Photo</Text>
-            <View style={styles.photoFrame}>
-              <Image source={{ uri: photoUri }} contentFit="cover" style={styles.photo} />
+          {/* ── Hero row: name + type | amount + date ── */}
+          <View style={styles.heroRow}>
+            <View style={styles.heroLeft}>
+              <Text style={styles.heroTitle} numberOfLines={2}>
+                {data.heroLeft.title}
+              </Text>
+              <Text style={styles.heroSubtitle}>{data.heroLeft.subtitle}</Text>
             </View>
-          </>
-        ) : null}
+            <View style={styles.heroRight}>
+              <Text style={styles.heroTitle} numberOfLines={1}>
+                {data.heroRight.title}
+              </Text>
+              <Text style={styles.heroSubtitleRight}>{data.heroRight.subtitle}</Text>
+            </View>
+          </View>
 
-        <View style={styles.spacerMd} />
-        <Text style={styles.footer}>DEBTLY</Text>
-        <Text style={styles.footerTagline}>transparent money talks</Text>
+          {/* ── Transaction ID (inline, no extra dividers) ── */}
+          <Text style={styles.transactionId}>{data.referenceId}</Text>
+
+          {/* ── Image container (only when a photo is attached) ── */}
+          {hasPhoto ? (
+            <View style={styles.mediaBlock}>
+              <ReceiptImageContainer uri={photoUri} />
+              <View style={styles.stamp}>
+                <Text style={styles.stampText}>CERTIFIED</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <ReceiptDottedRule />
+
+          {/* ── Debt rows ── */}
+          {data.rows.map((row) => (
+            <ReceiptRow key={row.label} row={row} />
+          ))}
+
+          {/* ── Payments ── */}
+          {hasPayments ? (
+            <>
+              <ReceiptDottedRule />
+              <Text style={styles.subsection}>Payments</Text>
+              {data.paymentLines.map((row, index) => (
+                <ReceiptRow key={`${row.label}-${index}`} row={row} />
+              ))}
+            </>
+          ) : null}
+
+          <View style={styles.bodyGrow} />
+
+          {/* ── Footer with cut-line divider ── */}
+          <ReceiptDottedRule />
+          <View style={styles.footer}>
+            <Text style={styles.footerWordmark}>DEBTLY</Text>
+            <Text style={styles.footerTagline}>Generated by Debtly</Text>
+          </View>
+        </View>
       </View>
-      <ReceiptTearEdge width={RECEIPT_WIDTH} color={RECEIPT_PAPER} />
+
+      <View style={styles.tear}>
+        <ReceiptTearEdge
+          width={RECEIPT_WIDTH}
+          color={RECEIPT_PAPER}
+          backdropColor={backdropColor}
+        />
+      </View>
     </View>
   );
 }
@@ -94,84 +126,77 @@ const styles = StyleSheet.create({
   wrapper: {
     width: RECEIPT_WIDTH,
     alignSelf: 'center',
-    boxShadow: '0 24px 30px rgba(0, 0, 0, 0.14)',
   },
   paper: {
     width: RECEIPT_WIDTH,
+    minHeight: RECEIPT_MIN_HEIGHT - RECEIPT_TEAR_TOOTH_DEPTH,
     backgroundColor: RECEIPT_PAPER,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
-    borderRadius: 4,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
     overflow: 'hidden',
   },
-  metaRow: {
+  body: {
+    flexGrow: 1,
+    paddingHorizontal: RECEIPT_PAD_H,
+    paddingTop: 18,
+    paddingBottom: 18,
+  },
+
+  /* Top bar */
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLabel: receiptType.headerLabel,
+
+  /* Hero */
+  heroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    gap: 10,
   },
-  metaText: receiptType.miniMeta,
-  wordmark: receiptType.wordmark,
-  timestamp: receiptType.timestamp,
-  sectionTitle: receiptType.sectionTitle,
-  sectionSubline: {
-    ...receiptType.sectionSubline,
-    marginTop: 2,
+  heroLeft: {
+    flex: 1,
   },
-  referenceLabel: {
-    ...receiptType.miniMeta,
-    textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 4,
+  heroRight: {
+    alignItems: 'flex-end',
   },
-  referenceBox: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#000000',
-    borderRadius: 2,
+  heroTitle: receiptType.heroTitle,
+  heroSubtitle: receiptType.heroSubtitle,
+  heroSubtitleRight: {
+    ...receiptType.heroSubtitle,
+    textAlign: 'right',
   },
-  reference: receiptType.reference,
-  subsection: receiptType.subsection,
-  footer: receiptType.footer,
-  footerTagline: {
-    ...receiptType.footerTagline,
-    marginTop: 2,
-  },
-  photoFrame: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#000000',
-    borderStyle: 'dashed',
-    padding: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  photo: {
-    width: '100%',
-    height: 140,
-    borderRadius: 1,
-    backgroundColor: '#D8D8D8',
+
+  /* Image */
+  mediaBlock: {
+    position: 'relative',
+    alignSelf: 'stretch',
+    marginTop: 14,
   },
   stamp: {
     position: 'absolute',
-    right: 18,
-    top: 84,
-    borderWidth: 1,
-    borderColor: '#000000',
+    right: 8,
+    bottom: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: RECEIPT_INK,
     borderRadius: 999,
     transform: [{ rotate: '-8deg' }],
-    paddingVertical: 2,
+    paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: RECEIPT_PAPER,
   },
-  stampText: {
-    fontFamily: receiptType.rowLabel.fontFamily,
-    fontSize: 9,
-    letterSpacing: 1.2,
-    color: '#000000',
-  },
+  stampText: receiptType.stamp,
+
+  /* Transaction ID */
+  transactionId: receiptType.transactionId,
+
+  /* Payments */
+  subsection: receiptType.subsection,
+
+  /* Side notches */
   sideNotchLeft: {
     position: 'absolute',
     left: -6,
@@ -190,6 +215,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     zIndex: 2,
   },
-  spacerSm: { height: 10 },
-  spacerMd: { height: 14 },
+
+  bodyGrow: {
+    flexGrow: 1,
+    minHeight: 20,
+  },
+
+  /* Footer */
+  footer: {
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  footerWordmark: receiptType.footer,
+  footerTagline: receiptType.footerTagline,
+
+  tear: {
+    marginTop: -1,
+  },
 });

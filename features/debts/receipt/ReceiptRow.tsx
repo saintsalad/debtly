@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   label: receiptType.rowLabel,
   value: receiptType.rowValue,

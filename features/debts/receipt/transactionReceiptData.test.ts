@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import type { Debt, DebtPayment } from '@/features/debts/types';
 import {
   buildReceiptPaymentLines,
   buildReceiptRows,
   buildTransactionReceiptData,
   formatReceiptReferenceId,
 } from '@/features/debts/receipt/transactionReceiptData';
+import type { Debt, DebtPayment } from '@/features/debts/types';
+import { describe, expect, it } from 'vitest';
 
 function makeDebt(overrides: Partial<Debt> = {}): Debt {
   return {
@@ -44,13 +44,13 @@ describe('buildReceiptRows', () => {
     const rows = buildReceiptRows(makeDebt(), fmt);
     const labels = rows.map((r) => r.label);
     expect(labels).toContain('Person');
-    expect(labels).toContain('Direction');
     expect(labels).toContain('Principal');
     expect(labels).toContain('Remaining');
     expect(labels).toContain('Status');
-    expect(labels).toContain('Added');
+    expect(labels).not.toContain('Direction');
+    expect(labels).not.toContain('Added');
+    expect(labels).not.toContain('Updated');
     expect(rows.find((r) => r.label === 'Person')?.value).toBe('Victor');
-    expect(rows.find((r) => r.label === 'Direction')?.value).toBe('Owes you');
   });
 
   it('includes interest and paid fields when applicable', () => {

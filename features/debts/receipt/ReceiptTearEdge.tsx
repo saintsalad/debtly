@@ -1,35 +1,71 @@
 import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-const TOOTH_WIDTH = 10;
-const TOOTH_DEPTH = 8;
+/** Matches classic thermal-receipt perforation (~16×16 CSS mask tiles). */
+export const RECEIPT_TEAR_TOOTH_WIDTH = 16;
+export const RECEIPT_TEAR_TOOTH_DEPTH = 8;
 
-function buildTearPath(width: number): string {
-  const parts: string[] = ['M 0 0'];
-  for (let x = 0; x < width; x += TOOTH_WIDTH) {
-    const mid = Math.min(x + TOOTH_WIDTH / 2, width);
-    const end = Math.min(x + TOOTH_WIDTH, width);
-    parts.push(`L ${mid} ${TOOTH_DEPTH}`);
-    parts.push(`L ${end} 0`);
+/**
+ * Builds downward paper teeth (V-shaped zigzag) across the width.
+ * Valleys sit on y=0; peaks point down to toothDepth.
+ */
+function buildTearTeethPath(width: number, toothWidth: number, toothDepth: number): string {
+  const half = toothWidth / 2;
+  const subpaths: string[] = [];
+
+  for (let x = 0; x < width; x += toothWidth) {
+    const peakX = Math.min(x + half, width);
+    const endX = Math.min(x + toothWidth, width);
+    if (peakX <= x) continue;
+
+    subpaths.push(`M ${x} 0 L ${peakX} ${toothDepth} L ${endX} 0 Z`);
   }
-  parts.push(`L ${width} ${TOOTH_DEPTH}`);
-  parts.push('L 0 0');
-  parts.push('Z');
-  return parts.join(' ');
+
+  return subpaths.join(' ');
 }
 
 interface ReceiptTearEdgeProps {
   width: number;
   color?: string;
+  /** Shows through zigzag valleys between paper teeth. */
+  backdropColor?: string;
 }
 
-export function ReceiptTearEdge({ width, color = '#FFFFFF' }: ReceiptTearEdgeProps) {
-  const d = useMemo(() => buildTearPath(width), [width]);
-  const height = TOOTH_DEPTH;
+export function ReceiptTearEdge({
+  width,
+  color = '#FFFFFF',
+  backdropColor = 'transparent',
+}: ReceiptTearEdgeProps) {
+  const d = useMemo(
+    () => buildTearTeethPath(width, RECEIPT_TEAR_TOOTH_WIDTH, RECEIPT_TEAR_TOOTH_DEPTH),
+    [width]
+  );
 
   return (
-    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <Path d={d} fill={color} />
-    </Svg>
+    <View
+      style={[
+        styles.strip,
+        {
+          width,
+          height: RECEIPT_TEAR_TOOTH_DEPTH,
+          backgroundColor: backdropColor,
+        },
+      ]}
+    >
+      <Svg
+        width={width}
+        height={RECEIPT_TEAR_TOOTH_DEPTH}
+        viewBox={`0 0 ${width} ${RECEIPT_TEAR_TOOTH_DEPTH}`}
+      >
+        <Path d={d} fill={color} />
+      </Svg>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  strip: {
+    overflow: 'hidden',
+  },
+});

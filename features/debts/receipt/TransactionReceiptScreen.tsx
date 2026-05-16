@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Download, ImagePlus, Palette, Share2, X } from 'lucide-react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { pickReceiptPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { HeroUINativeProvider } from 'heroui-native';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
@@ -107,20 +107,8 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
   const exportImage = useCallback(async () => captureStoryReceiptImage(captureRef), []);
 
   const pickPhoto = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Photos access', 'Allow photo library access to insert a photo in your print.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.9,
-    });
-
-    if (result.canceled || !result.assets[0]?.uri) return;
-    setPhotoUri(result.assets[0].uri);
+    const uri = await pickReceiptPhotoFromLibrary();
+    if (uri) setPhotoUri(uri);
   }, []);
 
   const handlePhotoPress = useCallback(() => {

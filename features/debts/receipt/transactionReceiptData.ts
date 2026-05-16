@@ -12,7 +12,7 @@ import {
   getDebtPaymentsNewestFirst,
   getPaymentAmountMajor,
 } from '@/features/debts/paymentHistory';
-import type { Debt } from '@/features/debts/types';
+import type { Debt, DebtType } from '@/features/debts/types';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 
 export interface ReceiptRow {
@@ -20,23 +20,33 @@ export interface ReceiptRow {
   value: string;
 }
 
+export interface ReceiptHero {
+  title: string;
+  subtitle: string;
+}
+
 export interface TransactionReceiptData {
   referenceId: string;
   printedAt: string;
+  heroDate: string;
+  heroLeft: ReceiptHero;
+  heroRight: ReceiptHero;
   rows: ReceiptRow[];
   paymentLines: ReceiptRow[];
 }
 
+function formatDebtTypeLabel(type: DebtType): string {
+  return type === 'owed_to_me' ? 'Owed to me' : 'I owe';
+}
+
+export function formatReceiptHeroDate(date: Date): string {
+  return date
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    .toUpperCase();
+}
+
 const REFERENCE_LENGTH = 20;
 const SEGMENT_SIZE = 4;
-
-function formatFullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 function formatStatus(status: ReturnType<typeof getComputedStatus>): string {
   switch (status) {
@@ -79,7 +89,6 @@ export function formatReceiptPrintedAt(date: Date = new Date()): string {
 
 export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): ReceiptRow[] {
   const status = getComputedStatus(debt);
-  const direction = debt.type === 'owed_to_me' ? 'Owes you' : 'You owe';
   const remaining = getRemainingBalance(debt);
   const totalDue = getTotalDue(debt);
   const totalPaid = getTotalPaid(debt);
@@ -88,7 +97,6 @@ export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): R
 
   const rows: ReceiptRow[] = [
     { label: 'Person', value: debt.personName },
-    { label: 'Direction', value: direction },
     { label: 'Principal', value: fmt(principal) },
     { label: 'Remaining', value: fmt(remaining) },
     { label: 'Status', value: formatStatus(status) },
@@ -137,10 +145,6 @@ export function buildReceiptRows(debt: Debt, fmt: (amount: number) => string): R
   if (debt.paidAt) {
     rows.push({ label: 'Paid on', value: formatPaymentDateTime(debt.paidAt) });
   }
-  rows.push({ label: 'Added', value: formatFullDate(debt.createdAt) });
-  if (debt.updatedAt !== debt.createdAt) {
-    rows.push({ label: 'Updated', value: formatFullDate(debt.updatedAt) });
-  }
 
   return rows;
 }
@@ -161,9 +165,19 @@ export function buildTransactionReceiptData(
   fmt: (amount: number) => string,
   printedAt: Date = new Date()
 ): TransactionReceiptData {
+  const remaining = getRemainingBalance(debt);
   return {
     referenceId: formatReceiptReferenceId(debt.id),
     printedAt: formatReceiptPrintedAt(printedAt),
+    heroDate: formatReceiptHeroDate(printedAt),
+    heroLeft: {
+      title: debt.personName.toUpperCase(),
+      subtitle: formatDebtTypeLabel(debt.type),
+    },
+    heroRight: {
+      title: fmt(remaining),
+      subtitle: formatReceiptHeroDate(printedAt),
+    },
     rows: buildReceiptRows(debt, fmt),
     paymentLines: buildReceiptPaymentLines(debt, fmt),
   };
