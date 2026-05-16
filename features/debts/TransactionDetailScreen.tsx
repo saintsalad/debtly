@@ -442,9 +442,18 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
 
             <View style={styles.detailsCard}>
               <DetailRow label="Principal" value={fmt(getPrincipalAmount(debt))} />
+              {/* Feature #2: carry-over from previous cycle */}
+              {debt.carryOverMinor != null && debt.carryOverMinor > 0 ? (
+                <DetailRow
+                  label="Carried over"
+                  value={fmt(debt.carryOverMinor / 100)}
+                  valueColor={palette.warning}
+                  showSeparator
+                />
+              ) : null}
               {debt.interestRateBps ? (
                 <DetailRow
-                  label="Interest rate"
+                  label={`Interest rate (${debt.interestType === 'compound' ? 'compound' : 'simple'})`}
                   value={`${interestRateFromBps(debt.interestRateBps)}% APR`}
                   showSeparator
                 />
@@ -469,6 +478,23 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
                 <DetailRow
                   label="Recurring"
                   value={getRecurrenceLabel(debt.recurrenceInterval)}
+                  showSeparator
+                />
+              ) : null}
+              {/* Feature #5: instalment progress */}
+              {debt.instalmentCount != null && debt.instalmentIndex != null ? (
+                <DetailRow
+                  label="Payment"
+                  value={`${debt.instalmentIndex} of ${debt.instalmentCount}`}
+                  showSeparator
+                />
+              ) : null}
+              {/* Feature #6: start date */}
+              {debt.startDate ? (
+                <DetailRow
+                  label="Active from"
+                  value={formatFullDate(debt.startDate)}
+                  valueColor={palette.labelSecondary}
                   showSeparator
                 />
               ) : null}

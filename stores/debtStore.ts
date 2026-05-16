@@ -10,10 +10,12 @@ import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expe
 import {
   createDebtFromInput,
   getRemainingBalance,
+  isDebtActive,
   validateAddDebtInput,
 } from '@/features/debts/debtCalculations';
 import {
   createPaymentRecord,
+  projectDebtLedger,
   settleDebtLedger,
   syncDebtLedger,
 } from '@/features/debts/debtLedger';
@@ -25,6 +27,8 @@ import {
 } from '@/features/debts/recurringEngine';
 import { zustandStorage } from '@/lib/storage';
 import { INITIAL_DEBTS } from '@/lib/mocks/initialDebts';
+import { majorToMinor } from '@/features/debts/money';
+import { generateId } from '@/lib/utils';
 
 interface DebtState {
   debts: Debt[];
@@ -53,6 +57,33 @@ function settleDebtWithLifecycle(debts: Debt[], debt: Debt, settledAt: string): 
   return nextCycle ? [stamped, nextCycle] : [stamped];
 }
 
+/**
+ * Close a carry-over recurring cycle without force-paying the remainder.
+ * The unpaid balance is stored on the settled debt so the next cycle can add it to its principal.
+ */
+function closeCarryOverCycle(debts: Debt[], debt: Debt, closedAt: string): Debt[] {
+  const snapshot = projectDebtLedger(debt, new Date(closedAt));
+  const carryOverMinor = Math.max(0, snapshot.remainingMinor);
+
+  const settled: Debt = {
+    ...debt,
+    status: 'paid',
+    paidAt: closedAt,
+    accruedInterestMinor: snapshot.accruedInterestMinor,
+    interestPaidMinor: snapshot.interestPaidMinor,
+    principalPaidMinor: snapshot.principalPaidMinor,
+    carryOverMinor,
+    updatedAt: closedAt,
+  };
+
+  const stamped = stampRecurringGeneration(settled, closedAt);
+  const nextCycle = canGenerateNextRecurringCycle(debts, stamped)
+    ? buildNextRecurringCycle(stamped, closedAt)
+    : null;
+
+  return nextCycle ? [stamped, nextCycle] : [stamped];
+}
+
 function withSyncedDebts(debts: Debt[]): Debt[] {
   return debts.map((debt) => syncDebtLedger(debt));
 }
@@ -66,6 +97,27 @@ export const useDebtStore = create<DebtState>()(
         if (validationError) return validationError;
 
         const now = new Date().toISOString();
+
+        // Feature #1: split a single payment across multiple people
+        if (input.splitPeople && input.splitPeople.length > 0) {
+          const people = input.splitPeople.filter((p) => p.trim());
+          if (people.length === 0) return 'Add at least one person.';
+
+          const perPersonAmount = input.amount / people.length;
+          const sharedSplitGroupId = generateId();
+
+          const newDebts: Debt[] = people.map((personName) => {
+            const debt = createDebtFromInput(
+              { ...input, personName: personName.trim(), amount: perPersonAmount },
+              now
+            );
+            return { ...debt, splitGroupId: sharedSplitGroupId, sourceType: 'personal_split' as const };
+          });
+
+          set((state) => ({ debts: [...newDebts, ...withSyncedDebts(state.debts)] }));
+          return null;
+        }
+
         const debt = createDebtFromInput(input, now);
         set((state) => ({ debts: [debt, ...withSyncedDebts(state.debts)] }));
         return null;
@@ -147,6 +199,15 @@ export const useDebtStore = create<DebtState>()(
                 if (debt.id !== id) return [debt];
                 if (debt.status === 'paid') return [debt];
 
+                // Feature #2/#7: carry-over recurring cycle — close without force-paying remainder
+                if (debt.isRecurring && debt.carryOverBalance) {
+                  return closeCarryOverCycle(
+                    state.debts.filter((candidate) => candidate.id !== id),
+                    debt,
+                    now
+                  );
+                }
+
                 const remaining = getRemainingBalance(debt);
                 const withPayment =
                   remaining > 0.009
@@ -219,8 +280,9 @@ export const useDebtStore = create<DebtState>()(
 
 export const useDebtSummary = () => {
   const debts = useDebtStore((s) => s.debts);
-  const owedToMe = debts.filter((d) => d.type === 'owed_to_me' && d.status !== 'paid');
-  const iOwe = debts.filter((d) => d.type === 'i_owe' && d.status !== 'paid');
+  // Exclude future-dated (inactive) debts from balance totals
+  const owedToMe = debts.filter((d) => d.type === 'owed_to_me' && d.status !== 'paid' && isDebtActive(d));
+  const iOwe = debts.filter((d) => d.type === 'i_owe' && d.status !== 'paid' && isDebtActive(d));
   return {
     debts,
     owedToMe,

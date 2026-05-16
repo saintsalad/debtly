@@ -33,8 +33,21 @@ export function resolveInterestStartDate(
   return toLocalDateString(debt.createdAt);
 }
 
+function trimmedSplitPeople(input: AddDebtInput): string[] {
+  return (input.splitPeople ?? []).map((p) => p.trim()).filter(Boolean);
+}
+
 export function validateAddDebtInput(input: AddDebtInput): string | null {
-  if (!input.personName.trim()) return "Enter the person's name.";
+  const splitNames = trimmedSplitPeople(input);
+  const splitAcrossMultiple = splitNames.length >= 2;
+
+  if (!splitAcrossMultiple && !input.personName.trim()) {
+    return "Enter the person's name.";
+  }
+
+  if ((input.splitPeople?.length ?? 0) > 0 && splitNames.length === 1) {
+    return 'Enter at least two people to split across.';
+  }
 
   const principalMinor = majorToMinor(input.amount);
   if (principalMinor <= 0) return 'Enter an amount greater than 0.';
@@ -61,6 +74,7 @@ export function buildInterestFields(
 ): Pick<
   Debt,
   | 'interestRateBps'
+  | 'interestType'
   | 'interestStartMode'
   | 'interestAccrualFrequency'
   | 'interestStartDate'
@@ -83,6 +97,7 @@ export function buildInterestFields(
 
   return {
     interestRateBps: input.interestRateBps,
+    interestType: input.interestType ?? 'simple',
     interestStartMode,
     interestAccrualFrequency: input.interestAccrualFrequency ?? DEFAULT_INTEREST_ACCRUAL_FREQUENCY,
     interestStartDate,
@@ -105,6 +120,10 @@ export function buildRecurringFields(
   | 'lastGeneratedAt'
   | 'recurringGroupId'
   | 'recurringSourceId'
+  | 'carryOverBalance'
+  | 'instalmentTotal'
+  | 'instalmentCount'
+  | 'instalmentIndex'
 > {
   if (!input.isRecurring || !input.recurrenceInterval || !input.dueDate) {
     return {
@@ -123,6 +142,10 @@ export function buildRecurringFields(
     nextCycleDate: anchorDate,
     recurringGroupId,
     recurringSourceId,
+    carryOverBalance: input.carryOverBalance ?? false,
+    instalmentTotal: input.instalmentTotal,
+    instalmentCount: input.instalmentCount,
+    instalmentIndex: input.instalmentCount != null ? 1 : undefined,
   };
 }
 

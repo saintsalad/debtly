@@ -11,20 +11,36 @@ export function buildNextRecurringCycle(
   if (!settledDebt.recurrenceAnchorDate || !settledDebt.dueDate) return null;
   if (settledDebt.status !== 'paid') return null;
 
+  // Instalment plan: stop when all cycles have been generated
+  if (
+    settledDebt.instalmentCount != null &&
+    settledDebt.instalmentIndex != null &&
+    settledDebt.instalmentIndex >= settledDebt.instalmentCount
+  ) {
+    return null;
+  }
+
   const nextDueDate = advanceRecurringDueDate(
     settledDebt.recurrenceAnchorDate,
     settledDebt.dueDate,
     settledDebt.recurrenceInterval
   );
 
+  // Carry-over: add unpaid balance (and unpaid interest) from previous cycle
+  const carryOverMinor = settledDebt.carryOverBalance
+    ? (settledDebt.carryOverMinor ?? 0)
+    : 0;
+  const newPrincipalMinor = settledDebt.principalMinor + carryOverMinor;
+
   const interestFields = buildInterestFields(
     {
       personName: settledDebt.personName,
-      amount: settledDebt.principalMinor / 100,
+      amount: newPrincipalMinor / 100,
       type: settledDebt.type,
       note: settledDebt.note,
       dueDate: nextDueDate,
       interestRateBps: settledDebt.interestRateBps,
+      interestType: settledDebt.interestType,
       interestStartMode: settledDebt.interestStartMode,
       interestAccrualFrequency: settledDebt.interestAccrualFrequency,
       isRecurring: true,
@@ -33,10 +49,13 @@ export function buildNextRecurringCycle(
     generatedAt
   );
 
+  const nextInstalmentIndex =
+    settledDebt.instalmentIndex != null ? settledDebt.instalmentIndex + 1 : undefined;
+
   return {
     id: generateId(),
     personName: settledDebt.personName,
-    principalMinor: settledDebt.principalMinor,
+    principalMinor: newPrincipalMinor,
     type: settledDebt.type,
     note: settledDebt.note,
     dueDate: nextDueDate,
@@ -52,6 +71,13 @@ export function buildNextRecurringCycle(
     lastGeneratedAt: generatedAt,
     recurringGroupId: settledDebt.recurringGroupId ?? settledDebt.id,
     recurringSourceId: settledDebt.recurringSourceId ?? settledDebt.id,
+    carryOverBalance: settledDebt.carryOverBalance,
+    // Reset carry-over for the new cycle
+    carryOverMinor: 0,
+    splitGroupId: settledDebt.splitGroupId,
+    instalmentTotal: settledDebt.instalmentTotal,
+    instalmentCount: settledDebt.instalmentCount,
+    instalmentIndex: nextInstalmentIndex,
   };
 }
 

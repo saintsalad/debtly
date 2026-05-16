@@ -4,13 +4,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { ArrowDown, ArrowUp, Check, X } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, Plus, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Description, HeroUINativeProvider, Label, TextField, useThemeColor } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -32,6 +33,7 @@ import {
   Debt,
   DebtType,
   InterestAccrualFrequency,
+  InterestType,
   RecurrenceFrequency,
 } from '@/features/debts/types';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
@@ -43,269 +45,15 @@ interface AddDebtScreenProps {
   debtId?: string;
 }
 
-interface DebtFormValues {
-  personName: string;
-  amount: string;
-  debtType: DebtType;
-  note: string;
-  dueDate?: Date;
-  chargeInterest: boolean;
-  interestRate: string;
-  interestAccrualIndex: number;
-  isRecurring: boolean;
-  recurrenceIndex: number;
-}
-
-const EMPTY_FORM_VALUES: DebtFormValues = {
-  personName: '',
-  amount: '',
-  debtType: 'owed_to_me',
-  note: '',
-  dueDate: undefined,
-  chargeInterest: false,
-  interestRate: '',
-  interestAccrualIndex: 0,
-  isRecurring: false,
-  recurrenceIndex: 1,
-};
-
 const RECURRENCE_OPTIONS: RecurrenceFrequency[] = ['weekly', 'monthly', 'yearly'];
 const INTEREST_ACCRUAL_OPTIONS: InterestAccrualFrequency[] = ['monthly', 'yearly'];
+const INTEREST_TYPE_OPTIONS: InterestType[] = ['simple', 'compound'];
 
-function readDebtFormValues(debt: Debt): DebtFormValues {
-  const recurrenceInterval = debt.recurrenceInterval ?? 'monthly';
-  const recurrenceIndex = Math.max(0, RECURRENCE_OPTIONS.indexOf(recurrenceInterval));
-
-  return {
-    personName: debt.personName,
-    amount: String(getPrincipalAmount(debt)),
-    debtType: debt.type,
-    note: debt.note ?? '',
-    dueDate: debt.dueDate ? new Date(debt.dueDate) : undefined,
-    chargeInterest: Boolean(debt.interestRateBps),
-    interestRate: debt.interestRateBps ? String(interestRateFromBps(debt.interestRateBps)) : '',
-    interestAccrualIndex: debt.interestAccrualFrequency === 'yearly' ? 1 : 0,
-    isRecurring: Boolean(debt.isRecurring),
-    recurrenceIndex: recurrenceIndex === -1 ? 1 : recurrenceIndex,
-  };
-}
-
-interface AddDebtFormProps {
-  debtType: DebtType;
-  setDebtType: (type: DebtType) => void;
-  personName: string;
-  setPersonName: (value: string) => void;
-  amount: string;
-  setAmount: (value: string) => void;
-  note: string;
-  setNote: (value: string) => void;
-  dueDate?: Date;
-  setDueDate: (value?: Date) => void;
-  chargeInterest: boolean;
-  setChargeInterest: (value: boolean) => void;
-  interestRate: string;
-  setInterestRate: (value: string) => void;
-  interestAccrualIndex: number;
-  setInterestAccrualIndex: (value: number) => void;
-  isRecurring: boolean;
-  setIsRecurring: (value: boolean) => void;
-  recurrenceIndex: number;
-  setRecurrenceIndex: (value: number) => void;
-  palette: ColorPalette;
-  styles: ReturnType<typeof createStyles>;
-  keyboardAppearance: 'light' | 'dark';
-  contentBottomPadding: number;
-}
-
-function AddDebtForm({
-  debtType,
-  setDebtType,
-  personName,
-  setPersonName,
-  amount,
-  setAmount,
-  note,
-  setNote,
-  dueDate,
-  setDueDate,
-  chargeInterest,
-  setChargeInterest,
-  interestRate,
-  setInterestRate,
-  interestAccrualIndex,
-  setInterestAccrualIndex,
-  isRecurring,
-  setIsRecurring,
-  recurrenceIndex,
-  setRecurrenceIndex,
-  palette,
-  styles,
-  keyboardAppearance,
-  contentBottomPadding,
-}: AddDebtFormProps) {
-  const { symbol } = useCurrency();
-  const accentForeground = useThemeColor('accent-foreground');
-
-  return (
-    <Animated.ScrollView
-      keyboardShouldPersistTaps="always"
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.formContent, { paddingBottom: contentBottomPadding }]}
-    >
-      <View style={styles.typeRow}>
-        <GlassButton
-          variant={debtType === 'owed_to_me' ? 'primary' : 'secondary'}
-          className="flex-1"
-          onPress={() => setDebtType('owed_to_me')}
-        >
-          <ArrowDown
-            size={18}
-            color={debtType === 'owed_to_me' ? accentForeground : palette.positive}
-          />
-          <GlassButton.Label>Owes Me</GlassButton.Label>
-        </GlassButton>
-        <GlassButton
-          variant={debtType === 'i_owe' ? 'primary' : 'secondary'}
-          className="flex-1"
-          onPress={() => setDebtType('i_owe')}
-        >
-          <ArrowUp
-            size={18}
-            color={debtType === 'i_owe' ? accentForeground : palette.negative}
-          />
-          <GlassButton.Label>I Owe</GlassButton.Label>
-        </GlassButton>
-      </View>
-
-      <TextField isRequired>
-        <Label>Person</Label>
-        <TextInput
-          style={styles.input}
-          placeholder="Full name"
-          placeholderTextColor={palette.placeholder}
-          value={personName}
-          onChangeText={setPersonName}
-          returnKeyType="next"
-          autoCapitalize="words"
-          keyboardAppearance={keyboardAppearance}
-        />
-      </TextField>
-
-      <TextField isRequired>
-        <Label>Principal amount</Label>
-        <View style={styles.amountRow}>
-          <Text style={styles.currencySymbol}>{symbol}</Text>
-          <TextInput
-            style={[styles.input, styles.amountInput]}
-            placeholder="0.00"
-            placeholderTextColor={palette.placeholder}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-            returnKeyType="next"
-            keyboardAppearance={keyboardAppearance}
-          />
-        </View>
-        <Description>Original amount before interest or payments.</Description>
-      </TextField>
-
-      <TextField>
-        <Label>Note</Label>
-        <TextInput
-          style={styles.input}
-          placeholder="What's it for?"
-          placeholderTextColor={palette.placeholder}
-          value={note}
-          onChangeText={setNote}
-          returnKeyType="next"
-          keyboardAppearance={keyboardAppearance}
-        />
-        <Description>Optional</Description>
-      </TextField>
-
-      <TextField>
-        <Label>Due date</Label>
-        <IosDatePicker
-          value={dueDate}
-          onChange={setDueDate}
-          placeholder="Select due date"
-        />
-        {dueDate ? (
-          <GlassButton variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
-            <GlassButton.Label>Clear due date</GlassButton.Label>
-          </GlassButton>
-        ) : null}
-        <Description>Optional</Description>
-      </TextField>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Terms</Text>
-        <View style={styles.sectionCard}>
-          <FormSwitchRow
-            label="Charge interest"
-            description="Simple interest on the unpaid balance."
-            value={chargeInterest}
-            onValueChange={setChargeInterest}
-          />
-          {chargeInterest ? (
-            <View style={styles.nestedField}>
-              <TextField>
-                <Label>Annual interest rate</Label>
-                <View style={styles.rateRow}>
-                  <TextInput
-                    style={[styles.input, styles.rateInput]}
-                    placeholder="0.0"
-                    placeholderTextColor={palette.placeholder}
-                    value={interestRate}
-                    onChangeText={setInterestRate}
-                    keyboardType="decimal-pad"
-                    keyboardAppearance={keyboardAppearance}
-                  />
-                  <Text style={styles.rateSuffix}>% APR</Text>
-                </View>
-              </TextField>
-              <Text style={styles.nestedLabel}>Accrues</Text>
-              <SegmentedControl
-                options={['Monthly', 'Yearly']}
-                selectedIndex={interestAccrualIndex}
-                onChange={setInterestAccrualIndex}
-              />
-              <Description>
-                {interestAccrualIndex === 0
-                  ? 'Interest is added each month on the remaining balance.'
-                  : 'Interest is added each year on the remaining balance.'}
-              </Description>
-            </View>
-          ) : null}
-          <FormSwitchRow
-            label="Recurring debt"
-            description="Create the next cycle after this one is settled."
-            value={isRecurring}
-            onValueChange={setIsRecurring}
-            showSeparator
-          />
-          {isRecurring ? (
-            <View style={styles.nestedField}>
-              <Text style={styles.nestedLabel}>Repeats</Text>
-              <SegmentedControl
-                options={['Weekly', 'Monthly', 'Yearly']}
-                selectedIndex={recurrenceIndex}
-                onChange={setRecurrenceIndex}
-              />
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </Animated.ScrollView>
-  );
-}
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: palette.bg,
-    },
+    screen: { flex: 1, backgroundColor: palette.bg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -315,27 +63,10 @@ function createStyles(palette: ColorPalette) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: palette.opaqueSeparator,
     },
-    title: {
-      flex: 1,
-      ...type.headline,
-      color: palette.label,
-      textAlign: 'center',
-    },
-    formContent: {
-      flexGrow: 1,
-      gap: space[4],
-      paddingHorizontal: space[5],
-      paddingTop: space[4],
-    },
-    typeRow: {
-      flexDirection: 'row',
-      gap: space[3],
-    },
-    amountRow: {
-      width: '100%',
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
+    title: { flex: 1, ...type.headline, color: palette.label, textAlign: 'center' },
+    formContent: { flexGrow: 1, gap: space[4], paddingHorizontal: space[5], paddingTop: space[4] },
+    typeRow: { flexDirection: 'row', gap: space[3] },
+    amountRow: { width: '100%', flexDirection: 'row', alignItems: 'center' },
     currencySymbol: {
       position: 'absolute',
       left: 14,
@@ -352,130 +83,222 @@ function createStyles(palette: ColorPalette) {
       color: palette.label,
       fontSize: 17,
     },
-    amountInput: {
-      flex: 1,
-      paddingLeft: 32,
-    },
-    section: {
-      gap: space[2],
-      marginTop: space[2],
-    },
-    sectionTitle: {
-      ...type.footnote,
-      color: palette.labelSecondary,
-      paddingLeft: space[1],
-    },
+    amountInput: { flex: 1, paddingLeft: 32 },
+    section: { gap: space[2], marginTop: space[2] },
+    sectionTitle: { ...type.footnote, color: palette.labelSecondary, paddingLeft: space[1] },
     sectionCard: {
       backgroundColor: palette.fillSecondary,
       borderRadius: radius.lg,
       overflow: 'hidden',
     },
-    nestedField: {
-      paddingHorizontal: space[4],
-      paddingBottom: space[4],
-      gap: space[3],
-    },
-    nestedLabel: {
-      ...type.footnote,
-      color: palette.labelSecondary,
-    },
-    rateRow: {
+    nestedField: { paddingHorizontal: space[4], paddingBottom: space[4], gap: space[3] },
+    nestedLabel: { ...type.footnote, color: palette.labelSecondary },
+    rateRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    rateInput: { flex: 1 },
+    rateSuffix: { ...type.subheadline, color: palette.labelSecondary },
+    // Advanced toggle
+    advancedToggle: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
+      paddingVertical: space[2],
+      paddingHorizontal: space[1],
+      alignSelf: 'flex-start',
     },
-    rateInput: {
-      flex: 1,
-    },
-    rateSuffix: {
-      ...type.subheadline,
-      color: palette.labelSecondary,
+    advancedToggleLabel: { ...type.subheadline, color: palette.tint },
+    advancedContent: { gap: space[4], overflow: 'hidden' },
+    // Split people
+    splitPeopleContainer: { gap: space[3] },
+    splitPersonRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+    splitPersonInput: { flex: 1 },
+    splitRemoveBtn: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });
 }
+
+// ─── SplitPeopleList sub-component ───────────────────────────────────────────
+
+function SplitPeopleList({
+  people,
+  onChange,
+  palette,
+  styles,
+  keyboardAppearance,
+}: {
+  people: string[];
+  onChange: (people: string[]) => void;
+  palette: ColorPalette;
+  styles: ReturnType<typeof createStyles>;
+  keyboardAppearance: 'light' | 'dark';
+}) {
+  return (
+    <View style={styles.splitPeopleContainer}>
+      {people.map((person, i) => (
+        <View key={i} style={styles.splitPersonRow}>
+          <TextInput
+            style={[styles.input, styles.splitPersonInput]}
+            placeholder={`Person ${i + 1}`}
+            placeholderTextColor={palette.placeholder}
+            value={person}
+            onChangeText={(val) => {
+              const next = [...people];
+              next[i] = val;
+              onChange(next);
+            }}
+            autoCapitalize="words"
+            returnKeyType="next"
+            keyboardAppearance={keyboardAppearance}
+          />
+          {people.length > 2 ? (
+            <Pressable
+              onPress={() => onChange(people.filter((_, idx) => idx !== i))}
+              style={styles.splitRemoveBtn}
+              hitSlop={8}
+            >
+              <X size={16} color={palette.labelSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+      <GlassButton
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        onPress={() => onChange([...people, ''])}
+      >
+        <Plus size={14} color={palette.tint} />
+        <GlassButton.Label>Add person</GlassButton.Label>
+      </GlassButton>
+    </View>
+  );
+}
+
+// ─── Main form ───────────────────────────────────────────────────────────────
 
 export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
+  const accentForeground = useThemeColor('accent-foreground');
+
   const { addDebt, updateDebt } = useDebtStore();
-  const existingDebt = useDebtStore((state) =>
-    debtId ? state.debts.find((debt) => debt.id === debtId) : undefined
-  );
+  const { symbol } = useCurrency();
+  const existingDebt = useDebtStore((s) => (debtId ? s.debts.find((d) => d.id === debtId) : undefined));
   const isEditing = Boolean(debtId);
   const insets = useSafeAreaInsets();
-  const initialValues = useMemo(
-    () => (existingDebt ? readDebtFormValues(existingDebt) : EMPTY_FORM_VALUES),
-    [existingDebt]
-  );
-  const [personName, setPersonName] = useState(initialValues.personName);
-  const [amount, setAmount] = useState(initialValues.amount);
-  const [debtType, setDebtType] = useState<DebtType>(initialValues.debtType);
-  const [note, setNote] = useState(initialValues.note);
-  const [dueDate, setDueDate] = useState<Date | undefined>(initialValues.dueDate);
-  const [chargeInterest, setChargeInterest] = useState(initialValues.chargeInterest);
-  const [interestRate, setInterestRate] = useState(initialValues.interestRate);
-  const [interestAccrualIndex, setInterestAccrualIndex] = useState(
-    initialValues.interestAccrualIndex
-  );
-  const [isRecurring, setIsRecurring] = useState(initialValues.isRecurring);
-  const [recurrenceIndex, setRecurrenceIndex] = useState(initialValues.recurrenceIndex);
 
+  // ── Primary fields ──────────────────────────────────────────────────────
+  const [debtType, setDebtType] = useState<DebtType>(
+    () => existingDebt?.type ?? 'owed_to_me'
+  );
+  const [isSplitWithOthers, setIsSplitWithOthers] = useState(false);
+  const [splitPeople, setSplitPeople] = useState(['', '']);
+  const [personName, setPersonName] = useState(() => existingDebt?.personName ?? '');
+  const [amount, setAmount] = useState(() =>
+    existingDebt ? String(getPrincipalAmount(existingDebt)) : ''
+  );
+  const [note, setNote] = useState(() => existingDebt?.note ?? '');
+  const [dueDate, setDueDate] = useState<Date | undefined>(() =>
+    existingDebt?.dueDate ? new Date(existingDebt.dueDate) : undefined
+  );
+
+  // ── Terms ───────────────────────────────────────────────────────────────
+  const [chargeInterest, setChargeInterest] = useState(() => Boolean(existingDebt?.interestRateBps));
+  const [interestRate, setInterestRate] = useState(() =>
+    existingDebt?.interestRateBps ? String(interestRateFromBps(existingDebt.interestRateBps)) : ''
+  );
+  const [interestTypeIndex, setInterestTypeIndex] = useState(() =>
+    existingDebt?.interestType === 'compound' ? 1 : 0
+  );
+  const [interestAccrualIndex, setInterestAccrualIndex] = useState(() =>
+    existingDebt?.interestAccrualFrequency === 'yearly' ? 1 : 0
+  );
+  const [isRecurring, setIsRecurring] = useState(() => Boolean(existingDebt?.isRecurring));
+  const [recurrenceIndex, setRecurrenceIndex] = useState(() => {
+    const idx = RECURRENCE_OPTIONS.indexOf(existingDebt?.recurrenceInterval ?? 'monthly');
+    return idx === -1 ? 1 : idx;
+  });
+  const [carryOverBalance, setCarryOverBalance] = useState(() => existingDebt?.carryOverBalance ?? false);
+  const [isInstalmentPlan, setIsInstalmentPlan] = useState(() => existingDebt?.instalmentCount != null);
+  const [instalmentCount, setInstalmentCount] = useState(() =>
+    existingDebt?.instalmentCount ? String(existingDebt.instalmentCount) : ''
+  );
+
+  // ── Advanced fields (hidden by default) ────────────────────────────────
+  const hasAdvancedValues = Boolean(existingDebt?.startDate);
+  const [showAdvanced, setShowAdvanced] = useState(hasAdvancedValues);
+  const [startDate, setStartDate] = useState<Date | undefined>(() =>
+    existingDebt?.startDate ? new Date(existingDebt.startDate) : undefined
+  );
+
+  // Close when the debt is deleted while editing
   useEffect(() => {
-    if (!isEditing) {
-      return;
-    }
-
-    if (!existingDebt) {
-      onClose();
-    }
+    if (isEditing && !existingDebt) onClose();
   }, [existingDebt, isEditing, onClose]);
 
+  // Derived
+  const parsedAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
+  const filledPeople = splitPeople.filter((p) => p.trim());
+  const perPersonAmount =
+    isSplitWithOthers && filledPeople.length > 0 && parsedAmount > 0
+      ? (parsedAmount / Math.max(filledPeople.length, 1)).toFixed(2)
+      : null;
+
   const reset = () => {
-    setPersonName(EMPTY_FORM_VALUES.personName);
-    setAmount(EMPTY_FORM_VALUES.amount);
-    setDebtType(EMPTY_FORM_VALUES.debtType);
-    setNote(EMPTY_FORM_VALUES.note);
-    setDueDate(EMPTY_FORM_VALUES.dueDate);
-    setChargeInterest(EMPTY_FORM_VALUES.chargeInterest);
-    setInterestRate(EMPTY_FORM_VALUES.interestRate);
-    setInterestAccrualIndex(EMPTY_FORM_VALUES.interestAccrualIndex);
-    setIsRecurring(EMPTY_FORM_VALUES.isRecurring);
-    setRecurrenceIndex(EMPTY_FORM_VALUES.recurrenceIndex);
+    setDebtType('owed_to_me');
+    setIsSplitWithOthers(false);
+    setSplitPeople(['', '']);
+    setPersonName('');
+    setAmount('');
+    setNote('');
+    setDueDate(undefined);
+    setChargeInterest(false);
+    setInterestRate('');
+    setInterestTypeIndex(0);
+    setInterestAccrualIndex(0);
+    setIsRecurring(false);
+    setRecurrenceIndex(1);
+    setCarryOverBalance(false);
+    setIsInstalmentPlan(false);
+    setInstalmentCount('');
+    setShowAdvanced(false);
+    setStartDate(undefined);
   };
 
   const close = () => {
-    if (!isEditing) {
-      reset();
-    }
+    if (!isEditing) reset();
     onClose();
   };
 
+  // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = () => {
-    if (!personName.trim()) {
+    if (!isSplitWithOthers && !personName.trim()) {
       Alert.alert('Name required', "Enter the person's name.");
       return;
     }
 
-    const parsed = parseFloat(amount.replace(/[^0-9.]/g, ''));
-    if (!parsed || parsed <= 0) {
+    if (!parsedAmount || parsedAmount <= 0) {
       Alert.alert('Invalid amount', 'Enter an amount greater than 0.');
       return;
     }
 
     let interestRateBps: number | undefined;
     if (chargeInterest) {
-      const parsedInterest = parseFloat(interestRate.replace(/[^0-9.]/g, ''));
-      if (!parsedInterest || parsedInterest <= 0) {
+      const r = parseFloat(interestRate.replace(/[^0-9.]/g, ''));
+      if (!r || r <= 0) {
         Alert.alert('Invalid interest rate', 'Enter an annual rate greater than 0.');
         return;
       }
-      if (parsedInterest > 100) {
+      if (r > 100) {
         Alert.alert('Invalid interest rate', 'Enter a rate up to 100%.');
         return;
       }
-      interestRateBps = interestRateToBps(parsedInterest);
+      interestRateBps = interestRateToBps(r);
     }
 
     if (isRecurring && !dueDate) {
@@ -483,81 +306,106 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
       return;
     }
 
-    const input = {
-      personName: personName.trim(),
-      amount: parsed,
+    let parsedInstalmentCount: number | undefined;
+    if (isRecurring && isInstalmentPlan) {
+      parsedInstalmentCount = parseInt(instalmentCount, 10);
+      if (!parsedInstalmentCount || parsedInstalmentCount < 2) {
+        Alert.alert('Invalid instalment count', 'Enter at least 2 payments.');
+        return;
+      }
+    }
+
+    const baseInput = {
+      amount: parsedAmount,
       type: debtType,
       note: note.trim() || undefined,
       dueDate: dueDate?.toISOString(),
+      startDate: startDate?.toISOString(),
       interestRateBps,
-      interestAccrualFrequency: chargeInterest
-        ? INTEREST_ACCRUAL_OPTIONS[interestAccrualIndex]
-        : undefined,
+      interestType: chargeInterest ? INTEREST_TYPE_OPTIONS[interestTypeIndex] : undefined,
+      interestAccrualFrequency: chargeInterest ? INTEREST_ACCRUAL_OPTIONS[interestAccrualIndex] : undefined,
       isRecurring,
       recurrenceInterval: isRecurring ? RECURRENCE_OPTIONS[recurrenceIndex] : undefined,
+      carryOverBalance: isRecurring ? carryOverBalance : undefined,
+      instalmentCount: parsedInstalmentCount,
+      instalmentTotal: parsedInstalmentCount ? Math.round(parsedAmount * 100) : undefined,
     };
 
+    // ── Edit path ──────────────────────────────────────────────────────
     if (isEditing) {
-      if (!existingDebt) {
-        return;
-      }
+      if (!existingDebt) return;
 
-      const validationError = validateAddDebtInput(input);
+      const validationError = validateAddDebtInput({ ...baseInput, personName: personName.trim() });
       if (validationError) {
         Alert.alert('Unable to save changes', validationError);
         return;
       }
 
-      const updates = {
-        personName: input.personName,
-        principalMinor: majorToMinor(input.amount),
-        type: input.type,
-        note: input.note,
-        dueDate: input.dueDate ? toLocalDateString(input.dueDate) : undefined,
+      const recurringFields = buildRecurringFields(
+        { ...baseInput, personName: personName.trim() },
+        existingDebt.recurringGroupId ?? existingDebt.id,
+        existingDebt.recurringSourceId ?? existingDebt.id
+      );
+
+      // Preserve instalmentIndex when editing an existing plan (don't reset to 1)
+      const preservedInstalmentIndex =
+        recurringFields.instalmentCount != null && existingDebt.instalmentIndex != null
+          ? existingDebt.instalmentIndex
+          : recurringFields.instalmentIndex;
+
+      updateDebt(existingDebt.id, {
+        personName: personName.trim(),
+        principalMinor: majorToMinor(parsedAmount),
+        type: debtType,
+        note: baseInput.note,
+        currency: undefined,
+        originalAmountMinor: undefined,
+        conversionRate: undefined,
+        dueDate: dueDate ? toLocalDateString(dueDate.toISOString()) : undefined,
+        startDate: startDate ? toLocalDateString(startDate.toISOString()) : undefined,
         ...(chargeInterest
-          ? buildInterestFields(input, existingDebt.createdAt)
+          ? buildInterestFields({ ...baseInput, personName: personName.trim() }, existingDebt.createdAt)
           : {
               interestRateBps: undefined,
+              interestType: undefined,
               interestStartMode: undefined,
               interestAccrualFrequency: undefined,
               interestStartDate: undefined,
               accruedInterestMinor: undefined,
             }),
-        ...buildRecurringFields(
-          input,
-          existingDebt.recurringGroupId ?? existingDebt.id,
-          existingDebt.recurringSourceId ?? existingDebt.id
-        ),
-      };
-
-      updateDebt(existingDebt.id, updates);
+        ...recurringFields,
+        instalmentIndex: preservedInstalmentIndex,
+      });
       onClose();
       return;
     }
 
-    const error = addDebt(input);
-
-    if (error) {
-      Alert.alert('Unable to save debt', error);
+    // ── Add path ───────────────────────────────────────────────────────
+    if (isSplitWithOthers) {
+      const people = splitPeople.filter((p) => p.trim());
+      if (people.length < 2) {
+        Alert.alert('Add people', 'Enter at least 2 names to split across.');
+        return;
+      }
+      const error = addDebt({ ...baseInput, personName: '', splitPeople: people });
+      if (error) { Alert.alert('Unable to save', error); return; }
+      close();
       return;
     }
 
+    const error = addDebt({ ...baseInput, personName: personName.trim() });
+    if (error) { Alert.alert('Unable to save debt', error); return; }
     close();
   };
 
-  if (isEditing && !existingDebt) {
-    return null;
-  }
+  if (isEditing && !existingDebt) return null;
 
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={styles.screen}>
       <HeroUINativeProvider>
         <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
-          <HeaderIconButton
-            icon={X}
-            accessibilityLabel="Cancel"
-            onPress={close}
-          />
+          <HeaderIconButton icon={X} accessibilityLabel="Cancel" onPress={close} />
           <Text style={styles.title}>{isEditing ? 'Edit Transaction' : 'New Debt'}</Text>
           <HeaderIconButton
             icon={Check}
@@ -572,32 +420,257 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={insets.top}
         >
-          <AddDebtForm
-            debtType={debtType}
-            setDebtType={setDebtType}
-            personName={personName}
-            setPersonName={setPersonName}
-            amount={amount}
-            setAmount={setAmount}
-            note={note}
-            setNote={setNote}
-            dueDate={dueDate}
-            setDueDate={setDueDate}
-            chargeInterest={chargeInterest}
-            setChargeInterest={setChargeInterest}
-            interestRate={interestRate}
-            setInterestRate={setInterestRate}
-            interestAccrualIndex={interestAccrualIndex}
-            setInterestAccrualIndex={setInterestAccrualIndex}
-            isRecurring={isRecurring}
-            setIsRecurring={setIsRecurring}
-            recurrenceIndex={recurrenceIndex}
-            setRecurrenceIndex={setRecurrenceIndex}
-            palette={palette}
-            styles={styles}
-            keyboardAppearance={keyboardAppearance}
-            contentBottomPadding={insets.bottom + layout.screenPaddingBottom}
-          />
+          <Animated.ScrollView
+            keyboardShouldPersistTaps="always"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.formContent,
+              { paddingBottom: insets.bottom + layout.screenPaddingBottom },
+            ]}
+          >
+            {/* ── Type selector ── */}
+            <View style={styles.typeRow}>
+              <GlassButton
+                variant={debtType === 'owed_to_me' ? 'primary' : 'secondary'}
+                className="flex-1"
+                onPress={() => setDebtType('owed_to_me')}
+              >
+                <ArrowDown size={18} color={debtType === 'owed_to_me' ? accentForeground : palette.positive} />
+                <GlassButton.Label>Owes Me</GlassButton.Label>
+              </GlassButton>
+              <GlassButton
+                variant={debtType === 'i_owe' ? 'primary' : 'secondary'}
+                className="flex-1"
+                onPress={() => setDebtType('i_owe')}
+              >
+                <ArrowUp size={18} color={debtType === 'i_owe' ? accentForeground : palette.negative} />
+                <GlassButton.Label>I Owe</GlassButton.Label>
+              </GlassButton>
+            </View>
+
+            {/* ── Person / Split ── */}
+            {isSplitWithOthers ? (
+              <TextField isRequired>
+                <Label>People</Label>
+                <SplitPeopleList
+                  people={splitPeople}
+                  onChange={setSplitPeople}
+                  palette={palette}
+                  styles={styles}
+                  keyboardAppearance={keyboardAppearance}
+                />
+                {perPersonAmount ? (
+                  <Description>Split equally: {symbol}{perPersonAmount} each</Description>
+                ) : null}
+              </TextField>
+            ) : (
+              <TextField isRequired>
+                <Label>Person</Label>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Full name"
+                  placeholderTextColor={palette.placeholder}
+                  value={personName}
+                  onChangeText={setPersonName}
+                  returnKeyType="next"
+                  autoCapitalize="words"
+                  keyboardAppearance={keyboardAppearance}
+                />
+              </TextField>
+            )}
+
+            {/* ── Amount ── */}
+            <TextField isRequired>
+              <Label>Amount</Label>
+              <View style={styles.amountRow}>
+                <Text style={styles.currencySymbol}>{symbol}</Text>
+                <TextInput
+                  style={[styles.input, styles.amountInput]}
+                  placeholder="0.00"
+                  placeholderTextColor={palette.placeholder}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="decimal-pad"
+                  returnKeyType="next"
+                  keyboardAppearance={keyboardAppearance}
+                />
+              </View>
+            </TextField>
+
+            {/* ── Note ── */}
+            <TextField>
+              <Label>Note</Label>
+              <TextInput
+                style={styles.input}
+                placeholder="What's it for? (optional)"
+                placeholderTextColor={palette.placeholder}
+                value={note}
+                onChangeText={setNote}
+                returnKeyType="next"
+                keyboardAppearance={keyboardAppearance}
+              />
+            </TextField>
+
+            {/* ── Due date ── */}
+            <TextField>
+              <Label>Due date</Label>
+              <IosDatePicker value={dueDate} onChange={setDueDate} placeholder="Select due date (optional)" />
+              {dueDate ? (
+                <GlassButton variant="ghost" size="sm" className="self-start" onPress={() => setDueDate(undefined)}>
+                  <GlassButton.Label>Clear</GlassButton.Label>
+                </GlassButton>
+              ) : null}
+            </TextField>
+
+            {/* ── Terms section ── */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Terms</Text>
+              <View style={styles.sectionCard}>
+
+                {/* Interest */}
+                <FormSwitchRow
+                  label="Charge interest"
+                  description="Apply an annual rate on the unpaid balance."
+                  value={chargeInterest}
+                  onValueChange={setChargeInterest}
+                />
+                {chargeInterest ? (
+                  <View style={styles.nestedField}>
+                    <TextField>
+                      <Label>Annual rate</Label>
+                      <View style={styles.rateRow}>
+                        <TextInput
+                          style={[styles.input, styles.rateInput]}
+                          placeholder="0.0"
+                          placeholderTextColor={palette.placeholder}
+                          value={interestRate}
+                          onChangeText={setInterestRate}
+                          keyboardType="decimal-pad"
+                          keyboardAppearance={keyboardAppearance}
+                        />
+                        <Text style={styles.rateSuffix}>% APR</Text>
+                      </View>
+                    </TextField>
+                    <Text style={styles.nestedLabel}>Type</Text>
+                    <SegmentedControl
+                      options={['Simple', 'Compound']}
+                      selectedIndex={interestTypeIndex}
+                      onChange={setInterestTypeIndex}
+                    />
+                    <Text style={styles.nestedLabel}>Accrues</Text>
+                    <SegmentedControl
+                      options={['Monthly', 'Yearly']}
+                      selectedIndex={interestAccrualIndex}
+                      onChange={setInterestAccrualIndex}
+                    />
+                  </View>
+                ) : null}
+
+                {/* Recurring */}
+                <FormSwitchRow
+                  label="Recurring"
+                  description="Spawn the next cycle after each settlement."
+                  value={isRecurring}
+                  onValueChange={setIsRecurring}
+                  showSeparator
+                />
+                {isRecurring ? (
+                  <View style={styles.nestedField}>
+                    <Text style={styles.nestedLabel}>Repeats</Text>
+                    <SegmentedControl
+                      options={['Weekly', 'Monthly', 'Yearly']}
+                      selectedIndex={recurrenceIndex}
+                      onChange={setRecurrenceIndex}
+                    />
+                    <FormSwitchRow
+                      label="Carry over unpaid balance"
+                      description="Remaining amount rolls into the next cycle."
+                      value={carryOverBalance}
+                      onValueChange={setCarryOverBalance}
+                    />
+                    <FormSwitchRow
+                      label="Instalment plan"
+                      description="Auto-stop after a set number of cycles."
+                      value={isInstalmentPlan}
+                      onValueChange={(v) => { setIsInstalmentPlan(v); if (!v) setInstalmentCount(''); }}
+                    />
+                    {isInstalmentPlan ? (
+                      <TextField>
+                        <Label>Number of payments</Label>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 10"
+                          placeholderTextColor={palette.placeholder}
+                          value={instalmentCount}
+                          onChangeText={setInstalmentCount}
+                          keyboardType="number-pad"
+                          keyboardAppearance={keyboardAppearance}
+                        />
+                        {parsedAmount > 0 && parseInt(instalmentCount, 10) >= 2 ? (
+                          <Description>
+                            {symbol}{(parsedAmount / parseInt(instalmentCount, 10)).toFixed(2)} per payment · {instalmentCount} total
+                          </Description>
+                        ) : null}
+                      </TextField>
+                    ) : null}
+                  </View>
+                ) : null}
+
+                {/* Split (owed_to_me, add only) */}
+                {debtType === 'owed_to_me' && !isEditing ? (
+                  <FormSwitchRow
+                    label="Split with others"
+                    description="Divide equally across multiple people."
+                    value={isSplitWithOthers}
+                    onValueChange={setIsSplitWithOthers}
+                    showSeparator
+                  />
+                ) : null}
+              </View>
+            </View>
+
+            {/* ── Advanced options (collapsed by default) ── */}
+            <View style={styles.section}>
+              <Pressable
+                style={styles.advancedToggle}
+                onPress={() => setShowAdvanced((v) => !v)}
+                hitSlop={8}
+              >
+                {showAdvanced
+                  ? <ChevronDown size={16} color={palette.tint} />
+                  : <ChevronRight size={16} color={palette.tint} />}
+                <Text style={styles.advancedToggleLabel}>Advanced options</Text>
+                {startDate && !showAdvanced ? (
+                  <View style={{
+                    width: 6, height: 6, borderRadius: 3,
+                    backgroundColor: palette.tint,
+                    marginLeft: 2,
+                  }} />
+                ) : null}
+              </Pressable>
+
+              {showAdvanced ? (
+                <View style={styles.advancedContent}>
+                  <TextField>
+                    <Label>Active from</Label>
+                    <IosDatePicker
+                      value={startDate}
+                      onChange={setStartDate}
+                      placeholder="Set a future activation date…"
+                    />
+                    {startDate ? (
+                      <GlassButton variant="ghost" size="sm" className="self-start" onPress={() => setStartDate(undefined)}>
+                        <GlassButton.Label>Clear</GlassButton.Label>
+                      </GlassButton>
+                    ) : null}
+                    <Description>
+                      Debt is excluded from totals and shown as Scheduled until this date.
+                    </Description>
+                  </TextField>
+                </View>
+              ) : null}
+            </View>
+          </Animated.ScrollView>
         </KeyboardAvoidingView>
       </HeroUINativeProvider>
     </View>

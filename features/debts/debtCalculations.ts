@@ -14,8 +14,9 @@ import {
   validateAddDebtInput,
 } from '@/features/debts/interestEngine';
 import { majorToMinor, minorToMajor } from '@/features/debts/money';
-import { toLocalDateString } from '@/features/debts/dates';
+import { parseLocalDate, toLocalDateString } from '@/features/debts/dates';
 import { generateId } from '@/lib/utils';
+import { isBefore, startOfDay } from 'date-fns';
 
 export { getRecurrenceLabel, validateAddDebtInput };
 
@@ -39,6 +40,15 @@ export function isDebtSettled(debt: Debt, asOf = new Date()): boolean {
   return getRemainingBalanceMajor(debt, asOf) <= 0.009;
 }
 
+/**
+ * Returns false when a debt has a future startDate and that date has not yet been reached.
+ * Inactive debts are excluded from balance totals and shown in a "Scheduled" section.
+ */
+export function isDebtActive(debt: Debt, asOf = new Date()): boolean {
+  if (!debt.startDate) return true;
+  return !isBefore(startOfDay(asOf), parseLocalDate(debt.startDate));
+}
+
 export function getPrincipalAmount(debt: Debt): number {
   return getPrincipalMajor(debt);
 }
@@ -58,6 +68,7 @@ export function createDebtFromInput(input: AddDebtInput, createdAt: string): Deb
   const id = generateId();
   const principalMinor = majorToMinor(input.amount);
   const dueDate = input.dueDate ? toLocalDateString(input.dueDate) : undefined;
+  const startDate = input.startDate ? toLocalDateString(input.startDate) : undefined;
 
   return {
     id,
@@ -66,6 +77,7 @@ export function createDebtFromInput(input: AddDebtInput, createdAt: string): Deb
     type: input.type,
     note: input.note?.trim() || undefined,
     dueDate,
+    startDate,
     status: 'pending',
     payments: [],
     createdAt,

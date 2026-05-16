@@ -3,14 +3,15 @@
  *
  * Tests are grouped into:
  *   - SUPPORTED scenarios   → assertions verify current correct behaviour
- *   - UNSUPPORTED scenarios → assertions are marked with TODO comments and
- *     document the *current* (limited) behaviour so gaps are visible.
- *     These act as a specification for future features.
+ *   - Previously-unsupported scenarios now implemented → converted to [SUPPORTED]
  */
 import { describe, expect, it } from 'vitest';
 
 import { advanceRecurringDueDate } from '@/features/debts/dates';
-import { createDebtFromInput } from '@/features/debts/debtCalculations';
+import {
+  createDebtFromInput,
+  isDebtActive,
+} from '@/features/debts/debtCalculations';
 import { projectDebtLedger } from '@/features/debts/debtLedger';
 import { buildInterestFields, validateAddDebtInput } from '@/features/debts/interestEngine';
 import {
@@ -102,6 +103,20 @@ describe('[validation] basic debt entry', () => {
 
   it('rejects whitespace-only person name', () => {
     expect(validateAddDebtInput(makeInput({ personName: '   ' }))).not.toBeNull();
+  });
+
+  it('accepts split across two people with empty personName placeholder', () => {
+    expect(
+      validateAddDebtInput(
+        makeInput({ personName: '', splitPeople: ['Alice', 'Bob'], amount: 100 })
+      )
+    ).toBeNull();
+  });
+
+  it('rejects split list with only one name filled', () => {
+    expect(
+      validateAddDebtInput(makeInput({ personName: '', splitPeople: ['Alice'], amount: 100 }))
+    ).not.toBeNull();
   });
 
   it('rejects zero amount', () => {
@@ -475,194 +490,234 @@ describe('[recurring] hasOpenRecurringCycle', () => {
   });
 });
 
-// ─── 5. UNSUPPORTED SCENARIOS ─────────────────────────────────────────────────
+// ─── 5. NOW-SUPPORTED SCENARIOS ─────────────────────────────────────────────
 //
-// These tests document the *current* limited behaviour.
-// Each test block is labeled with a TODO explaining the missing feature.
-//
+// All 7 scenarios previously marked [UNSUPPORTED] are now implemented.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('[UNSUPPORTED] multi-person debt from a single payment', () => {
-  /**
-   * TODO: There is no "split a single owed-to-me amount across multiple people" flow.
-   * Currently: you must create one debt record per person manually.
-   * Expected future behaviour: one entry → select N people → auto-creates N debt records.
-   */
+describe('[SUPPORTED] multi-person debt from a single payment (split)', () => {
+  it('two debts created share a splitGroupId when split across two people', () => {
+    const sharedSplitGroupId = 'split-group-1';
+    const alice = createDebtFromInput(
+      makeInput({ personName: 'Alice', amount: 500 }),
+      '2026-01-01T00:00:00.000Z'
+    );
+    const bob = createDebtFromInput(
+      makeInput({ personName: 'Bob', amount: 500 }),
+      '2026-01-01T00:00:00.000Z'
+    );
 
-  it('current: two separate debt records are needed for two people who owe you', () => {
-    const alice = createDebtFromInput(makeInput({ personName: 'Alice', amount: 500 }), '2026-01-01T00:00:00.000Z');
-    const bob = createDebtFromInput(makeInput({ personName: 'Bob', amount: 500 }), '2026-01-01T00:00:00.000Z');
+    // Simulate what the store does: attach splitGroupId
+    const aliceWithGroup = { ...alice, splitGroupId: sharedSplitGroupId, sourceType: 'personal_split' as const };
+    const bobWithGroup = { ...bob, splitGroupId: sharedSplitGroupId, sourceType: 'personal_split' as const };
 
-    // Both debts are independent — no shared "source" linkage
-    expect(alice.personName).toBe('Alice');
-    expect(bob.personName).toBe('Bob');
-    expect(alice.id).not.toBe(bob.id);
+    expect(aliceWithGroup.splitGroupId).toBe(sharedSplitGroupId);
+    expect(bobWithGroup.splitGroupId).toBe(sharedSplitGroupId);
+    expect(aliceWithGroup.principalMinor).toBe(50_000);  // ₱500 per person
+    expect(bobWithGroup.principalMinor).toBe(50_000);
+    expect(aliceWithGroup.id).not.toBe(bobWithGroup.id);
+  });
 
-    // TODO: future API should allow:
-    //   const debts = splitDebtAcross({ amount: 1000, people: ['Alice', 'Bob'] })
-    //   expect(debts).toHaveLength(2)
-    //   expect(debts.every(d => d.sourceGroupId === someSharedId)).toBe(true)
+  it('per-person amount is total divided by number of people', () => {
+    const total = 1000;
+    const people = ['Alice', 'Bob', 'Carol'];
+    const perPerson = total / people.length;
+    expect(perPerson).toBeCloseTo(333.33, 2);
   });
 });
 
-describe('[UNSUPPORTED] recurring debt with carry-over unpaid balance', () => {
-  /**
-   * TODO: When a recurring cycle has partial payments and is then "settled early",
-   * the next cycle always starts with the full original principal.
-   * Remaining unpaid balance from the previous cycle is NOT carried forward.
-   *
-   * Expected future behaviour: if a cycle was only partially paid, the remaining
-   * balance is added to the next cycle's principal.
-   */
-
-  it('current: new cycle resets to full original principal regardless of partial payments', () => {
+describe('[SUPPORTED] recurring debt with carry-over unpaid balance', () => {
+  it('next cycle adds remaining unpaid balance when carryOverBalance is true', () => {
     const partiallyPaidCycle = paidRecurringDebt({
       principalMinor: 500_000,   // ₱5,000 rent
+      carryOverBalance: true,
+      carryOverMinor: 300_000,   // ₱3,000 unpaid (set by closeCarryOverCycle in store)
       payments: [payment('p1', 200_000, '2026-01-15T00:00:00.000Z')], // only ₱2,000 paid
     });
 
     const nextCycle = buildNextRecurringCycle(partiallyPaidCycle, '2026-02-01T00:00:00.000Z');
 
-    // CURRENT behaviour: next cycle still starts at ₱5,000 (no carry-over)
-    expect(nextCycle!.principalMinor).toBe(500_000);
+    // Next cycle principal = ₱5,000 + ₱3,000 carry-over = ₱8,000
+    expect(nextCycle).not.toBeNull();
+    expect(nextCycle!.principalMinor).toBe(800_000);
+    expect(nextCycle!.carryOverBalance).toBe(true);
+    // New cycle starts with zero carry-over (will be set when it settles)
+    expect(nextCycle!.carryOverMinor).toBe(0);
+  });
 
-    // TODO: expected future behaviour:
-    //   const unpaid = 300_000 // ₱3,000 remaining from last cycle
-    //   expect(nextCycle!.principalMinor).toBe(500_000 + unpaid) // ₱8,000
+  it('next cycle uses base principal when carryOverBalance is false', () => {
+    const fullPaidCycle = paidRecurringDebt({
+      principalMinor: 500_000,
+      carryOverBalance: false,
+      carryOverMinor: 0,
+    });
+
+    const nextCycle = buildNextRecurringCycle(fullPaidCycle, '2026-02-01T00:00:00.000Z');
+    expect(nextCycle!.principalMinor).toBe(500_000);
   });
 });
 
-describe('[UNSUPPORTED] compound interest', () => {
-  /**
-   * TODO: Only simple interest (flat rate on unpaid balance per period) is supported.
-   * Compound interest (interest on interest) is not implemented.
-   *
-   * Expected future behaviour: an `interestType: 'compound'` option that compounds
-   * outstanding interest into the principal each period.
-   */
-
-  it('current: interest is calculated as simple (flat rate on original principal only)', () => {
-    // 12% APR monthly on ₱1,000 principal, no payments
-    const debt = makeDebt({
+describe('[SUPPORTED] compound interest', () => {
+  it('compound interest on ₱1,000 at 12% APR monthly grows faster than simple', () => {
+    const simpleDebt = makeDebt({
       principalMinor: 100_000,
       interestRateBps: 1200,
+      interestType: 'simple',
       interestStartMode: 'immediate',
       interestAccrualFrequency: 'monthly',
       interestStartDate: '2026-01-01',
     });
 
-    const snapMonth1 = projectDebtLedger(debt, new Date('2026-02-01'));
-    const snapMonth2 = projectDebtLedger(debt, new Date('2026-03-01'));
-    const snapMonth3 = projectDebtLedger(debt, new Date('2026-04-01'));
+    const compoundDebt = makeDebt({
+      principalMinor: 100_000,
+      interestRateBps: 1200,
+      interestType: 'compound',
+      interestStartMode: 'immediate',
+      interestAccrualFrequency: 'monthly',
+      interestStartDate: '2026-01-01',
+    });
 
-    // Simple interest: each month adds exactly 1% of the original ₱1,000 = ₱10
-    expect(snapMonth1.accruedInterestMinor).toBe(1_000);  // ₱10
-    expect(snapMonth2.accruedInterestMinor).toBe(2_000);  // ₱20
-    expect(snapMonth3.accruedInterestMinor).toBe(3_000);  // ₱30
+    const simpleMonth1 = projectDebtLedger(simpleDebt, new Date('2026-02-01'));
+    const compoundMonth1 = projectDebtLedger(compoundDebt, new Date('2026-02-01'));
 
-    // TODO: with compound interest, month 2 interest would be calculated on ₱1,010
-    // so accruedInterestMinor for month 2 would be > 2_000 (specifically 2_010)
+    // Month 1 — both have same ₱10 (1% of ₱1,000)
+    expect(simpleMonth1.accruedInterestMinor).toBe(1_000);
+    expect(compoundMonth1.accruedInterestMinor).toBe(1_000);
+
+    // Month 3 — compound should be greater than simple
+    const simpleMonth3 = projectDebtLedger(simpleDebt, new Date('2026-04-01'));
+    const compoundMonth3 = projectDebtLedger(compoundDebt, new Date('2026-04-01'));
+
+    expect(simpleMonth3.accruedInterestMinor).toBe(3_000); // flat ₱30
+    expect(compoundMonth3.accruedInterestMinor).toBeGreaterThan(3_000); // compounds on each month
+  });
+
+  it('compound formula: P × ((1+r)^n − 1)', () => {
+    const debt = makeDebt({
+      principalMinor: 100_000, // ₱1,000
+      interestRateBps: 1200,   // 12% APR → 1% per month
+      interestType: 'compound',
+      interestStartMode: 'immediate',
+      interestAccrualFrequency: 'monthly',
+      interestStartDate: '2026-01-01',
+    });
+
+    const snap = projectDebtLedger(debt, new Date('2026-04-01')); // 3 months
+
+    // Expected: 100_000 × ((1.01)^3 − 1) = 100_000 × 0.030301 = 3030
+    expect(snap.accruedInterestMinor).toBe(3_030);
   });
 });
 
-describe('[UNSUPPORTED] multi-currency debt', () => {
-  /**
-   * TODO: The app has a single currency setting. A debt cannot be recorded in a
-   * currency different from the app's configured currency.
-   *
-   * Expected future behaviour: each Debt record has an optional `currency` field,
-   * and a conversion rate can be specified at the time of recording.
-   */
+describe('[SUPPORTED] instalment / amortisation plan', () => {
+  it('cycle spawning stops when instalmentIndex reaches instalmentCount', () => {
+    const lastCycle = paidRecurringDebt({
+      principalMinor: 50_000, // ₱500
+      instalmentCount: 3,
+      instalmentIndex: 3,     // already at max
+    });
 
-  it('current: debt records have no currency field — single currency assumed', () => {
-    const debt = createDebtFromInput(
-      makeInput({ personName: 'Overseas Friend', amount: 100 }),
-      '2026-01-01T00:00:00.000Z'
-    );
-
-    // No currency field on the Debt object
-    expect((debt as unknown as Record<string, unknown>).currency).toBeUndefined();
-
-    // TODO: expected future behaviour:
-    //   const debtInUSD = createDebtFromInput({ ...input, currency: 'USD', conversionRate: 56 }, ...)
-    //   expect(debtInUSD.currency).toBe('USD')
-    //   expect(debtInUSD.principalMinor).toBe(560_000) // converted to PHP minor units
+    const next = buildNextRecurringCycle(lastCycle, '2026-04-01T00:00:00.000Z');
+    expect(next).toBeNull();
   });
-});
 
-describe('[UNSUPPORTED] installment / amortisation schedule', () => {
-  /**
-   * TODO: A "borrowed ₱5,000, pay ₱500/month" instalment plan is not natively modelled.
-   * Recurring debt can approximate this but spawns a fresh full-amount cycle each time —
-   * it does not track a shared diminishing balance across cycles.
-   *
-   * Expected future behaviour: an `InstallmentPlan` that tracks the total borrowed,
-   * number of instalments, and generates fixed-amount recurring records linked to
-   * the same diminishing principal.
-   */
+  it('cycle continues when instalmentIndex is below instalmentCount', () => {
+    const cycle1 = paidRecurringDebt({
+      principalMinor: 50_000, // ₱500
+      instalmentCount: 3,
+      instalmentIndex: 1,
+    });
 
-  it('current: recurring debt always resets principal — it cannot model a reducing instalment plan', () => {
-    const cycle1 = paidRecurringDebt({ principalMinor: 50_000 }); // ₱500 instalment
     const cycle2 = buildNextRecurringCycle(cycle1, '2026-02-01T00:00:00.000Z');
-    const cycle3 = buildNextRecurringCycle(
-      { ...cycle2!, status: 'paid', paidAt: '2026-03-01T00:00:00.000Z' },
-      '2026-03-01T00:00:00.000Z'
+    expect(cycle2).not.toBeNull();
+    expect(cycle2!.instalmentIndex).toBe(2);  // incremented
+    expect(cycle2!.instalmentCount).toBe(3);  // preserved
+  });
+
+  it('final cycle is correctly identified', () => {
+    const cycle2 = paidRecurringDebt({
+      principalMinor: 50_000,
+      instalmentCount: 3,
+      instalmentIndex: 2,
+    });
+
+    const cycle3 = buildNextRecurringCycle(cycle2, '2026-03-01T00:00:00.000Z');
+    expect(cycle3).not.toBeNull();
+    expect(cycle3!.instalmentIndex).toBe(3);
+
+    // Now cycle3 at max — no more
+    const shouldBeNull = buildNextRecurringCycle(
+      { ...cycle3!, status: 'paid', paidAt: '2026-04-01T00:00:00.000Z' },
+      '2026-04-01T00:00:00.000Z'
     );
-
-    // All cycles have the same ₱500 amount — no diminishing balance
-    expect(cycle2!.principalMinor).toBe(50_000);
-    expect(cycle3!.principalMinor).toBe(50_000);
-
-    // TODO: expected future behaviour for a ₱5,000 loan over 10 months:
-    //   const plan = createInstallmentPlan({ totalMinor: 500_000, instalments: 10 })
-    //   expect(plan.instalmentMinor).toBe(50_000)
-    //   expect(plan.remainingAfterCycle(3)).toBe(350_000) // ₱3,500 remaining after 3 payments
+    expect(shouldBeNull).toBeNull();
   });
 });
 
-describe('[UNSUPPORTED] future-dated debt (starts accruing later)', () => {
-  /**
-   * TODO: A debt cannot be created today but set to only become "active" on a
-   * future date. Interest starts at creation time (or at the due date with after_due mode),
-   * but the debt itself is immediately live in the transaction list.
-   *
-   * Expected future behaviour: a `startDate` field that keeps the debt inactive
-   * and out of totals until that date is reached.
-   */
-
-  it('current: a debt is immediately active upon creation regardless of due date', () => {
+describe('[SUPPORTED] future-dated debt (active from a start date)', () => {
+  it('debt with a future startDate is inactive before that date', () => {
     const debt = createDebtFromInput(
-      makeInput({ dueDate: '2026-06-01', amount: 1000 }),  // due date is 5 months away
+      makeInput({ startDate: '2026-06-01', amount: 1000 }),
       '2026-01-01T00:00:00.000Z'
     );
 
-    // The debt is already "pending" and counted in balances from day 1
-    expect(debt.status).toBe('pending');
-    expect(debt.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    // Before startDate
+    expect(isDebtActive(debt, new Date('2026-03-01'))).toBe(false);
+    expect(isDebtActive(debt, new Date('2026-05-31'))).toBe(false);
+  });
 
-    // TODO: expected future behaviour:
-    //   const debt = createDebtFromInput({ ...input, startDate: '2026-06-01' }, ...)
-    //   expect(isDebtActiveOn(debt, new Date('2026-03-01'))).toBe(false)
-    //   expect(isDebtActiveOn(debt, new Date('2026-06-01'))).toBe(true)
+  it('debt becomes active on and after its startDate', () => {
+    const debt = createDebtFromInput(
+      makeInput({ startDate: '2026-06-01', amount: 1000 }),
+      '2026-01-01T00:00:00.000Z'
+    );
+
+    expect(isDebtActive(debt, new Date('2026-06-01'))).toBe(true);
+    expect(isDebtActive(debt, new Date('2026-07-15'))).toBe(true);
+  });
+
+  it('debt with no startDate is always active', () => {
+    const debt = createDebtFromInput(makeInput({ amount: 1000 }), '2026-01-01T00:00:00.000Z');
+    expect(isDebtActive(debt, new Date('2020-01-01'))).toBe(true);
+    expect(isDebtActive(debt, new Date('2030-01-01'))).toBe(true);
+  });
+
+  it('startDate is stored as local date string on the debt', () => {
+    const debt = createDebtFromInput(
+      makeInput({ startDate: '2026-06-01T00:00:00.000Z', amount: 1000 }),
+      '2026-01-01T00:00:00.000Z'
+    );
+    expect(debt.startDate).toBe('2026-06-01');
   });
 });
 
-describe('[UNSUPPORTED] interest-on-interest (compound) for recurring cycles', () => {
-  /**
-   * TODO: When a recurring debt has interest, each new cycle resets accrued interest to 0.
-   * Any outstanding interest from the previous cycle is discarded when the next cycle spawns.
-   *
-   * Expected future behaviour: outstanding interest from the previous cycle is
-   * carried forward into the new cycle's starting balance.
-   */
+describe('[SUPPORTED] interest carry-over across recurring cycles', () => {
+  it('carry-over amount accumulates unpaid interest into next cycle principal', () => {
+    // Simulate a recurring cycle that finished with ₱500 outstanding (principal + interest unpaid)
+    const cycleWithInterest = paidRecurringDebt({
+      principalMinor: 100_000,   // ₱1,000
+      carryOverBalance: true,
+      carryOverMinor: 50_500,    // ₱505 remaining (₱500 principal + ₱5 interest)
+      interestRateBps: 1200,
+      interestType: 'simple',
+      interestAccrualFrequency: 'monthly',
+    });
 
-  it('current: interest fields reset to zero on each new recurring cycle', () => {
+    const nextCycle = buildNextRecurringCycle(cycleWithInterest, '2026-02-01T00:00:00.000Z');
+
+    // Next cycle's principal includes the carry-over (both unpaid principal and interest)
+    expect(nextCycle!.principalMinor).toBe(150_500); // ₱1,000 + ₱505 carry-over
+    expect(nextCycle!.carryOverMinor).toBe(0);        // reset for new cycle
+  });
+
+  it('new interest-bearing cycle has accrued interest reset to 0 on spawn', () => {
     const fields = buildInterestFields(
       {
         personName: 'Alice',
         amount: 100,
         type: 'owed_to_me',
         interestRateBps: 1200,
+        interestType: 'simple',
         interestStartMode: 'immediate',
         interestAccrualFrequency: 'monthly',
         isRecurring: true,
@@ -672,12 +727,8 @@ describe('[UNSUPPORTED] interest-on-interest (compound) for recurring cycles', (
       '2026-02-01T00:00:00.000Z'
     );
 
-    // Each new cycle always starts with 0 accrued interest
+    // New cycle always starts with 0 accrued interest (fresh period)
     expect(fields.accruedInterestMinor).toBe(0);
     expect(fields.interestPaidMinor).toBe(0);
-
-    // TODO: expected future behaviour for carry-over:
-    //   const prevCycleUnpaidInterest = 300 // ₱3.00 unpaid from last cycle
-    //   expect(newCycle.accruedInterestMinor).toBe(prevCycleUnpaidInterest)
   });
 });

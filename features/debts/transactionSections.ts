@@ -1,13 +1,15 @@
 import { format, parseISO } from 'date-fns';
 import { Debt } from '@/features/debts/types';
+import { filterActiveDebts, filterScheduledDebts } from '@/features/debts/transactionList';
 
 export type TransactionSection = {
   key: string;
   title: string;
   data: Debt[];
+  isScheduled?: boolean;
 };
 
-export function buildTransactionSections(debts: Debt[]): TransactionSection[] {
+function groupByMonth(debts: Debt[]): TransactionSection[] {
   const groups = new Map<string, Debt[]>();
 
   for (const debt of debts) {
@@ -24,4 +26,24 @@ export function buildTransactionSections(debts: Debt[]): TransactionSection[] {
       title: format(parseISO(`${key}-01`), 'MMMM yyyy'),
       data,
     }));
+}
+
+export function buildTransactionSections(debts: Debt[]): TransactionSection[] {
+  const scheduled = filterScheduledDebts(debts);
+  const active = filterActiveDebts(debts);
+
+  const sections: TransactionSection[] = [];
+
+  if (scheduled.length > 0) {
+    sections.push({
+      key: '__scheduled__',
+      title: 'Scheduled',
+      data: scheduled,
+      isScheduled: true,
+    });
+  }
+
+  sections.push(...groupByMonth(active));
+
+  return sections;
 }

@@ -37,12 +37,18 @@ function accrueInterestForPeriods(
   principalRemainingMinor: number,
   rateBps: number,
   periods: number,
-  frequency: 'monthly' | 'yearly'
+  frequency: 'monthly' | 'yearly',
+  interestType: 'simple' | 'compound' = 'simple'
 ): number {
   if (principalRemainingMinor <= 0 || periods <= 0 || rateBps <= 0) return 0;
 
   const annualRate = rateBps / 10_000;
   const periodRate = frequency === 'monthly' ? annualRate / 12 : annualRate;
+
+  if (interestType === 'compound') {
+    return Math.round(principalRemainingMinor * (Math.pow(1 + periodRate, periods) - 1));
+  }
+
   return Math.round(principalRemainingMinor * periodRate * periods);
 }
 
@@ -51,10 +57,11 @@ function accrueBetweenDates(
   rateBps: number,
   frequency: 'monthly' | 'yearly',
   fromDate: string,
-  toDate: string
+  toDate: string,
+  interestType: 'simple' | 'compound' = 'simple'
 ): number {
   const periods = countAccrualPeriods(fromDate, toDate, frequency);
-  return accrueInterestForPeriods(principalRemainingMinor, rateBps, periods, frequency);
+  return accrueInterestForPeriods(principalRemainingMinor, rateBps, periods, frequency, interestType);
 }
 
 function applyPaymentWaterfall(
@@ -87,6 +94,7 @@ export function projectDebtLedger(debt: Debt, asOf = new Date()): DebtLedgerSnap
   const payments = sortPayments(debt.payments ?? []);
   const interestStartDate = resolveInterestStartDate(debt);
   const frequency = debt.interestAccrualFrequency ?? DEFAULT_INTEREST_ACCRUAL_FREQUENCY;
+  const interestType = debt.interestType ?? 'simple';
   const asOfDate = toLocalDateString(asOf);
 
   let principalRemainingMinor = debt.principalMinor;
@@ -129,7 +137,8 @@ export function projectDebtLedger(debt: Debt, asOf = new Date()): DebtLedgerSnap
         debt.interestRateBps,
         frequency,
         accrualCursor,
-        paymentDate
+        paymentDate,
+        interestType
       );
       accrualCursor = paymentDate;
 
@@ -150,7 +159,8 @@ export function projectDebtLedger(debt: Debt, asOf = new Date()): DebtLedgerSnap
         debt.interestRateBps,
         frequency,
         accrualCursor,
-        asOfDate
+        asOfDate,
+        interestType
       );
     }
   } else {
