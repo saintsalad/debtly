@@ -19,6 +19,7 @@ import { TransactionRow } from '@/features/debts/TransactionRow';
 import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
+import { getComputedStatus } from '@/lib/utils';
 import { useColors, layout, type, space, type ColorPalette } from '@/lib/platform';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
@@ -105,6 +106,16 @@ export default function HomeScreen() {
     [debts]
   );
 
+  const upcomingDueDebts = useMemo(() => {
+    return [...debts]
+      .filter((d) => d.dueDate && getComputedStatus(d) !== 'paid')
+      .sort(
+        (a, b) =>
+          new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
+      )
+      .slice(0, 3);
+  }, [debts]);
+
   const insightsStyle = useFadeUp(0);
   const insets = useSafeAreaInsets();
   const { open: openTransactionDetail } = useTransactionDetail();
@@ -139,6 +150,23 @@ export default function HomeScreen() {
             fmt={fmt}
           />
         </Animated.View>
+
+        {upcomingDueDebts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Upcoming dues</Text>
+            <GlassCard style={styles.recentCard}>
+              {upcomingDueDebts.map((debt, index) => (
+                <TransactionRow
+                  key={debt.id}
+                  debt={debt}
+                  onPress={() => openTransactionDetail(debt)}
+                  showSeparator={index < upcomingDueDebts.length - 1}
+                  dividerVariant="glass"
+                />
+              ))}
+            </GlassCard>
+          </View>
+        ) : null}
 
         {recentDebts.length > 0 ? (
           <View style={styles.section}>
