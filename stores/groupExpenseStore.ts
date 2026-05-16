@@ -19,6 +19,7 @@ import {
   validateExpenseShares,
 } from '@/features/group-expense/balanceEngine';
 import { migratePersistedState } from '@/features/group-expense/billSplitMigration';
+import { AMOUNT_EXCEEDS_MAX_MESSAGE, MAX_INPUT_AMOUNT_MINOR } from '@/features/debts/money';
 import type {
   ActivityLogEntry,
   AddExpenseInput,
@@ -464,7 +465,12 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
         if (input.fromMemberId === input.toMemberId) return 'Choose different members.';
 
         const amountMinor = amountToMinor(input.amount);
-        if (amountMinor <= 0) return 'Enter an amount greater than 0.';
+        if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+          return 'Enter an amount greater than 0.';
+        }
+        if (amountMinor > MAX_INPUT_AMOUNT_MINOR) {
+          return AMOUNT_EXCEEDS_MAX_MESSAGE;
+        }
 
         const settlement: Settlement = {
           id: generateId(),

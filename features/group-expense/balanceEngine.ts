@@ -1,4 +1,8 @@
-import { majorToMinor } from '@/features/debts/money';
+import {
+  AMOUNT_EXCEEDS_MAX_MESSAGE,
+  MAX_INPUT_AMOUNT_MINOR,
+  majorToMinor,
+} from '@/features/debts/money';
 import type {
   GroupBalanceSummary,
   GroupExpense,
@@ -286,22 +290,36 @@ export function validateExpenseShares(
   amountMinor: number,
   splitMethod: SplitMethod,
   includedMemberIds: string[],
-  shares: Array<{
+  shares: {
     memberId: string;
     valueMinor?: number;
     percentBps?: number;
     shareParts?: number;
     adjustmentMinor?: number;
-  }>
+  }[]
 ): string | null {
   if (includedMemberIds.length === 0) return 'Select at least one participant.';
-  if (amountMinor <= 0) return 'Enter an amount greater than 0.';
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    return 'Enter an amount greater than 0.';
+  }
+  if (amountMinor > MAX_INPUT_AMOUNT_MINOR) {
+    return AMOUNT_EXCEEDS_MAX_MESSAGE;
+  }
 
   if (splitMethod === 'exact') {
+    for (const id of includedMemberIds) {
+      const v = shares.find((s) => s.memberId === id)?.valueMinor ?? 0;
+      if (!Number.isFinite(v) || v < 0) {
+        return 'Custom amounts must be valid non-negative values.';
+      }
+      if (v > MAX_INPUT_AMOUNT_MINOR) {
+        return AMOUNT_EXCEEDS_MAX_MESSAGE;
+      }
+    }
     const sum = shares
       .filter((s) => includedMemberIds.includes(s.memberId))
       .reduce((acc, s) => acc + (s.valueMinor ?? 0), 0);
-    if (sum !== amountMinor) return 'Custom amounts must equal the total.';
+    if (!Number.isFinite(sum) || sum !== amountMinor) return 'Custom amounts must equal the total.';
   }
 
   if (splitMethod === 'percentage') {
@@ -327,6 +345,9 @@ export function validateExpenseShares(
     for (const id of includedMemberIds) {
       const row = shares.find((s) => s.memberId === id);
       const adj = row?.adjustmentMinor ?? 0;
+      if (!Number.isFinite(adj) || Math.abs(adj) > MAX_INPUT_AMOUNT_MINOR) {
+        return AMOUNT_EXCEEDS_MAX_MESSAGE;
+      }
       sumAdj += adj;
       const final = (base.get(id) ?? 0) + adj;
       if (final < 0) return 'Adjustments would make someone owe less than zero.';

@@ -1,7 +1,14 @@
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { minorToMajor } from '@/features/debts/money';
+import {
+  AMOUNT_EXCEEDS_MAX_MESSAGE,
+  isMajorWithinInputCap,
+  minorToMajor,
+  sanitizeExpenseMajorInput,
+  sanitizePercentMajorInput,
+  sanitizeSignedMajorInput,
+} from '@/features/debts/money';
 import {
   allocateEqualShares,
   amountToMinor,
@@ -63,6 +70,13 @@ function splitIndexFromMethod(m: SplitMethod): number {
   }
 }
 
+/** Signed basis-points delta from 100% (positive = remaining to assign). */
+function formatPercentDeltaFromBps(bpsSigned: number): string {
+  const majors = Math.round(bpsSigned) / 100;
+  const rounded = Math.round(majors * 100) / 100;
+  return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(2);
+}
+
 /** One or two short lines under Split method; plain language. */
 const SPLIT_METHOD_DESCRIPTIONS: Record<SplitMethod, string> = {
   equal:
@@ -70,7 +84,7 @@ const SPLIT_METHOD_DESCRIPTIONS: Record<SplitMethod, string> = {
   exact:
     'Type exactly how much each included person owes. Those amounts must add up to the bill total.',
   percentage:
-    'Each person owes a percent of the bill. Enter percents for everyone included; they must total 100%.',
+    'Each included person owes a percent of the total. Entries must add up to 100%. Below you can see how much is left.',
   shares:
     'Give each person a "share" number (for example 2 and 1 means one person pays twice as much). Only the ratios matter.',
   adjustment:
@@ -263,6 +277,11 @@ function createSheetStyles(palette: ColorPalette) {
       color: palette.labelSecondary,
       textAlign: 'center',
     },
+    percentageRemainderHint: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      lineHeight: 18,
+    },
   });
 }
 
@@ -350,11 +369,20 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const toggleMember = (memberId: string) => {
+  const toggleMember = useCallback((memberId: string) => {
     setIncludedIds((prev) =>
       prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
     );
-  };
+  }, []);
+
+  const handleSplitIndexChange = useCallback((ni: number) => {
+    setSplitIndex((prev) => {
+      if (prev !== ni) {
+        setShareInputs({});
+      }
+      return ni;
+    });
+  }, []);
 
   const handleSave = () => {
     if (!groupId || !group) return;
@@ -363,11 +391,22 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       Alert.alert('Missing info', 'Add a description and amount.');
       return;
     }
+    if (!isMajorWithinInputCap(parsed)) {
+      Alert.alert('Amount too large', AMOUNT_EXCEEDS_MAX_MESSAGE);
+      return;
+    }
 
     const amountMinor = amountToMinor(parsed);
     let shares = createDefaultShares(splitMethod, includedIds, amountMinor);
 
     if (splitMethod === 'exact') {
+      for (const memberId of includedIds) {
+        const v = Number.parseFloat((shareInputs[memberId] ?? '').replace(/,/g, ''));
+        if (!Number.isFinite(v) || !isMajorWithinInputCap(v)) {
+          Alert.alert('Amount too large', AMOUNT_EXCEEDS_MAX_MESSAGE);
+          return;
+        }
+      }
       shares = includedIds.map((memberId) => ({
         memberId,
         valueMinor: amountToMinor(parseFloat(shareInputs[memberId] || '0')),
@@ -386,6 +425,18 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       }));
     }
     if (splitMethod === 'adjustment') {
+      for (const memberId of includedIds) {
+        const raw = shareInputs[memberId] ?? '0';
+        if (raw === '-') {
+          Alert.alert('Invalid adjustment', 'Finish the amount or leave the field blank for zero.');
+          return;
+        }
+        const v = Number.parseFloat(raw.replace(/,/g, ''));
+        if (!Number.isFinite(v) || !isMajorWithinInputCap(v)) {
+          Alert.alert('Amount too large', AMOUNT_EXCEEDS_MAX_MESSAGE);
+          return;
+        }
+      }
       shares = includedIds.map((memberId) => ({
         memberId,
         adjustmentMinor: amountToMinor(parseFloat(shareInputs[memberId] || '0')),
@@ -482,6 +533,17 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     return sum;
   }, [splitMethod, includedIds, shareInputs]);
 
+  const percentageRemainderBps = useMemo(() => {
+    if (splitMethod !== 'percentage' || includedIds.length === 0) return null;
+    let sumBps = 0;
+    for (const id of includedIds) {
+      const raw = shareInputs[id] ?? '';
+      const v = Number.parseFloat(raw.replace(/,/g, ''));
+      if (Number.isFinite(v)) sumBps += Math.round(v * 100);
+    }
+    return 10_000 - sumBps;
+  }, [splitMethod, includedIds, shareInputs]);
+
   if (!group) return null;
 
   return (
@@ -522,7 +584,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             <BottomSheetTextInput
               style={styles.amountHero}
               value={amount}
-              onChangeText={setAmount}
+              onChangeText={(v) => setAmount(sanitizeExpenseMajorInput(v))}
               keyboardType="decimal-pad"
               placeholder={`${symbol}0`}
               placeholderTextColor={palette.labelTertiary}
@@ -583,7 +645,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                   variant="inline"
                   options={[...SPLIT_OPTIONS]}
                   selectedIndex={splitIndex}
-                  onChange={setSplitIndex}
+                  onChange={handleSplitIndexChange}
                 />
                 <Text
                   style={styles.splitMethodDescription}
@@ -594,7 +656,21 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
               </View>
 
               <View style={{ gap: space[3] }}>
-                <Text style={styles.sectionLabel}>People</Text>
+                {splitMethod === 'percentage' && percentageRemainderBps != null ? (
+                  <Text
+                    style={[
+                      styles.percentageRemainderHint,
+                      percentageRemainderBps !== 0 ? { color: palette.warning } : null,
+                    ]}
+                    accessibilityLiveRegion="polite"
+                  >
+                    {percentageRemainderBps === 0
+                      ? '100% assigned — percentages add up.'
+                      : percentageRemainderBps > 0
+                        ? `${formatPercentDeltaFromBps(percentageRemainderBps)}% left to reach 100%.`
+                        : `${formatPercentDeltaFromBps(-percentageRemainderBps)}% over 100% — reduce some values.`}
+                  </Text>
+                ) : null}
                 <View style={styles.groupedList}>
                   {group.members.map((m, index) => {
                     const on = includedIds.includes(m.id);
@@ -663,7 +739,17 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                                   style={styles.shareInput}
                                   value={shareInputs[m.id] ?? ''}
                                   onChangeText={(v) =>
-                                    setShareInputs((prev) => ({ ...prev, [m.id]: v }))
+                                    setShareInputs((prev) => ({
+                                      ...prev,
+                                      [m.id]:
+                                        splitMethod === 'adjustment'
+                                          ? sanitizeSignedMajorInput(v)
+                                          : splitMethod === 'exact'
+                                            ? sanitizeExpenseMajorInput(v)
+                                            : splitMethod === 'percentage'
+                                              ? sanitizePercentMajorInput(v)
+                                              : v,
+                                    }))
                                   }
                                   keyboardType={perPersonKeyboardType}
                                   placeholder={perPersonPlaceholder}

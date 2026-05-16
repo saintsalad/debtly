@@ -10,7 +10,12 @@ import {
 import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { getCurrentUserMember } from '@/features/group-expense/balanceEngine';
-import { minorToMajor } from '@/features/debts/money';
+import {
+  AMOUNT_EXCEEDS_MAX_MESSAGE,
+  isMajorWithinInputCap,
+  minorToMajor,
+  sanitizeExpenseMajorInput,
+} from '@/features/debts/money';
 import type { SplitGroup } from '@/features/group-expense/types';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
@@ -131,6 +136,10 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
         Alert.alert('Amount required', 'Enter how much was paid.');
         return;
       }
+      if (!isMajorWithinInputCap(parsed)) {
+        Alert.alert('Amount too large', AMOUNT_EXCEEDS_MAX_MESSAGE);
+        return;
+      }
       const error = recordSettlement({
         groupId,
         fromMemberId,
@@ -197,7 +206,7 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
               <BottomSheetTextInput
                 style={styles.input}
                 value={amount}
-                onChangeText={setAmount}
+                onChangeText={(v) => setAmount(sanitizeExpenseMajorInput(v))}
                 keyboardType="decimal-pad"
                 placeholder={`${symbol}0.00`}
                 placeholderTextColor={palette.labelTertiary}
