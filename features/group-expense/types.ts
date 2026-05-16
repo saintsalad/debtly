@@ -1,4 +1,4 @@
-export type SplitMethod = 'equal' | 'exact' | 'percentage';
+export type SplitMethod = 'equal' | 'exact' | 'percentage' | 'shares' | 'adjustment';
 
 export interface GroupMember {
   id: string;
@@ -13,6 +13,10 @@ export interface ExpenseShare {
   memberId: string;
   valueMinor?: number;
   percentBps?: number;
+  /** Relative weight when splitMethod is 'shares' (e.g. 2 vs 1). Must be positive. */
+  shareParts?: number;
+  /** Delta from equal share (minor units) when splitMethod is 'adjustment'; must sum to 0 for included members. */
+  adjustmentMinor?: number;
 }
 
 export interface SplitGroup {

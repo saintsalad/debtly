@@ -28,6 +28,11 @@ function splitMethodLabel(method: GroupExpense['splitMethod']): string {
       return 'Custom split';
     case 'percentage':
       return 'Percent split';
+    case 'shares':
+      return 'Share split';
+    case 'adjustment':
+      return 'Adjustment split';
+    case 'equal':
     default:
       return 'Equal split';
   }

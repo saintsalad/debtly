@@ -1,5 +1,19 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GlassButton } from '@/components/ui/GlassButton';
+import { ListDivider } from '@/components/ui/ListDivider';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { minorToMajor } from '@/features/debts/money';
+import {
+  allocateEqualShares,
+  amountToMinor,
+  createDefaultShares,
+  getCurrentUserMember,
+} from '@/features/group-expense/balanceEngine';
+import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-expense/types';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useCurrency } from '@/hooks/useCurrency';
+import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -7,29 +21,61 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { ChevronDown } from 'lucide-react-native';
 import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
-import { GlassButton } from '@/components/ui/GlassButton';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import {
-  amountToMinor,
-  createDefaultShares,
-  getCurrentUserMember,
-} from '@/features/group-expense/balanceEngine';
-import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-expense/types';
-import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
-import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useCurrency } from '@/hooks/useCurrency';
-import { minorToMajor } from '@/features/debts/money';
-import { useColors, space, type, type ColorPalette } from '@/lib/platform';
-import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { ChevronDown } from 'lucide-react-native';
+import React, { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export interface AddExpenseSheetHandle {
   present: (groupId: string, expenseId?: string) => void;
   dismiss: () => void;
 }
 
-const SPLIT_OPTIONS = ['Equal', 'Custom', '%'];
+const SPLIT_OPTIONS = ['Equal', 'Custom', '%', 'Shares', 'Adjust'] as const;
+
+function splitMethodFromIndex(i: number): SplitMethod {
+  switch (i) {
+    case 1:
+      return 'exact';
+    case 2:
+      return 'percentage';
+    case 3:
+      return 'shares';
+    case 4:
+      return 'adjustment';
+    default:
+      return 'equal';
+  }
+}
+
+function splitIndexFromMethod(m: SplitMethod): number {
+  switch (m) {
+    case 'exact':
+      return 1;
+    case 'percentage':
+      return 2;
+    case 'shares':
+      return 3;
+    case 'adjustment':
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+/** One or two short lines under Split method; plain language. */
+const SPLIT_METHOD_DESCRIPTIONS: Record<SplitMethod, string> = {
+  equal:
+    "Splits the bill evenly between everyone who's included. You don't enter amounts for each person.",
+  exact:
+    'Type exactly how much each included person owes. Those amounts must add up to the bill total.',
+  percentage:
+    'Each person owes a percent of the bill. Enter percents for everyone included; they must total 100%.',
+  shares:
+    'Give each person a "share" number (for example 2 and 1 means one person pays twice as much). Only the ratios matter.',
+  adjustment:
+    'Each row starts from an equal share. Type + / − tweaks; overall they must cancel (net zero).',
+};
 
 function createSheetStyles(palette: ColorPalette) {
   return StyleSheet.create({
@@ -84,27 +130,138 @@ function createSheetStyles(palette: ColorPalette) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: space[2],
+      paddingVertical: space[3],
+      gap: space[3],
     },
-    advancedLabel: {
+    shareInput: {
+      width: 88,
+      minWidth: 88,
+      textAlign: 'right',
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: 14,
+      backgroundColor: palette.surface,
+      color: palette.label,
+      fontSize: 17,
+    },
+    adjustIntroTitle: {
       ...type.subheadline,
-      fontWeight: '500',
+      fontWeight: '600',
       color: palette.label,
     },
-    memberRow: {
+    adjustIntroHint: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      marginTop: space[1],
+      lineHeight: 18,
+    },
+    adjustIntroColumn: {
+      flex: 1,
+      paddingRight: space[2],
+    },
+    adjustPanel: {
+      gap: space[5],
+      paddingHorizontal: space[4],
+      paddingVertical: space[5],
+      borderRadius: radius.lg,
+      backgroundColor: palette.fillSecondary,
+    },
+    sectionLabel: {
+      ...type.subheadline,
+      fontWeight: '600',
+      color: palette.label,
+    },
+    splitMethodDescription: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      lineHeight: 20,
+      marginTop: space[2],
+    },
+    groupedList: {
+      borderRadius: radius.md,
+      overflow: 'hidden' as const,
+      backgroundColor: palette.fill,
+    },
+    groupedRowInner: {
+      paddingHorizontal: space[4],
+      paddingVertical: space[4],
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      minHeight: 48,
+    },
+    groupedRowLabel: {
+      ...type.body,
+      color: palette.label,
+      flex: 1,
+      paddingRight: space[3],
+    },
+    peopleRowLeft: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: space[2],
+      justifyContent: 'center',
+    },
+    peopleName: {
+      ...type.body,
+      color: palette.label,
+    },
+    peopleIncludeChip: {
+      flexShrink: 0,
+      paddingVertical: space[2],
+      paddingHorizontal: space[2],
+      minWidth: 76,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    peopleValueSlot: {
+      width: 88,
+      flexShrink: 0,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+      minHeight: 36,
+    },
+    peopleValuePlaceholder: {
+      ...type.body,
+      color: palette.labelTertiary,
+      paddingRight: space[3],
       paddingVertical: space[2],
     },
-    shareInput: {
-      width: 72,
-      textAlign: 'right',
-      paddingHorizontal: space[2],
-      paddingVertical: space[1],
-      borderRadius: 8,
+    groupedMeta: {
+      ...type.subheadline,
+      fontWeight: '500',
+      color: palette.labelSecondary,
+    },
+    groupedMetaOn: {
+      color: palette.tint,
+    },
+    adjustmentRowInner: {
+      alignItems: 'center',
+      minHeight: 52,
+    },
+    adjustmentRowLeft: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: space[3],
+      justifyContent: 'center',
+      gap: space[1],
+    },
+    adjustmentFairShareCaption: {
+      ...type.caption2,
+      color: palette.labelTertiary,
+    },
+    adjustmentNetStripe: {
+      marginTop: space[2],
+      paddingVertical: space[3],
+      paddingHorizontal: space[4],
+      borderRadius: radius.sm,
       backgroundColor: palette.fill,
-      color: palette.label,
+    },
+    adjustmentNetText: {
+      ...type.footnote,
+      fontWeight: '500',
+      color: palette.labelSecondary,
+      textAlign: 'center',
     },
   });
 }
@@ -115,7 +272,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const styles = useMemo(() => createSheetStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
   const sheetRef = useRef<BottomSheetModal>(null);
-  const { symbol } = useCurrency();
+  const { symbol, fmt } = useCurrency();
   const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
   const addExpense = useGroupExpenseStore((s) => s.addExpense);
   const updateExpense = useGroupExpenseStore((s) => s.updateExpense);
@@ -134,8 +291,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
-  const splitMethod: SplitMethod =
-    splitIndex === 1 ? 'exact' : splitIndex === 2 ? 'percentage' : 'equal';
+  const splitMethod = splitMethodFromIndex(splitIndex);
 
   const resetForGroup = useCallback((g: SplitGroup, existing?: GroupExpense) => {
     const current = getCurrentUserMember(g.members);
@@ -147,13 +303,28 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     setPaidByMemberId(existing?.paidByMemberId ?? current?.id ?? g.members[0]?.id ?? '');
     setIncludedIds(existing?.includedMemberIds ?? allIds);
     const method = existing?.splitMethod ?? 'equal';
-    setSplitIndex(method === 'exact' ? 1 : method === 'percentage' ? 2 : 0);
+    setSplitIndex(splitIndexFromMethod(method));
     setShowAdvanced(Boolean(existing && existing.splitMethod !== 'equal'));
-    if (existing?.shares) {
+    if (existing?.shares && existing.splitMethod !== 'equal') {
       const inputs: Record<string, string> = {};
+      const meth = existing.splitMethod;
       for (const s of existing.shares) {
-        if (s.valueMinor != null) inputs[s.memberId] = String(minorToMajor(s.valueMinor));
-        if (s.percentBps != null) inputs[s.memberId] = String(s.percentBps / 100);
+        switch (meth) {
+          case 'exact':
+            if (s.valueMinor != null) inputs[s.memberId] = String(minorToMajor(s.valueMinor));
+            break;
+          case 'percentage':
+            if (s.percentBps != null) inputs[s.memberId] = String(s.percentBps / 100);
+            break;
+          case 'shares':
+            if (s.shareParts != null) inputs[s.memberId] = String(s.shareParts);
+            break;
+          case 'adjustment':
+            if (s.adjustmentMinor != null) inputs[s.memberId] = String(minorToMajor(s.adjustmentMinor));
+            break;
+          default:
+            break;
+        }
       }
       setShareInputs(inputs);
     } else {
@@ -208,6 +379,18 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
         percentBps: Math.round(parseFloat(shareInputs[memberId] || '0') * 100),
       }));
     }
+    if (splitMethod === 'shares') {
+      shares = includedIds.map((memberId) => ({
+        memberId,
+        shareParts: parseFloat(shareInputs[memberId] ?? '1'),
+      }));
+    }
+    if (splitMethod === 'adjustment') {
+      shares = includedIds.map((memberId) => ({
+        memberId,
+        adjustmentMinor: amountToMinor(parseFloat(shareInputs[memberId] || '0')),
+      }));
+    }
 
     const payload = {
       groupId,
@@ -227,9 +410,79 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     sheetRef.current?.dismiss();
   };
 
-  if (!group) return null;
+  const splitSummaryLine = useMemo(() => {
+    const n = includedIds.length;
+    const peoplePhrase = n === 1 ? '1 person' : `${n} people`;
+    switch (splitMethod) {
+      case 'equal':
+        return `Split equally · ${peoplePhrase}`;
+      case 'exact':
+        return `Custom amounts · ${peoplePhrase}`;
+      case 'percentage':
+        return `Percent split · ${peoplePhrase}`;
+      case 'shares':
+        return `Split by shares · ${peoplePhrase}`;
+      case 'adjustment':
+        return `Split by adjustment · ${peoplePhrase}`;
+      default:
+        return `Split equally · ${peoplePhrase}`;
+    }
+  }, [includedIds.length, splitMethod]);
 
-  const splitSummary = `Split equally · ${includedIds.length} people`;
+  const perPersonAccessibilitySuffix =
+    splitMethod === 'percentage'
+      ? 'Percent owed'
+      : splitMethod === 'exact'
+        ? 'Amount owed'
+        : splitMethod === 'shares'
+          ? 'Share weight'
+          : splitMethod === 'adjustment'
+            ? 'Plus or minus vs even share'
+            : '';
+
+  const perPersonPlaceholder =
+    splitMethod === 'percentage'
+      ? '0'
+      : splitMethod === 'shares'
+        ? '1'
+        : splitMethod === 'adjustment'
+          ? '0'
+          : splitMethod === 'exact'
+            ? `${symbol}`
+            : '';
+
+  const perPersonKeyboardType =
+    splitMethod === 'adjustment'
+      ? ('numbers-and-punctuation' as const)
+      : ('decimal-pad' as const);
+
+  const adjustmentFairShareByMember = useMemo(() => {
+    if (splitMethod !== 'adjustment' || includedIds.length === 0) {
+      return {} as Record<string, string>;
+    }
+    const parsed = parseFloat(amount.replace(/,/g, ''));
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return {} as Record<string, string>;
+    }
+    const amountMinor = amountToMinor(parsed);
+    const equalMap = allocateEqualShares(amountMinor, includedIds);
+    const out: Record<string, string> = {};
+    for (const id of includedIds) {
+      out[id] = fmt(minorToMajor(equalMap.get(id) ?? 0));
+    }
+    return out;
+  }, [splitMethod, includedIds, amount, fmt]);
+
+  const adjustmentNetMinor = useMemo(() => {
+    if (splitMethod !== 'adjustment' || includedIds.length === 0) return 0;
+    let sum = 0;
+    for (const id of includedIds) {
+      sum += amountToMinor(parseFloat(shareInputs[id] || '0'));
+    }
+    return sum;
+  }, [splitMethod, includedIds, shareInputs]);
+
+  if (!group) return null;
 
   return (
     <BottomSheetModal
@@ -295,69 +548,160 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
               ))}
             </View>
             {!showAdvanced ? (
-              <Description>{splitSummary}</Description>
+              <Description>{splitSummaryLine}</Description>
             ) : null}
           </TextField>
 
           <Pressable
             style={styles.advancedToggle}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showAdvanced }}
             onPress={() => setShowAdvanced((v) => !v)}
           >
-            <Text style={styles.advancedLabel}>Adjust split</Text>
+            <View style={styles.adjustIntroColumn}>
+              <Text style={styles.adjustIntroTitle}>Adjust split</Text>
+              <Text style={styles.adjustIntroHint}>
+                {showAdvanced
+                  ? 'Choose how to divide the expense, pick who participates, then enter values.'
+                  : 'Equal, fixed amounts, percents, share weights (proportional), or fine-tuning from equal (adjustments).'}
+              </Text>
+            </View>
             <ChevronDown
-              size={18}
+              size={20}
               color={palette.labelSecondary}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
               style={{ transform: [{ rotate: showAdvanced ? '180deg' : '0deg' }] }}
             />
           </Pressable>
 
           {showAdvanced ? (
-            <>
-              <SegmentedControl
-                options={SPLIT_OPTIONS}
-                selectedIndex={splitIndex}
-                onChange={setSplitIndex}
-              />
-              <TextField>
-                <Label>Split with</Label>
-                {group.members.map((m) => {
-                  const on = includedIds.includes(m.id);
-                  return (
-                    <Pressable
-                      key={m.id}
-                      style={styles.memberRow}
-                      onPress={() => toggleMember(m.id)}
-                    >
-                      <Text style={styles.chipText}>{m.displayName}</Text>
-                      <Text style={[styles.chipText, on && { color: palette.tint }]}>
-                        {on ? 'Included' : 'Excluded'}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </TextField>
-              {splitMethod !== 'equal'
-                ? includedIds.map((memberId) => {
-                    const member = group.members.find((m) => m.id === memberId);
+            <View style={styles.adjustPanel}>
+              <View style={{ gap: space[3] }}>
+                <Text style={styles.sectionLabel}>Split method</Text>
+                <SegmentedControl
+                  variant="inline"
+                  options={[...SPLIT_OPTIONS]}
+                  selectedIndex={splitIndex}
+                  onChange={setSplitIndex}
+                />
+                <Text
+                  style={styles.splitMethodDescription}
+                  accessibilityLiveRegion="polite"
+                >
+                  {SPLIT_METHOD_DESCRIPTIONS[splitMethod]}
+                </Text>
+              </View>
+
+              <View style={{ gap: space[3] }}>
+                <Text style={styles.sectionLabel}>People</Text>
+                <View style={styles.groupedList}>
+                  {group.members.map((m, index) => {
+                    const on = includedIds.includes(m.id);
+                    const evenShareFmt = adjustmentFairShareByMember[m.id];
+                    const isAdjustment = splitMethod === 'adjustment';
+                    const needsValue = splitMethod !== 'equal';
+
                     return (
-                      <View key={memberId} style={styles.memberRow}>
-                        <Text style={styles.chipText}>{member?.displayName}</Text>
-                        <BottomSheetTextInput
-                          style={styles.shareInput}
-                          value={shareInputs[memberId] ?? ''}
-                          onChangeText={(v) =>
-                            setShareInputs((prev) => ({ ...prev, [memberId]: v }))
-                          }
-                          keyboardType="decimal-pad"
-                          placeholder={splitMethod === 'percentage' ? '%' : symbol}
-                          placeholderTextColor={palette.labelTertiary}
-                          keyboardAppearance={keyboardAppearance}
-                        />
-                      </View>
+                      <Fragment key={m.id}>
+                        {index > 0 ? <ListDivider /> : null}
+                        {!needsValue ? (
+                          <Pressable
+                            onPress={() => toggleMember(m.id)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: on }}
+                            accessibilityHint="Toggle whether this person is included in the split."
+                          >
+                            <View style={styles.groupedRowInner}>
+                              <Text style={styles.groupedRowLabel}>{m.displayName}</Text>
+                              <Text style={[styles.groupedMeta, on ? styles.groupedMetaOn : null]}>
+                                {on ? 'Included' : 'Excluded'}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ) : (
+                          <View
+                            style={[
+                              styles.groupedRowInner,
+                              isAdjustment && on ? styles.adjustmentRowInner : null,
+                            ]}
+                          >
+                            <View
+                              style={
+                                isAdjustment && on ? styles.adjustmentRowLeft : styles.peopleRowLeft
+                              }
+                            >
+                              <Text style={styles.peopleName}>{m.displayName}</Text>
+                              {isAdjustment && on ? (
+                                <Text style={styles.adjustmentFairShareCaption}>
+                                  {evenShareFmt ? `Even · ${evenShareFmt}` : 'Even · —'}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <Pressable
+                              onPress={() => toggleMember(m.id)}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: on }}
+                              accessibilityLabel={
+                                on
+                                  ? `${m.displayName}, included. Double tap to exclude.`
+                                  : `${m.displayName}, excluded. Double tap to include.`
+                              }
+                              style={styles.peopleIncludeChip}
+                            >
+                              <Text
+                                style={[styles.groupedMeta, on ? styles.groupedMetaOn : null]}
+                                numberOfLines={1}
+                              >
+                                {on ? 'Included' : 'Excluded'}
+                              </Text>
+                            </Pressable>
+                            <View style={styles.peopleValueSlot}>
+                              {on ? (
+                                <BottomSheetTextInput
+                                  accessibilityLabel={`${m.displayName}, ${perPersonAccessibilitySuffix}`}
+                                  style={styles.shareInput}
+                                  value={shareInputs[m.id] ?? ''}
+                                  onChangeText={(v) =>
+                                    setShareInputs((prev) => ({ ...prev, [m.id]: v }))
+                                  }
+                                  keyboardType={perPersonKeyboardType}
+                                  placeholder={perPersonPlaceholder}
+                                  placeholderTextColor={palette.labelTertiary}
+                                  keyboardAppearance={keyboardAppearance}
+                                />
+                              ) : (
+                                <Text
+                                  style={styles.peopleValuePlaceholder}
+                                  accessibilityElementsHidden
+                                  importantForAccessibility="no"
+                                >
+                                  —
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        )}
+                      </Fragment>
                     );
-                  })
-                : null}
-            </>
+                  })}
+                </View>
+                {splitMethod === 'adjustment' && includedIds.length > 0 ? (
+                  <View style={styles.adjustmentNetStripe} accessibilityLiveRegion="polite">
+                    <Text
+                      style={[
+                        styles.adjustmentNetText,
+                        adjustmentNetMinor !== 0 ? { color: palette.warning } : null,
+                      ]}
+                    >
+                      {adjustmentNetMinor === 0
+                        ? 'Balanced'
+                        : `${adjustmentNetMinor > 0 ? '+' : ''}${fmt(minorToMajor(adjustmentNetMinor))} net`}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
           ) : null}
 
           <GlassButton variant="primary" onPress={handleSave}>

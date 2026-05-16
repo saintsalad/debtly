@@ -70,6 +70,35 @@ export function allocatePercentShares(
   return result;
 }
 
+const MIN_SHARE_WEIGHT = 1e-9;
+
+/** Split amount proportionally by positive share weights (e.g. 2 shares vs 1 share). */
+export function allocateShareWeights(
+  amountMinor: number,
+  rows: Array<{ memberId: string; shareParts: number }>
+): Map<string, number> {
+  if (amountMinor <= 0 || rows.length === 0) return new Map<string, number>();
+
+  const weights = rows.map((r) => {
+    const p = Number.isFinite(r.shareParts) && r.shareParts > 0 ? r.shareParts : MIN_SHARE_WEIGHT;
+    return { memberId: r.memberId, parts: p };
+  });
+  const sumParts = weights.reduce((acc, r) => acc + r.parts, 0);
+  if (!(sumParts > 0)) return new Map<string, number>();
+
+  let accruedBps = 0;
+  const pseudoBps = weights.map((w, index) => {
+    if (index === weights.length - 1) {
+      return { memberId: w.memberId, percentBps: 10_000 - accruedBps };
+    }
+    const bps = Math.floor((10_000 * w.parts) / sumParts);
+    accruedBps += bps;
+    return { memberId: w.memberId, percentBps: bps };
+  });
+
+  return allocatePercentShares(amountMinor, pseudoBps);
+}
+
 export function computeExpenseShares(expense: GroupExpense): Map<string, number> {
   const included = expense.includedMemberIds;
   if (included.length === 0) return new Map();
@@ -91,6 +120,26 @@ export function computeExpenseShares(expense: GroupExpense): Map<string, number>
         .filter((s) => included.includes(s.memberId) && s.percentBps != null)
         .map((s) => ({ memberId: s.memberId, percentBps: s.percentBps! }));
       return allocatePercentShares(expense.amountMinor, percentShares);
+    }
+    case 'shares': {
+      const rows = included.map((memberId) => {
+        const row = expense.shares.find((s) => s.memberId === memberId);
+        const parts = row?.shareParts;
+        const shareParts =
+          parts != null && Number.isFinite(parts) && parts > 0 ? parts : 1;
+        return { memberId, shareParts };
+      });
+      return allocateShareWeights(expense.amountMinor, rows);
+    }
+    case 'adjustment': {
+      const base = allocateEqualShares(expense.amountMinor, included);
+      const final = new Map<string, number>();
+      for (const memberId of included) {
+        const row = expense.shares.find((s) => s.memberId === memberId);
+        const adj = row?.adjustmentMinor ?? 0;
+        final.set(memberId, (base.get(memberId) ?? 0) + adj);
+      }
+      return final;
     }
     default:
       return allocateEqualShares(expense.amountMinor, included);
@@ -237,7 +286,13 @@ export function validateExpenseShares(
   amountMinor: number,
   splitMethod: SplitMethod,
   includedMemberIds: string[],
-  shares: Array<{ memberId: string; valueMinor?: number; percentBps?: number }>
+  shares: Array<{
+    memberId: string;
+    valueMinor?: number;
+    percentBps?: number;
+    shareParts?: number;
+    adjustmentMinor?: number;
+  }>
 ): string | null {
   if (includedMemberIds.length === 0) return 'Select at least one participant.';
   if (amountMinor <= 0) return 'Enter an amount greater than 0.';
@@ -256,6 +311,31 @@ export function validateExpenseShares(
     if (sumBps !== 10_000) return 'Percentages must add up to 100%.';
   }
 
+  if (splitMethod === 'shares') {
+    for (const id of includedMemberIds) {
+      const row = shares.find((s) => s.memberId === id);
+      const parts = row?.shareParts;
+      if (!Number.isFinite(parts) || (parts ?? 0) <= 0) {
+        return 'Each included person needs a positive share weight.';
+      }
+    }
+  }
+
+  if (splitMethod === 'adjustment') {
+    const base = allocateEqualShares(amountMinor, includedMemberIds);
+    let sumAdj = 0;
+    for (const id of includedMemberIds) {
+      const row = shares.find((s) => s.memberId === id);
+      const adj = row?.adjustmentMinor ?? 0;
+      sumAdj += adj;
+      const final = (base.get(id) ?? 0) + adj;
+      if (final < 0) return 'Adjustments would make someone owe less than zero.';
+    }
+    if (sumAdj !== 0) {
+      return 'Adjustments must balance to zero (the sum of +/- amounts must be 0).';
+    }
+  }
+
   return null;
 }
 
@@ -267,31 +347,46 @@ export function createDefaultShares(
   splitMethod: SplitMethod,
   includedMemberIds: string[],
   amountMinor: number
-): Array<{ memberId: string; valueMinor?: number; percentBps?: number }> {
-  if (splitMethod === 'equal') {
-    return includedMemberIds.map((memberId) => ({ memberId }));
-  }
-  if (splitMethod === 'exact') {
-    const allocated = allocateEqualShares(amountMinor, includedMemberIds);
-    return includedMemberIds.map((memberId) => ({
-      memberId,
-      valueMinor: allocated.get(memberId) ?? 0,
-    }));
-  }
-  const count = includedMemberIds.length;
-  const baseBps = Math.floor(10_000 / count);
-  let remainder = 10_000 - baseBps * count;
-  return includedMemberIds.map((memberId, i) => {
-    let percentBps = baseBps;
-    if (remainder > 0 && i === includedMemberIds.length - 1) {
-      percentBps += remainder;
-      remainder = 0;
-    } else if (remainder > 0) {
-      percentBps += 1;
-      remainder -= 1;
+): Array<{
+  memberId: string;
+  valueMinor?: number;
+  percentBps?: number;
+  shareParts?: number;
+  adjustmentMinor?: number;
+}> {
+  switch (splitMethod) {
+    case 'equal':
+      return includedMemberIds.map((memberId) => ({ memberId }));
+    case 'exact': {
+      const allocated = allocateEqualShares(amountMinor, includedMemberIds);
+      return includedMemberIds.map((memberId) => ({
+        memberId,
+        valueMinor: allocated.get(memberId) ?? 0,
+      }));
     }
-    return { memberId, percentBps };
-  });
+    case 'percentage': {
+      const count = includedMemberIds.length;
+      const baseBps = Math.floor(10_000 / count);
+      let remainder = 10_000 - baseBps * count;
+      return includedMemberIds.map((memberId, i) => {
+        let percentBps = baseBps;
+        if (remainder > 0 && i === includedMemberIds.length - 1) {
+          percentBps += remainder;
+          remainder = 0;
+        } else if (remainder > 0) {
+          percentBps += 1;
+          remainder -= 1;
+        }
+        return { memberId, percentBps };
+      });
+    }
+    case 'shares':
+      return includedMemberIds.map((memberId) => ({ memberId, shareParts: 1 }));
+    case 'adjustment':
+      return includedMemberIds.map((memberId) => ({ memberId, adjustmentMinor: 0 }));
+    default:
+      return includedMemberIds.map((memberId) => ({ memberId }));
+  }
 }
 
 export function getCurrentUserMember(members: GroupMember[]): GroupMember | undefined {
