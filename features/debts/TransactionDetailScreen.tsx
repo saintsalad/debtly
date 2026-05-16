@@ -404,7 +404,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             ]}
           >
             <View style={styles.hero}>
-              <Avatar name={debt.personName} size={64} tone={isCredit ? 'credit' : 'debit'} />
+              <Avatar name={debt.personName} seed={debt.id} size={64} tone={isCredit ? 'credit' : 'debit'} />
               <Text style={styles.personName} numberOfLines={2}>
                 {debt.personName}
               </Text>

@@ -126,7 +126,7 @@ export function GroupCard({
             />
           </View>
         ) : (
-          <Avatar name={group.name} size={44} />
+          <Avatar name={group.name} variant="initials" size={44} />
         )}
         <View style={styles.body}>
           <View style={styles.topRow}>

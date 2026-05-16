@@ -132,7 +132,7 @@ export function AvatarStack({ members, size = 36, maxVisible = 4, overlay }: Ava
           slotStyle={styles.slot}
           clipStyle={styles.clip}
         >
-          <Avatar name={member.name} size={size} />
+          <Avatar name={member.name} seed={member.id} size={size} />
         </StackSlot>
       ))}
       {overflow > 0 ? (

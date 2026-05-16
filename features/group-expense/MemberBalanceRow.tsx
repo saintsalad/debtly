@@ -93,7 +93,7 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
   if (balance.isCurrentUser) {
     return (
       <View style={styles.row}>
-        <Avatar name={balance.displayName} size={40} />
+        <Avatar name={balance.displayName} seed={balance.memberId} size={40} />
         <View style={styles.body}>
           <Text style={styles.name}>{balance.displayName}</Text>
           <Text style={styles.sub}>You</Text>
@@ -113,6 +113,7 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
     <>
       <Avatar
         name={balance.displayName}
+        seed={balance.memberId}
         size={40}
         tone={balance.netMinor > 0 ? 'credit' : balance.netMinor < 0 ? 'debit' : undefined}
       />

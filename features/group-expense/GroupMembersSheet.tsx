@@ -169,7 +169,7 @@ function MemberRow({
 
   return (
     <View style={styles.row}>
-      <Avatar name={member.displayName} size={40} />
+      <Avatar name={member.displayName} seed={member.id} size={40} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {member.displayName}

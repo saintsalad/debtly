@@ -151,7 +151,7 @@ export function TransactionRow({
         }
         accessibilityHint={accessibilityHint}
       >
-        <Avatar name={debt.personName} size={40} tone={avatarTone} />
+        <Avatar name={debt.personName} seed={debt.id} size={40} tone={avatarTone} />
 
         <View style={styles.body}>
           <View style={styles.topRow}>

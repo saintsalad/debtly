@@ -171,7 +171,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
           onPressIn={() => { scale.value = withSpring(0.978, { damping: 18 }); }}
           onPressOut={() => { scale.value = withSpring(1, { damping: 18 }); }}
         >
-          <Avatar name={debt.personName} size={42} tone={isCredit ? 'credit' : 'debit'} />
+          <Avatar name={debt.personName} seed={debt.id} size={42} tone={isCredit ? 'credit' : 'debit'} />
 
           <View style={styles.body}>
             <View style={styles.row}>
