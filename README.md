@@ -98,14 +98,22 @@ pnpm test
 - [x] Deep link handler for group invite codes (local join flow)
 - [x] Money input caps and validation tests
 - [x] Centralized design tokens (`lib/theme/tokens.ts`) for brand, semantic colors, and chrome (tab bar, glass, shadows)
+- [x] **Print receipt** for individual transactions (thermal-style share / print flow)
 
 ### In progress / planned
 
-- [ ] Remote backend and real-time multi-device sync (repository adapter stub exists; store is local-only today)
-- [ ] Authenticated accounts and shared group state across users
+- [ ] **SQLite** integration for fully local storage (evolve beyond AsyncStorage for scale and querying)
+- [ ] **Import / export** data (backup, migrate devices, interoperability)
+- [ ] **Print receipt** for split bill / group expenses (parity with transaction receipts)
+- [ ] **Toast / in-app notifications** for successful actions (and clearer feedback elsewhere as needed)
+- [ ] **WebSocket / real-time** updates for split bill groups (live activity and balances where it matters)
+- [ ] **Registration page** toward authenticated accounts and **shared group state across users**
+- [ ] Remote backend and multi-device sync (repository adapter stub exists; stores are local-only today)
+- [ ] **Insights** page (dedicated analytics beyond Home summary widgets)
+- [ ] **Onboarding** design (first launch, progressive disclosure, empty states)
 - [ ] Broader automated test coverage (UI / integration)
-- [ ] Receipt attachments and export beyond share sheets
-- [ ] Web polish (app runs via Expo web but is optimized for mobile)
+- [ ] Receipt attachments and richer export beyond share sheets / print
+- [ ] Web polish (Expo web works but mobile is the focus)
 
 ### Legacy note
 
