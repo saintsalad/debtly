@@ -5,6 +5,9 @@ import { Debt, DebtPayment, DebtType } from '@/features/debts/types';
 
 const NOW = new Date();
 
+const MOCK_SPLIT_LUNCH_ID = 'mock-split-lunch';
+const MOCK_INSTAL_PLAN_GROUP = 'mock-otm-instal-plan';
+
 type MockDebtScenario = {
   id: string;
   personName: string;
@@ -13,13 +16,28 @@ type MockDebtScenario = {
   note?: string;
   createdAt: Date;
   dueDate?: Date;
+  startDate?: Date;
   status?: 'pending' | 'paid';
   payments?: DebtPayment[];
   interestRatePercent?: number;
+  interestType?: 'simple' | 'compound';
   interestStartMode?: 'immediate' | 'after_due';
   interestAccrualFrequency?: 'monthly' | 'yearly';
   isRecurring?: boolean;
   recurrenceInterval?: 'weekly' | 'monthly' | 'yearly';
+  carryOverBalance?: boolean;
+  instalmentCount?: number;
+  instalmentIndex?: number;
+  /** Major units; defaults to `amount * instalmentCount` when instalments are set. */
+  instalmentTotalMajor?: number;
+  sourceType?: Debt['sourceType'];
+  sourceGroupId?: string;
+  splitGroupId?: string;
+  recurringGroupId?: string;
+  recurringSourceId?: string;
+  currency?: string;
+  originalAmountMinor?: number;
+  conversionRate?: number;
 };
 
 function toDateOnly(date: Date): string {
@@ -30,44 +48,100 @@ function buildMockDebt(scenario: MockDebtScenario): Debt {
   const principalMinor = majorToMinor(scenario.amount);
   const createdAt = scenario.createdAt.toISOString();
   const payments = scenario.payments ?? [];
-  const principalPaidMinor = payments.reduce(
-    (sum, payment) => sum + payment.principalAppliedMinor,
-    0
-  );
-  const interestPaidMinor = payments.reduce(
-    (sum, payment) => sum + payment.interestAppliedMinor,
-    0
-  );
+  const interestPaidMinor = payments.reduce((sum, p) => sum + p.interestAppliedMinor, 0);
+  const principalPaidFromPayments = payments.reduce((sum, p) => sum + p.principalAppliedMinor, 0);
   const status = scenario.status ?? 'pending';
-  const dueDate = scenario.dueDate ? toDateOnly(scenario.dueDate) : undefined;
+  const dueDateStr = scenario.dueDate ? toDateOnly(scenario.dueDate) : undefined;
+  const startDateStr = scenario.startDate ? toDateOnly(scenario.startDate) : undefined;
 
-  return {
+  const instalmentCount = scenario.instalmentCount;
+  const instalmentIndex =
+    instalmentCount != null ? (scenario.instalmentIndex ?? 1) : undefined;
+  const instalmentTotalMinor =
+    instalmentCount != null
+      ? majorToMinor(scenario.instalmentTotalMajor ?? scenario.amount * instalmentCount)
+      : undefined;
+
+  const isRecurring = Boolean(
+    scenario.isRecurring && scenario.recurrenceInterval && dueDateStr
+  );
+
+  const principalPaidMinor =
+    status === 'paid' ? principalMinor : principalPaidFromPayments;
+
+  let paidAt: string | undefined;
+  if (status === 'paid') {
+    if (payments.length > 0) {
+      const sorted = [...payments].sort(
+        (a, b) => new Date(a.paidAt).getTime() - new Date(b.paidAt).getTime()
+      );
+      paidAt = sorted[sorted.length - 1]!.paidAt;
+    } else {
+      paidAt = scenario.dueDate?.toISOString() ?? createdAt;
+    }
+  }
+
+  const recurringGroupId = scenario.recurringGroupId ?? scenario.id;
+  const recurringSourceId = scenario.recurringSourceId ?? scenario.id;
+
+  let recurrenceAnchorDate: string | undefined;
+  if (isRecurring && dueDateStr) {
+    recurrenceAnchorDate = dueDateStr;
+  } else if (instalmentCount != null && scenario.dueDate && dueDateStr) {
+    recurrenceAnchorDate = toDateOnly(
+      subMonths(scenario.dueDate, (instalmentIndex ?? 1) - 1)
+    );
+  } else if (scenario.recurrenceInterval && dueDateStr) {
+    recurrenceAnchorDate = dueDateStr;
+  }
+
+  const debt: Debt = {
     id: scenario.id,
     personName: scenario.personName,
     principalMinor,
     type: scenario.type,
     note: scenario.note,
-    dueDate,
+    dueDate: dueDateStr,
+    startDate: startDateStr,
     status,
-    paidAt: status === 'paid' ? createdAt : undefined,
-    interestRateBps: scenario.interestRatePercent
-      ? interestRateToBps(scenario.interestRatePercent)
-      : undefined,
-    interestStartMode: scenario.interestStartMode,
-    interestAccrualFrequency: scenario.interestAccrualFrequency,
-    interestStartDate: scenario.interestRatePercent ? toDateOnly(scenario.createdAt) : undefined,
-    isRecurring: scenario.isRecurring,
-    recurrenceInterval: scenario.recurrenceInterval,
-    recurrenceAnchorDate: scenario.isRecurring ? dueDate : undefined,
-    nextCycleDate: scenario.isRecurring ? dueDate : undefined,
-    interestPaidMinor,
-    principalPaidMinor: status === 'paid' ? principalMinor : principalPaidMinor,
+    paidAt,
     createdAt,
     updatedAt: createdAt,
     payments,
-    recurringGroupId: scenario.id,
-    recurringSourceId: scenario.id,
+    interestPaidMinor,
+    principalPaidMinor,
+    recurringGroupId,
+    recurringSourceId,
+    sourceType: scenario.sourceType,
+    sourceGroupId: scenario.sourceGroupId,
+    splitGroupId: scenario.splitGroupId,
+    currency: scenario.currency,
+    originalAmountMinor: scenario.originalAmountMinor,
+    conversionRate: scenario.conversionRate,
+    isRecurring,
+    recurrenceInterval: scenario.recurrenceInterval,
+    recurrenceAnchorDate,
+    nextCycleDate: isRecurring ? dueDateStr : undefined,
+    carryOverBalance: isRecurring ? (scenario.carryOverBalance ?? false) : false,
+    instalmentTotal: instalmentTotalMinor,
+    instalmentCount,
+    instalmentIndex,
   };
+
+  if (scenario.interestRatePercent != null && scenario.interestRatePercent > 0) {
+    const interestStartMode = scenario.interestStartMode ?? 'immediate';
+    debt.interestRateBps = interestRateToBps(scenario.interestRatePercent);
+    debt.interestType = scenario.interestType ?? 'simple';
+    debt.interestStartMode = interestStartMode;
+    debt.interestAccrualFrequency = scenario.interestAccrualFrequency ?? 'monthly';
+    debt.interestStartDate =
+      interestStartMode === 'after_due' && dueDateStr
+        ? dueDateStr
+        : toDateOnly(scenario.createdAt);
+    debt.accruedInterestMinor = 0;
+  }
+
+  return debt;
 }
 
 function payment(
@@ -88,326 +162,147 @@ function payment(
   };
 }
 
+/** Six `owed_to_me` + six `i_owe` seeds aligned with `Debt` / `createDebtFromInput` fields. */
 const MOCK_DEBT_SCENARIOS: MockDebtScenario[] = [
+  // —— owed_to_me (6) ——
   {
-    id: 'mock-1',
+    id: 'mock-otm-1',
     personName: 'Alex Johnson',
     amount: 150,
     type: 'owed_to_me',
-    note: 'Lunch split at The Grove',
-    createdAt: subDays(NOW, 2),
-    dueDate: addDays(NOW, 3),
+    note: 'Client invoice (USD)',
+    createdAt: subDays(NOW, 4),
+    dueDate: addDays(NOW, 5),
+    currency: 'USD',
+    originalAmountMinor: majorToMinor(150),
     interestRatePercent: 5,
+    interestType: 'simple',
     interestStartMode: 'immediate',
     interestAccrualFrequency: 'monthly',
   },
   {
-    id: 'mock-2',
+    id: 'mock-otm-2',
     personName: 'Sarah Chen',
     amount: 45.5,
     type: 'owed_to_me',
     note: 'Movie tickets',
-    createdAt: subDays(NOW, 4),
-    dueDate: subDays(NOW, 2),
-    payments: [payment('mock-2-pay-1', 20, subDays(NOW, 6), 'First installment')],
+    createdAt: subDays(NOW, 6),
+    dueDate: subDays(NOW, 4),
+    payments: [payment('mock-otm-2-pay-1', 18, subDays(NOW, 8), 'Partial')],
   },
   {
-    id: 'mock-3',
-    personName: 'Mike Rodriguez',
-    amount: 80,
-    type: 'i_owe',
-    note: 'Uber rides last weekend',
-    createdAt: subDays(NOW, 1),
-    dueDate: addDays(NOW, 7),
-    isRecurring: true,
-    recurrenceInterval: 'monthly',
-  },
-  {
-    id: 'mock-4',
+    id: 'mock-otm-3',
     personName: 'Emma Wilson',
     amount: 200,
     type: 'owed_to_me',
     note: 'Concert tickets advance',
-    createdAt: subDays(NOW, 10),
-    dueDate: subDays(NOW, 5),
+    createdAt: subMonths(NOW, 2),
+    dueDate: subDays(NOW, 38),
     status: 'paid',
   },
   {
-    id: 'mock-5',
-    personName: 'James Park',
-    amount: 35,
-    type: 'i_owe',
-    note: 'Coffee and snacks run',
-    createdAt: subDays(NOW, 3),
+    id: 'mock-otm-4',
+    personName: 'Morgan Reid',
+    amount: 85,
+    type: 'owed_to_me',
+    note: 'Studio rent — instalment 2 of 6',
+    createdAt: subMonths(NOW, 1),
     dueDate: addDays(NOW, 14),
-  },
-  {
-    id: 'mock-6',
-    personName: 'Priya Nair',
-    amount: 120,
-    type: 'owed_to_me',
-    note: 'Group dinner reimbursement',
-    createdAt: subMonths(NOW, 1),
-    dueDate: subDays(NOW, 12),
-  },
-  {
-    id: 'mock-7',
-    personName: 'Daniel Ortiz',
-    amount: 62.75,
-    type: 'i_owe',
-    note: 'Shared streaming subscription',
-    createdAt: subMonths(NOW, 1),
-    dueDate: addDays(NOW, 2),
-    isRecurring: true,
+    isRecurring: false,
     recurrenceInterval: 'monthly',
+    instalmentCount: 6,
+    instalmentIndex: 2,
+    instalmentTotalMajor: 85 * 6,
+    recurringGroupId: MOCK_INSTAL_PLAN_GROUP,
+    recurringSourceId: MOCK_INSTAL_PLAN_GROUP,
   },
   {
-    id: 'mock-8',
-    personName: 'Hannah Lee',
-    amount: 18,
+    id: 'mock-otm-5',
+    personName: 'Riley Park',
+    amount: 58.25,
     type: 'owed_to_me',
-    note: 'Parking split',
-    createdAt: subMonths(NOW, 1),
+    note: 'Team dinner (your half)',
+    createdAt: subDays(NOW, 3),
+    dueDate: addDays(NOW, 11),
+    sourceType: 'personal_split',
+    splitGroupId: MOCK_SPLIT_LUNCH_ID,
+  },
+  {
+    id: 'mock-otm-6',
+    personName: 'Jordan Blake',
+    amount: 58.25,
+    type: 'owed_to_me',
+    note: 'Team dinner (your half)',
+    createdAt: subDays(NOW, 3),
+    dueDate: addDays(NOW, 11),
+    sourceType: 'personal_split',
+    splitGroupId: MOCK_SPLIT_LUNCH_ID,
+  },
+  // —— i_owe (6) ——
+  {
+    id: 'mock-iow-1',
+    personName: 'Mike Rodriguez',
+    amount: 24,
+    type: 'i_owe',
+    note: 'Coworking day pass',
+    createdAt: subDays(NOW, 2),
     dueDate: addDays(NOW, 5),
-    status: 'paid',
+    isRecurring: true,
+    recurrenceInterval: 'weekly',
   },
   {
-    id: 'mock-9',
+    id: 'mock-iow-2',
     personName: 'Noah Brooks',
-    amount: 250,
+    amount: 320,
     type: 'i_owe',
-    note: 'Weekend cabin rental share',
-    createdAt: subMonths(NOW, 2),
-    dueDate: subDays(NOW, 20),
-    payments: [payment('mock-9-pay-1', 100, subMonths(NOW, 1), 'Deposit')],
-  },
-  {
-    id: 'mock-10',
-    personName: 'Olivia Grant',
-    amount: 95,
-    type: 'owed_to_me',
-    note: 'Baby shower gift pool',
-    createdAt: subMonths(NOW, 2),
-    dueDate: addDays(NOW, 18),
-  },
-  {
-    id: 'mock-11',
-    personName: 'Ethan Moore',
-    amount: 40,
-    type: 'i_owe',
-    note: 'Board game night snacks',
-    createdAt: subMonths(NOW, 2),
-    dueDate: subDays(NOW, 1),
-  },
-  {
-    id: 'mock-12',
-    personName: 'Mia Santos',
-    amount: 310,
-    type: 'owed_to_me',
-    note: 'Freelance invoice advance',
-    createdAt: subMonths(NOW, 3),
-    dueDate: subDays(NOW, 30),
-    interestRatePercent: 8,
-    interestStartMode: 'after_due',
+    note: 'Shared equipment',
+    createdAt: subDays(NOW, 10),
+    dueDate: addDays(NOW, 28),
+    interestRatePercent: 7,
+    interestType: 'compound',
+    interestStartMode: 'immediate',
     interestAccrualFrequency: 'monthly',
   },
   {
-    id: 'mock-13',
-    personName: 'Liam Carter',
-    amount: 27.5,
-    type: 'i_owe',
-    note: 'Lunch tab',
-    createdAt: subMonths(NOW, 3),
-    dueDate: addDays(NOW, 4),
-    status: 'paid',
-  },
-  {
-    id: 'mock-14',
-    personName: 'Ava Thompson',
-    amount: 72,
-    type: 'owed_to_me',
-    note: 'Airport shuttle',
-    createdAt: subMonths(NOW, 3),
-    dueDate: addDays(NOW, 9),
-    payments: [payment('mock-14-pay-1', 30, subMonths(NOW, 2))],
-  },
-  {
-    id: 'mock-15',
-    personName: 'Lucas Kim',
-    amount: 500,
-    type: 'i_owe',
-    note: 'Security deposit loan',
-    createdAt: subMonths(NOW, 4),
-    dueDate: subDays(NOW, 45),
-    payments: [
-      payment('mock-15-pay-1', 150, subMonths(NOW, 3)),
-      payment('mock-15-pay-2', 100, subMonths(NOW, 2)),
-    ],
-  },
-  {
-    id: 'mock-16',
-    personName: 'Sophie Martin',
-    amount: 14.25,
-    type: 'owed_to_me',
-    note: 'Vending machine change',
-    createdAt: subMonths(NOW, 4),
-    dueDate: addDays(NOW, 1),
-  },
-  {
-    id: 'mock-17',
+    id: 'mock-iow-3',
     personName: 'Ben Rivera',
-    amount: 88,
+    amount: 180,
     type: 'i_owe',
-    note: 'Gym membership split',
-    createdAt: subMonths(NOW, 4),
+    note: 'Annual membership',
+    createdAt: subMonths(NOW, 2),
+    dueDate: addDays(NOW, 40),
     isRecurring: true,
     recurrenceInterval: 'yearly',
-    dueDate: addDays(NOW, 60),
+    carryOverBalance: true,
   },
   {
-    id: 'mock-18',
-    personName: 'Chloe Adams',
-    amount: 165,
-    type: 'owed_to_me',
-    note: 'Photography session fee',
-    createdAt: subMonths(NOW, 5),
-    dueDate: subDays(NOW, 10),
-    status: 'paid',
-  },
-  {
-    id: 'mock-19',
-    personName: 'Marcus Hill',
-    amount: 54,
-    type: 'i_owe',
-    note: 'Concert merch',
-    createdAt: subMonths(NOW, 5),
-    dueDate: subDays(NOW, 3),
-  },
-  {
-    id: 'mock-20',
-    personName: 'Isabella Rossi',
-    amount: 220,
-    type: 'owed_to_me',
-    note: 'Wedding vendor deposit',
-    createdAt: subMonths(NOW, 5),
-    dueDate: addDays(NOW, 25),
-    payments: [payment('mock-20-pay-1', 80, subMonths(NOW, 4))],
-  },
-  {
-    id: 'mock-21',
-    personName: 'Ryan Patel',
-    amount: 33,
-    type: 'i_owe',
-    note: 'Team lunch',
-    createdAt: subMonths(NOW, 6),
-    dueDate: addDays(NOW, 6),
-  },
-  {
-    id: 'mock-22',
-    personName: 'Nina Volkov',
-    amount: 410,
-    type: 'owed_to_me',
-    note: 'Apartment repair reimbursement',
-    createdAt: subMonths(NOW, 6),
-    dueDate: subDays(NOW, 18),
-    interestRatePercent: 6,
-    interestStartMode: 'immediate',
-    interestAccrualFrequency: 'yearly',
-  },
-  {
-    id: 'mock-23',
+    id: 'mock-iow-4',
     personName: 'Chris Young',
-    amount: 19.99,
+    amount: 62,
     type: 'i_owe',
-    note: 'App subscription',
-    createdAt: subMonths(NOW, 6),
-    dueDate: addDays(NOW, 12),
+    note: 'Festival tickets',
+    createdAt: subMonths(NOW, 1),
+    dueDate: subDays(NOW, 6),
     status: 'paid',
+    payments: [payment('mock-iow-4-pay-1', 62, subDays(NOW, 12), 'Settled')],
   },
   {
-    id: 'mock-24',
-    personName: 'Taylor Reed',
-    amount: 76,
-    type: 'owed_to_me',
-    note: 'Camping supplies',
-    createdAt: subMonths(NOW, 7),
-    dueDate: subDays(NOW, 7),
-  },
-  {
-    id: 'mock-25',
-    personName: 'Jordan Blake',
-    amount: 130,
+    id: 'mock-iow-5',
+    personName: 'Dana Liu',
+    amount: 42,
     type: 'i_owe',
-    note: 'Car wash and fuel',
-    createdAt: subMonths(NOW, 7),
-    dueDate: addDays(NOW, 20),
-    payments: [payment('mock-25-pay-1', 50, subMonths(NOW, 6))],
+    note: 'Informal loan — no due date yet',
+    createdAt: subMonths(NOW, 3),
   },
   {
-    id: 'mock-26',
-    personName: 'Elena Costa',
-    amount: 48,
-    type: 'owed_to_me',
-    note: 'Book club order',
-    createdAt: subMonths(NOW, 8),
-    dueDate: addDays(NOW, 11),
-  },
-  {
-    id: 'mock-27',
-    personName: 'Sam Nguyen',
-    amount: 290,
+    id: 'mock-iow-6',
+    personName: 'Evan Carr',
+    amount: 95,
     type: 'i_owe',
-    note: 'Furniture delivery fee',
-    createdAt: subMonths(NOW, 8),
-    dueDate: subDays(NOW, 25),
-  },
-  {
-    id: 'mock-28',
-    personName: 'Grace Okafor',
-    amount: 60,
-    type: 'owed_to_me',
-    note: 'Ride share to airport',
-    createdAt: subMonths(NOW, 9),
-    dueDate: subDays(NOW, 40),
-    status: 'paid',
-  },
-  {
-    id: 'mock-29',
-    personName: 'Felix Bauer',
-    amount: 102.5,
-    type: 'i_owe',
-    note: 'Office party supplies',
-    createdAt: subMonths(NOW, 9),
-    dueDate: addDays(NOW, 8),
-  },
-  {
-    id: 'mock-30',
-    personName: 'Riley Morgan',
-    amount: 175,
-    type: 'owed_to_me',
-    note: 'Language class fee',
-    createdAt: subMonths(NOW, 10),
-    dueDate: addDays(NOW, 16),
-    payments: [payment('mock-30-pay-1', 60, subMonths(NOW, 9))],
-  },
-  {
-    id: 'mock-31',
-    personName: 'Carmen Diaz',
-    amount: 24,
-    type: 'i_owe',
-    note: 'Borrowed cash for transit',
-    createdAt: subMonths(NOW, 10),
-  },
-  {
-    id: 'mock-32',
-    personName: 'Harper Quinn',
-    amount: 360,
-    type: 'owed_to_me',
-    note: 'Event booth rental',
-    createdAt: subMonths(NOW, 11),
-    dueDate: addDays(NOW, 3),
-    isRecurring: true,
-    recurrenceInterval: 'weekly',
+    note: 'Parking pass (starts next week)',
+    createdAt: subDays(NOW, 1),
+    startDate: addDays(NOW, 7),
+    dueDate: addDays(NOW, 35),
   },
 ];
 

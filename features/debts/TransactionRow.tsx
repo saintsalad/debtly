@@ -21,7 +21,7 @@ interface TransactionRowProps {
   onPress: () => void;
   showSeparator?: boolean;
   dividerVariant?: 'default' | 'glass';
-  /** Month bucket from the transactions screen — past buckets render with neutral emphasis. */
+  /** Month bucket from the transactions screen — past + settled rows use softer “history” emphasis. */
   dueMonthTier?: TransactionDueMonthTier;
 }
 
@@ -126,18 +126,18 @@ export function TransactionRow({
   const styles = useMemo(() => createStyles(palette, rowPressedColor), [palette, rowPressedColor]);
   const { fmt } = useCurrency();
   const dueUI = useMemo(() => getTransactionDuePresentation(debt), [debt]);
-  const mutedPastDueMonthBucket = dueMonthTier === 'past';
-
-  const badgeColors = useMemo(() => {
-    if (mutedPastDueMonthBucket) return null;
-    return dueUrgencyBadgeColors(palette, dueUI.tone);
-  }, [mutedPastDueMonthBucket, palette, dueUI.tone]);
-
   const isCredit = debt.type === 'owed_to_me';
   const remainingBalance = getRemainingBalance(debt);
   const settledAmount = getSettledDisplayAmount(debt);
   const totalPaid = getTotalPaid(debt);
   const isPaid = dueUI.tone === 'paid';
+  /** Past month sections used to mute every row; unpaid/overdue there should still read as actionable. */
+  const mutedPastPaidRow = dueMonthTier === 'past' && isPaid;
+
+  const badgeColors = useMemo(() => {
+    if (mutedPastPaidRow) return null;
+    return dueUrgencyBadgeColors(palette, dueUI.tone);
+  }, [mutedPastPaidRow, palette, dueUI.tone]);
   const displayAmount = isPaid ? settledAmount : remainingBalance;
 
   const avatarTone = isCredit ? 'credit' : 'debit';
@@ -169,53 +169,29 @@ export function TransactionRow({
           seed={debt.id}
           size={40}
           tone={avatarTone}
-          muted={mutedPastDueMonthBucket || isPaid}
+          muted={isPaid}
         />
 
         <View style={styles.body}>
           <View style={styles.topRow}>
             <Text
-              style={[
-                styles.name,
-                isPaid && styles.namePaid,
-                mutedPastDueMonthBucket &&
-                  !isPaid && {
-                    color: palette.labelSecondary,
-                  },
-              ]}
+              style={[styles.name, isPaid && styles.namePaid]}
               numberOfLines={1}
             >
               {debt.personName}
             </Text>
             <Text
-              style={[
-                styles.amount,
-                isPaid && styles.amountPaid,
-                mutedPastDueMonthBucket &&
-                  !isPaid && {
-                    color: palette.labelSecondary,
-                    fontWeight: '500' as const,
-                  },
-              ]}
+              style={[styles.amount, isPaid && styles.amountPaid]}
             >
               {isPaid ? fmt(displayAmount) : `${isCredit ? '+' : '−'}${fmt(displayAmount)}`}
             </Text>
           </View>
 
           <View style={styles.bottomRow}>
-            <Text
-              style={[
-                styles.note,
-                mutedPastDueMonthBucket &&
-                  !isPaid && {
-                    color: palette.labelTertiary,
-                  },
-              ]}
-              numberOfLines={1}
-            >
+            <Text style={styles.note} numberOfLines={1}>
               {debt.note || (totalPaid > 0 ? `${fmt(totalPaid)} paid` : '')}
             </Text>
-            {mutedPastDueMonthBucket && dueUI.label ? (
+            {mutedPastPaidRow && dueUI.label ? (
               <View style={styles.mutedStatusPill}>
                 <Text
                   style={[styles.statusBadgeLabel, { color: palette.labelSecondary }]}

@@ -267,7 +267,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const styles = useMemo(() => createStyles(palette), [palette]);
   const router = useRouter();
   const { fmt } = useCurrency();
-  const { markPaid, deleteDebt, recordPayment } = useDebtStore();
+  const { markPaid, markUnpaid, deleteDebt, recordPayment } = useDebtStore();
   const insets = useSafeAreaInsets();
   const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
   const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
@@ -348,6 +348,24 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           notifySuccess(toast, 'Marked as paid', 'Remaining balance is settled.');
           onClose();
+        },
+      },
+    ]);
+  };
+
+  const handleMarkUnpaid = () => {
+    Alert.alert('Mark unpaid?', 'Reopen this transaction?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark unpaid',
+        onPress: () => {
+          const err = markUnpaid(debt.id);
+          if (err) {
+            Alert.alert("Can't reopen", err);
+            return;
+          }
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Marked as unpaid');
         },
       },
     ]);
@@ -560,6 +578,12 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               {isPending ? (
                 <GlassButton variant="primary" size="lg" className="w-full" onPress={handlePaymentPress}>
                   <GlassButton.Label>Record payment</GlassButton.Label>
+                </GlassButton>
+              ) : null}
+
+              {isPaid ? (
+                <GlassButton variant="secondary" size="lg" className="w-full" onPress={handleMarkUnpaid}>
+                  <GlassButton.Label>Mark unpaid</GlassButton.Label>
                 </GlassButton>
               ) : null}
 

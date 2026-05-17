@@ -39,6 +39,8 @@ interface DebtState {
   recordPayment: (id: string, input: RecordPaymentInput) => string | null;
   deletePayment: (debtId: string, paymentId: string) => void;
   markPaid: (id: string) => void;
+  /** Reopens a paid debt when settlement was mistaken; see store implementation for limits. */
+  markUnpaid: (id: string) => string | null;
   clearAll: () => void;
   syncGroupDebtsToLedger: (
     group: SplitGroup,
@@ -87,6 +89,22 @@ function closeCarryOverCycle(debts: Debt[], debt: Debt, closedAt: string): Debt[
 
 function withSyncedDebts(debts: Debt[]): Debt[] {
   return debts.map((debt) => syncDebtLedger(debt));
+}
+
+/** Synthetic row appended by `markPaid` when closing a remaining balance. */
+const SETTLEMENT_NOTE_MARKED_PAID = 'Marked as paid';
+
+/**
+ * Recurring / instalment flows spawn a pending next-cycle debt with the same timestamp as `paidAt`.
+ * When reopening a settled cycle, drop that sibling so the ledger does not show two open cycles.
+ */
+function isSpawnedRecurringCycle(parent: Debt, candidate: Debt, paidAt: string | undefined): boolean {
+  if (!paidAt || candidate.id === parent.id) return false;
+  if (candidate.status !== 'pending') return false;
+  if ((candidate.payments?.length ?? 0) > 0) return false;
+  if (candidate.createdAt !== paidAt) return false;
+  const group = parent.recurringGroupId ?? parent.id;
+  return candidate.recurringGroupId === group;
 }
 
 export const useDebtStore = create<DebtState>()(
@@ -234,7 +252,7 @@ export const useDebtStore = create<DebtState>()(
                           ...debt,
                           payments: [
                             ...(debt.payments ?? []),
-                            createPaymentRecord(debt, remaining, now, 'Marked as paid'),
+                            createPaymentRecord(debt, remaining, now, SETTLEMENT_NOTE_MARKED_PAID),
                           ],
                           updatedAt: now,
                         },
@@ -251,6 +269,47 @@ export const useDebtStore = create<DebtState>()(
             ),
           };
         }),
+      markUnpaid: (id) => {
+        const now = new Date().toISOString();
+        const state = get();
+        const debt = state.debts.find((d) => d.id === id);
+        if (!debt || debt.status !== 'paid') {
+          return 'Not marked paid.';
+        }
+
+        const paidAt = debt.paidAt;
+        const filteredPayments = (debt.payments ?? []).filter(
+          (p) => p.note !== SETTLEMENT_NOTE_MARKED_PAID
+        );
+
+        const reopened: Debt = {
+          ...debt,
+          status: 'pending',
+          paidAt: undefined,
+          accruedInterestMinor: undefined,
+          carryOverMinor: undefined,
+          lastGeneratedAt: undefined,
+          payments: filteredPayments,
+          updatedAt: now,
+        };
+
+        const snapshot = projectDebtLedger(reopened, new Date(now));
+        if (snapshot.isSettled) {
+          return 'Payments already cover the balance. Remove one first.';
+        }
+
+        const synced = syncDebtLedger(reopened, new Date(now));
+        if (synced.status === 'paid') {
+          return 'Could not reopen.';
+        }
+
+        const nextList = state.debts
+          .filter((d) => d.id === id || !isSpawnedRecurringCycle(debt, d, paidAt))
+          .map((d) => (d.id === id ? synced : d));
+
+        set({ debts: withSyncedDebts(nextList) });
+        return null;
+      },
       clearAll: () => set({ debts: [] }),
       syncGroupDebtsToLedger: (group, expenses, settlements) => {
         const targets = computeGroupDebtTargets(group, expenses, settlements);
