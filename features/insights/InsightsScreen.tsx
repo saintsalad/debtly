@@ -6,27 +6,30 @@ import {
   buildTransactionInsights,
   formatCompactNumber,
 } from '@/features/insights/transactionInsights';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Users, Wallet } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import {
+  scrollContentLayerStyle,
+  screenHeaderLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { useDebtStore } from '@/stores/debtStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 
 const MONTH_AXIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] as const;
+
+const HEADER_ROW_MIN_HEIGHT = 36;
 
 /** Main stats hero: deep violet → rich purple → vibrant indigo. */
 const STATS_GRADIENT_COLORS = ['#1E1033', '#3B1D5C', '#5E35A8', '#7B4FD4'] as const;
@@ -70,9 +73,26 @@ function createStyles(palette: ColorPalette) {
       flex: 1,
       backgroundColor: 'transparent',
     },
+    scroll: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    insightsLayerStack: {
+      flex: 1,
+      position: 'relative',
+    },
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: space[4],
+      paddingBottom: space[3],
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
+    },
     scrollContent: {
       paddingHorizontal: space[4],
-      paddingBottom: space[12],
       gap: space[8],
     },
     headerRow: {
@@ -406,25 +426,30 @@ export function InsightsScreen({ onClose }: InsightsScreenProps) {
 
   const currentStreakMissing = insights.currentWeeklyStreak === 0;
 
+  const { onScroll: insightsScrollFadeOnScroll } = useStatusBarScrollFade({ overlayHost: 'screen' });
+
+  const scrollTopInset = useMemo(
+    () => insets.top + space[3] + HEADER_ROW_MIN_HEIGHT + space[3] + space[2],
+    [insets.top]
+  );
+
   return (
     <View style={styles.screen}>
       <ScreenBlueGradient />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + space[3] },
-        ]}
-      >
-        <View style={styles.headerRow}>
-          <HeaderIconButton
-            icon={ChevronLeft}
-            accessibilityLabel="Go back"
-            onPress={onBack}
-          />
-          <Text style={styles.headerTitle}>Insights</Text>
-        </View>
-
+      <View style={styles.insightsLayerStack} collapsable={false}>
+        <Animated.ScrollView
+          style={[styles.scroll, scrollContentLayerStyle]}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={insightsScrollFadeOnScroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: scrollTopInset,
+              paddingBottom: insets.bottom + space[12],
+            },
+          ]}
+        >
         <View>
           <Text style={styles.sectionHeading}>Streaks</Text>
           <View style={styles.streakRow}>
@@ -595,7 +620,23 @@ export function InsightsScreen({ onClose }: InsightsScreenProps) {
             </View>
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
+      <StatusBarScrollFadeStrip />
+      <View
+        style={[styles.headerOverlay, { paddingTop: insets.top + space[3] }]}
+        pointerEvents="box-none"
+        collapsable={false}
+      >
+        <View style={styles.headerRow}>
+          <HeaderIconButton
+            icon={ChevronLeft}
+            accessibilityLabel="Go back"
+            onPress={onBack}
+          />
+          <Text style={styles.headerTitle}>Insights</Text>
+        </View>
+      </View>
+    </View>
     </View>
   );
 }

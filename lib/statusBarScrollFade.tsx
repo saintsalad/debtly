@@ -83,10 +83,6 @@ function StatusBarScrollFadeOverlay({ scrollY }: { scrollY: SharedValue<number> 
     opacity: interpolate(scrollY.value, [0, 20], [0, 1], Extrapolation.CLAMP),
   }));
 
-  if (Platform.OS === 'web') {
-    return null;
-  }
-
   return (
     <Animated.View
       pointerEvents="none"
