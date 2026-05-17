@@ -107,7 +107,7 @@ pnpm test
 - [ ] **SQLite** integration for fully local storage (evolve beyond AsyncStorage for scale and querying)
 - [ ] **Import / export** data (backup, migrate devices, interoperability)
 - [ ] **Print receipt** for split bill / group expenses (parity with transaction receipts)
-- [ ] **Toast / in-app notifications** for successful actions (and clearer feedback elsewhere as needed)
+- [x] **Toast / in-app notifications** for successful actions (and clearer feedback elsewhere as needed)
 - [ ] **WebSocket / real-time** updates for split bill groups (live activity and balances where it matters)
 - [ ] **Registration page** toward authenticated accounts and **shared group state across users**
 - [ ] Remote backend and multi-device sync (repository adapter stub exists; stores are local-only today)
