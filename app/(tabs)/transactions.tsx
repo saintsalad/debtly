@@ -5,6 +5,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TransactionFilterSheet, type TransactionFilterSheetHandle } from '@/features/debts/TransactionFilterSheet';
+import { TransactionMonthCollapsedSummary } from '@/features/debts/TransactionMonthCollapsedSummary';
 import { TransactionRow } from '@/features/debts/TransactionRow';
 import {
   debtSegmentGlassTrack,
@@ -35,12 +36,15 @@ import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import * as SystemUI from 'expo-system-ui';
 import { SearchField } from 'heroui-native';
 import {
   ArrowDown,
   ArrowDownUp,
   ArrowUp,
+  ChevronDown,
+  ChevronRight,
   MoreHorizontal,
   Receipt,
   RotateCcw,
@@ -56,6 +60,7 @@ import {
   InteractionManager,
   LayoutChangeEvent,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -253,6 +258,20 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       color: palette.labelSecondary,
       marginBottom: space[2],
     },
+    sectionHeadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      marginBottom: space[2],
+    },
+    sectionHeadingChevron: { marginTop: 1 },
+    sectionHeadingText: {
+      flex: 1,
+      ...type.subheadline,
+      fontWeight: '600',
+      color: palette.labelSecondary,
+      minWidth: 0,
+    },
     sectionCard: {},
     /** iOS Journal search — flat list, no grouped card. */
     suggestedSection: {
@@ -307,6 +326,8 @@ export default function TransactionsScreen() {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [txSort, setTxSort] = useState<'entry_desc' | 'entry_asc' | 'name_asc'>('entry_desc');
   const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TRANSACTION_FILTERS);
+  /** Month ledger sections collapsed to a single summary row (scheduled block unchanged). */
+  const [collapsedMonthKeys, setCollapsedMonthKeys] = useState(() => new Set<string>());
   const filterSheetRef = useRef<TransactionFilterSheetHandle>(null);
   const moreAnchorRef = useRef<React.ComponentRef<typeof View>>(null);
   const searchInputRef = useRef<TextInput>(null);
@@ -387,6 +408,16 @@ export default function TransactionsScreen() {
     },
     [openTransactionDetail]
   );
+
+  const toggleMonthSection = useCallback((sectionKey: string) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCollapsedMonthKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionKey)) next.delete(sectionKey);
+      else next.add(sectionKey);
+      return next;
+    });
+  }, []);
 
   const endTxScrollClipAnimation = useCallback(() => {
     txScrollClipLayoutMuteSV.value = 0;
@@ -874,33 +905,79 @@ export default function TransactionsScreen() {
                     }
                   />
                 ) : (
-                  sections.map((section) => (
-                    <View key={section.key} style={styles.sectionBlock}>
-                      <Text
-                        style={[
-                          styles.sectionTitle,
-                          section.dueMonthTier === 'past' && {
-                            color: palette.labelTertiary,
-                            fontWeight: '500' as const,
-                          },
-                        ]}
-                      >
-                        {section.title}
-                      </Text>
-                      <GlassCard style={styles.sectionCard}>
-                        {section.data.map((debt, index) => (
-                          <TransactionRow
-                            key={debt.id}
-                            debt={debt}
-                            onPress={() => handleSelect(debt)}
-                            showSeparator={index < section.data.length - 1}
-                            dividerVariant="glass"
-                            dueMonthTier={section.dueMonthTier}
-                          />
-                        ))}
-                      </GlassCard>
-                    </View>
-                  ))
+                  sections.map((section) => {
+                    const isMonthGroup = section.dueMonthTier != null;
+                    const collapsed = isMonthGroup && collapsedMonthKeys.has(section.key);
+
+                    return (
+                      <View key={section.key} style={styles.sectionBlock}>
+                        {isMonthGroup ? (
+                          <Pressable
+                            onPress={() => toggleMonthSection(section.key)}
+                            accessibilityRole="button"
+                            accessibilityState={{ expanded: !collapsed }}
+                            accessibilityLabel={`${section.title}${collapsed ? ', collapsed' : ', expanded'}, ${section.data.length} transactions`}
+                            style={({ pressed }) => [styles.sectionHeadingRow, pressed && { opacity: 0.74 }]}
+                          >
+                            <Text
+                              style={[
+                                styles.sectionHeadingText,
+                                section.dueMonthTier === 'past' && {
+                                  color: palette.labelTertiary,
+                                  fontWeight: '500' as const,
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {section.title}
+                            </Text>
+                            {collapsed ? (
+                              <ChevronRight
+                                size={18}
+                                color={palette.labelSecondary}
+                                style={styles.sectionHeadingChevron}
+                              />
+                            ) : (
+                              <ChevronDown
+                                size={18}
+                                color={palette.labelSecondary}
+                                style={styles.sectionHeadingChevron}
+                              />
+                            )}
+                          </Pressable>
+                        ) : (
+                          <Text
+                            style={[
+                              styles.sectionTitle,
+                              section.dueMonthTier === 'past' && {
+                                color: palette.labelTertiary,
+                                fontWeight: '500' as const,
+                              },
+                            ]}
+                          >
+                            {section.title}
+                          </Text>
+                        )}
+                        <GlassCard style={styles.sectionCard}>
+                          {collapsed ?
+                            <TransactionMonthCollapsedSummary
+                              debts={section.data}
+                              dueMonthTier={section.dueMonthTier!}
+                            />
+                          : section.data.map((debt, index) => (
+                            <TransactionRow
+                              key={debt.id}
+                              debt={debt}
+                              onPress={() => handleSelect(debt)}
+                              showSeparator={index < section.data.length - 1}
+                              dividerVariant="glass"
+                              dueMonthTier={section.dueMonthTier}
+                            />
+                          ))}
+                        </GlassCard>
+                      </View>
+                    );
+                  })
                 )}
               </Animated.ScrollView>
 

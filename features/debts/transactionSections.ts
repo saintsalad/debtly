@@ -1,5 +1,6 @@
 import { format, parseISO, startOfDay } from 'date-fns';
 import { parseLocalDate } from '@/features/debts/dates';
+import { getRemainingBalance } from '@/features/debts/debtCalculations';
 import { Debt } from '@/features/debts/types';
 import { filterActiveDebts, filterScheduledDebts } from '@/features/debts/transactionList';
 
@@ -18,6 +19,33 @@ export type BuildTransactionSectionsOptions = {
   /** Reference “today” for the current month tier (defaults to `new Date()`). */
   asOf?: Date;
 };
+
+export type MonthSectionSummary = {
+  count: number;
+  /** Sum of remaining balances owed to you (principal-style display left to row component). */
+  owedToMeTotal: number;
+  /** Sum of remaining balances you owe. */
+  iOweTotal: number;
+  /** Debts settled (near-zero remaining balance). */
+  settledCount: number;
+};
+
+/** Rolls up month-group rows for collapsed section summary (remaining balances, counts). */
+export function summarizeMonthSectionDebts(debts: Debt[], asOf?: Date): MonthSectionSummary {
+  const clock = asOf ?? new Date();
+  let owedToMeTotal = 0;
+  let iOweTotal = 0;
+  let settledCount = 0;
+
+  for (const debt of debts) {
+    const remaining = getRemainingBalance(debt, clock);
+    if (remaining <= 0.009) settledCount++;
+    else if (debt.type === 'owed_to_me') owedToMeTotal += remaining;
+    else iOweTotal += remaining;
+  }
+
+  return { count: debts.length, owedToMeTotal, iOweTotal, settledCount };
+}
 
 /** Month bucket for list sections: prefers due date (instalments, loans) over created-at stamp. */
 function sectionMonthKey(debt: Debt): string {

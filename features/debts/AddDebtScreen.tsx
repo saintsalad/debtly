@@ -74,7 +74,7 @@ function createStyles(palette: ColorPalette) {
       paddingHorizontal: layout.screenPaddingX,
       paddingTop: space[4],
     },
-    /** HeroUI TextField gap-1.5 (6); keeps Direction stack rhythm aligned with segmented fields elsewhere. */
+    /** Spacing between direction segmented + helper (HeroUI TextField `gap-1.5` / 6). */
     directionBlock: { gap: 6 },
     segmentIdleWrap: { width: '100%' },
     amountRow: { width: '100%', flexDirection: 'row', alignItems: 'center' },
@@ -451,9 +451,8 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
               { paddingBottom: insets.bottom + layout.screenPaddingBottom },
             ]}
           >
-            {/* Direction — same segmented chrome + wrap as Transactions; outside TextField so label/desc aren’t inset vs the track */}
+            {/* Owed vs owed segmented — same chrome as Transactions; outside TextField so helper isn’t inset vs the track */}
             <View style={styles.directionBlock}>
-              <Label className="px-1.5">Direction</Label>
               <View style={styles.segmentIdleWrap}>
                 <SegmentedControl
                   variant="inline"
