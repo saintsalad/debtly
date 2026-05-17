@@ -1058,7 +1058,7 @@ export default function TransactionsScreen() {
                         <View style={styles.segmentIdleWrap}>
                           <SegmentedControl
                             variant="inline"
-                            trackWidthPercent={80}
+                            trackWidthPercent={90}
                             trackStyle={segmentedTrackStyle}
                             icons={[undefined, ArrowUp, ArrowDown]}
                             selectedForegroundByIndex={segmentedAccentByIndex}

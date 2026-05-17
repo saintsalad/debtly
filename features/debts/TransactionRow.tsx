@@ -76,9 +76,6 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       color: palette.labelSecondary,
       flex: 1,
     },
-    notePaid: {
-      color: palette.labelTertiary,
-    },
     statusPlain: {
       ...type.caption1,
       color: palette.labelTertiary,
@@ -90,7 +87,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       color: palette.labelSecondary,
     },
     statusPaid: {
-      color: palette.labelTertiary,
+      color: palette.labelSecondary,
       fontWeight: '400',
     },
     mutedStatusPill: {
@@ -172,7 +169,7 @@ export function TransactionRow({
           seed={debt.id}
           size={40}
           tone={avatarTone}
-          muted={mutedPastDueMonthBucket}
+          muted={mutedPastDueMonthBucket || isPaid}
         />
 
         <View style={styles.body}>
@@ -209,8 +206,10 @@ export function TransactionRow({
             <Text
               style={[
                 styles.note,
-                isPaid && styles.notePaid,
-                mutedPastDueMonthBucket && { color: palette.labelTertiary },
+                mutedPastDueMonthBucket &&
+                  !isPaid && {
+                    color: palette.labelTertiary,
+                  },
               ]}
               numberOfLines={1}
             >

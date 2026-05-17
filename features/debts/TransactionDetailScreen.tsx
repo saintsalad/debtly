@@ -92,6 +92,9 @@ function createStyles(palette: ColorPalette) {
       color: palette.label,
       textAlign: 'center',
     },
+    personNamePaid: {
+      color: palette.labelSecondary,
+    },
     summary: {
       ...type.subheadline,
       color: palette.labelSecondary,
@@ -180,10 +183,12 @@ interface DetailRowProps {
   label: string;
   value: string;
   valueColor?: string;
+  /** Settled transactions — soften value tone (secondary grey) unless `valueColor` overrides. */
+  softenValue?: boolean;
   showSeparator?: boolean;
 }
 
-function DetailRow({ label, value, valueColor, showSeparator = false }: DetailRowProps) {
+function DetailRow({ label, value, valueColor, softenValue = false, showSeparator = false }: DetailRowProps) {
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
 
@@ -193,7 +198,15 @@ function DetailRow({ label, value, valueColor, showSeparator = false }: DetailRo
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>{label}</Text>
         <View style={{ flex: 1.2 }}>
-          <Text style={[styles.detailValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+          <Text
+            style={[
+              styles.detailValue,
+              softenValue && !valueColor ? { color: palette.labelSecondary } : null,
+              valueColor ? { color: valueColor } : null,
+            ]}
+          >
+            {value}
+          </Text>
         </View>
       </View>
     </>
@@ -301,11 +314,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const isPaid = status === 'paid';
   const showPaidOn = isPaid && Boolean(debt.paidAt) && !hasPaymentHistory;
 
-  const amountColor = isPaid
-    ? palette.labelSecondary
-    : isCredit
-      ? palette.positive
-      : palette.negative;
+  const amountColor = isCredit ? palette.positive : palette.negative;
 
   const showHeroDueStatus = Boolean(dueBadgeColors || dueUI.label);
 
@@ -402,8 +411,14 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             ]}
           >
             <View style={styles.hero}>
-              <Avatar name={debt.personName} seed={debt.id} size={64} tone={isCredit ? 'credit' : 'debit'} />
-              <Text style={styles.personName} numberOfLines={2}>
+              <Avatar
+                name={debt.personName}
+                seed={debt.id}
+                size={64}
+                tone={isCredit ? 'credit' : 'debit'}
+                muted={isPaid}
+              />
+              <Text style={[styles.personName, isPaid && styles.personNamePaid]} numberOfLines={2}>
                 {debt.personName}
               </Text>
               {showHeroDueStatus ? (
@@ -440,10 +455,11 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
             </View>
 
             <View style={styles.detailsCard}>
-              <DetailRow label="Principal" value={fmt(getPrincipalAmount(debt))} />
+              <DetailRow softenValue={isPaid} label="Principal" value={fmt(getPrincipalAmount(debt))} />
               {/* Feature #2: carry-over from previous cycle */}
               {debt.carryOverMinor != null && debt.carryOverMinor > 0 ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label="Carried over"
                   value={fmt(debt.carryOverMinor / 100)}
                   valueColor={palette.warning}
@@ -452,6 +468,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               ) : null}
               {debt.interestRateBps ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label={`Interest rate (${debt.interestType === 'compound' ? 'compound' : 'simple'})`}
                   value={`${interestRateFromBps(debt.interestRateBps)}% APR`}
                   showSeparator
@@ -459,24 +476,26 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               ) : null}
               {debt.interestRateBps && debt.interestAccrualFrequency ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label="Interest accrual"
                   value={getInterestAccrualLabel(debt.interestAccrualFrequency)}
                   showSeparator
                 />
               ) : null}
               {accruedInterest > 0 ? (
-                <DetailRow label="Accrued interest" value={fmt(accruedInterest)} showSeparator />
+                <DetailRow softenValue={isPaid} label="Accrued interest" value={fmt(accruedInterest)} showSeparator />
               ) : null}
               {hasPartialPayment ? (
-                <DetailRow label="Paid to date" value={fmt(totalPaid)} showSeparator />
+                <DetailRow softenValue={isPaid} label="Paid to date" value={fmt(totalPaid)} showSeparator />
               ) : null}
               {hasPartialPayment ? (
-                <DetailRow label="Remaining" value={fmt(remainingBalance)} showSeparator />
+                <DetailRow softenValue={isPaid} label="Remaining" value={fmt(remainingBalance)} showSeparator />
               ) : null}
               {(debt.isRecurring ||
                 (debt.instalmentCount != null && debt.recurrenceInterval)) &&
               debt.recurrenceInterval ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label={
                     debt.instalmentCount != null && !debt.isRecurring ? 'Schedule' : 'Recurring'
                   }
@@ -487,6 +506,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               {/* Feature #5: instalment progress */}
               {debt.instalmentCount != null && debt.instalmentIndex != null ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label="Payment"
                   value={`${debt.instalmentIndex} of ${debt.instalmentCount}`}
                   showSeparator
@@ -495,29 +515,34 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
               {/* Feature #6: start date */}
               {debt.startDate ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label="Active from"
                   value={formatFullDate(debt.startDate)}
                   valueColor={palette.labelSecondary}
                   showSeparator
                 />
               ) : null}
-              {debt.note ? <DetailRow label="Note" value={debt.note} /> : null}
+              {debt.note ? (
+                <DetailRow softenValue={isPaid} label="Note" value={debt.note} />
+              ) : null}
               {debt.dueDate ? (
                 <DetailRow
+                  softenValue={isPaid}
                   label="Due date"
                   value={formatFullDate(debt.dueDate)}
-                  valueColor={dueUI.tone === 'paid' ? palette.labelTertiary : undefined}
                   showSeparator={Boolean(debt.note)}
                 />
               ) : null}
               {showPaidOn ? (
                 <DetailRow
+                  softenValue
                   label="Paid on"
                   value={formatPaymentDateTime(debt.paidAt!)}
                   showSeparator
                 />
               ) : null}
               <DetailRow
+                softenValue={isPaid}
                 label="Added"
                 value={formatFullDate(debt.createdAt)}
                 showSeparator={Boolean(debt.note || debt.dueDate || showPaidOn)}

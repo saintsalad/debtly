@@ -16,7 +16,7 @@ interface AvatarProps {
   seed?: string;
   size?: number;
   tone?: AvatarTone;
-  /** Softer fill + monochrome arrows for archived / low-emphasis lists. */
+  /** Softer fill + monochrome glyphs (archived buckets, settled rows). */
   muted?: boolean;
 }
 
@@ -33,7 +33,7 @@ export function Avatar({
 
   if (tone === 'credit' || tone === 'debit') {
     const bg = muted ? palette.fillSecondary : tone === 'credit' ? palette.positiveSoft : palette.negativeSoft;
-    const iconColor = muted ? palette.labelTertiary : tone === 'credit' ? palette.positive : palette.negative;
+    const iconColor = muted ? palette.labelSecondary : tone === 'credit' ? palette.positive : palette.negative;
     const iconSize = Math.round(size * 0.45);
 
     return (
