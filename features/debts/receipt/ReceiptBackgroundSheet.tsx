@@ -1,5 +1,15 @@
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BottomSheetBackdrop,
@@ -7,7 +17,8 @@ import {
   BottomSheetView,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Check, X } from 'lucide-react-native';
+import { Check, ImagePlus, X } from 'lucide-react-native';
+import { pickReceiptBackgroundPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
 import { HeroUINativeProvider } from 'heroui-native';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import {
@@ -28,6 +39,8 @@ export interface ReceiptBackgroundSheetHandle {
 interface ReceiptBackgroundSheetProps {
   selectedId: ReceiptCanvasPresetId;
   onSelect: (id: ReceiptCanvasPresetId) => void;
+  backgroundPhotoUri: string | null;
+  onBackgroundPhotoUri: (uri: string | null) => void;
 }
 
 function isLightHex(hex: string): boolean {
@@ -139,7 +152,10 @@ function createStyles(palette: ColorPalette) {
 export const ReceiptBackgroundSheet = forwardRef<
   ReceiptBackgroundSheetHandle,
   ReceiptBackgroundSheetProps
->(function ReceiptBackgroundSheet({ selectedId, onSelect }, ref) {
+>(function ReceiptBackgroundSheet(
+  { selectedId, onSelect, backgroundPhotoUri, onBackgroundPhotoUri },
+  ref
+) {
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const {
@@ -181,6 +197,54 @@ export const ReceiptBackgroundSheet = forwardRef<
     dismiss();
   };
 
+  const photoActive = backgroundPhotoUri != null;
+
+  const runBackgroundPhotoPick = useCallback(async () => {
+    const uri = await pickReceiptBackgroundPhotoFromLibrary();
+    if (uri) {
+      onBackgroundPhotoUri(uri);
+      dismiss();
+    }
+  }, [dismiss, onBackgroundPhotoUri]);
+
+  const handlePhotoSwatchPress = useCallback(() => {
+    if (!backgroundPhotoUri) {
+      void runBackgroundPhotoPick();
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Change photo', 'Remove photo'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (index) => {
+          if (index === 1) void runBackgroundPhotoPick();
+          if (index === 2) {
+            onBackgroundPhotoUri(null);
+            dismiss();
+          }
+        }
+      );
+      return;
+    }
+
+    Alert.alert('Background photo', undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Change photo', onPress: () => void runBackgroundPhotoPick() },
+      {
+        text: 'Remove photo',
+        style: 'destructive',
+        onPress: () => {
+          onBackgroundPhotoUri(null);
+          dismiss();
+        },
+      },
+    ]);
+  }, [backgroundPhotoUri, dismiss, onBackgroundPhotoUri, runBackgroundPhotoPick]);
+
   return (
     <BottomSheetModal
       ref={sheetRef}
@@ -206,12 +270,57 @@ export const ReceiptBackgroundSheet = forwardRef<
             />
           </View>
           <View style={styles.body}>
-            <Text style={styles.hint}>Solid colors and gradients behind your thermal receipt.</Text>
+            <Text style={styles.hint}>
+              Solid colors, gradients, or your own photo behind the receipt. Choosing a color clears a custom
+              photo.
+            </Text>
             <ScrollView
               style={styles.gridScroll}
               contentContainerStyle={styles.gridScrollContent}
               showsVerticalScrollIndicator={false}
             >
+              <Pressable
+                style={styles.swatch}
+                onPress={handlePhotoSwatchPress}
+                accessibilityRole="button"
+                accessibilityLabel="Photo background"
+                accessibilityState={{ selected: photoActive }}
+              >
+                <View style={[styles.swatchCircle, photoActive && styles.swatchCircleActive]}>
+                  {backgroundPhotoUri ? (
+                    <Image
+                      source={{ uri: backgroundPhotoUri }}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        { backgroundColor: palette.fillSecondary, alignItems: 'center', justifyContent: 'center' },
+                      ]}
+                    >
+                      <ImagePlus size={22} color={palette.labelSecondary} />
+                    </View>
+                  )}
+                  {photoActive ? (
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          zIndex: 1,
+                          backgroundColor: 'rgba(0,0,0,0.28)',
+                        },
+                      ]}
+                    >
+                      <Check size={18} color="#FFFFFF" />
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={[styles.swatchLabel, photoActive && styles.swatchLabelActive]}>Photo</Text>
+              </Pressable>
               {RECEIPT_CANVAS_PRESETS.map((preset) => {
                 const active = preset.id === selectedId;
                 const tint = getReceiptCanvasBackdropTint(preset.id);

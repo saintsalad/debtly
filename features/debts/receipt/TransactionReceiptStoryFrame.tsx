@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TransactionThermalReceipt } from '@/features/debts/receipt/TransactionThermalReceipt';
 import type { ReceiptCanvasBackground, ReceiptCanvasGradient } from '@/features/debts/receipt/receiptCanvasPresets';
@@ -33,6 +34,8 @@ interface TransactionReceiptStoryFrameProps {
   debt: Debt;
   fmt: (amount: number) => string;
   canvasBackground: ReceiptCanvasBackground;
+  /** Full-bleed image behind the receipt; when set, replaces solid/gradient canvas. */
+  backgroundImageUri?: string | null;
   photoUri?: string | null;
   /** Preview/capture size (logical). Defaults to 360×640 story frame. */
   frameWidth?: number;
@@ -46,6 +49,7 @@ export function TransactionReceiptStoryFrame({
   debt,
   fmt,
   canvasBackground,
+  backgroundImageUri,
   photoUri,
   frameWidth = STORY_FRAME_WIDTH,
   frameHeight = STORY_FRAME_HEIGHT,
@@ -63,7 +67,18 @@ export function TransactionReceiptStoryFrame({
 
   return (
     <View style={[styles.frame, { width: frameWidth, height: frameHeight }]}>
-      <ReceiptCanvasFill spec={canvasBackground} />
+      {backgroundImageUri ? (
+        <>
+          <Image
+            source={{ uri: backgroundImageUri }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+          />
+          <View style={styles.backgroundPhotoScrim} pointerEvents="none" />
+        </>
+      ) : (
+        <ReceiptCanvasFill spec={canvasBackground} />
+      )}
       <View
         onLayout={onReceiptLayout}
         style={[styles.receiptWrap, { transform: [{ scale }, { rotate: `${tiltDeg}deg` }] }]}
@@ -80,6 +95,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     paddingVertical: FRAME_PAD_V,
+  },
+  backgroundPhotoScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
   },
   receiptWrap: {
     transformOrigin: 'center',

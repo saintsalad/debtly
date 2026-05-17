@@ -27,3 +27,24 @@ export async function pickReceiptPhotoFromLibrary(): Promise<string | undefined>
   if (result.canceled || !result.assets[0]?.uri) return undefined;
   return result.assets[0].uri;
 }
+
+/** Full-frame library pick for the share canvas behind the receipt (any aspect; `cover` in layout). */
+export async function pickReceiptBackgroundPhotoFromLibrary(): Promise<string | undefined> {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    Alert.alert(
+      'Photos access',
+      'Allow photo library access to use a photo as the receipt background.'
+    );
+    return undefined;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsEditing: false,
+    quality: 0.85,
+  });
+
+  if (result.canceled || !result.assets[0]?.uri) return undefined;
+  return result.assets[0].uri;
+}

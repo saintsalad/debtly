@@ -129,6 +129,7 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
   const receiptThermalLook = useProfileStore((s) => s.receiptThermalLook ?? true);
   const [busy, setBusy] = useState<'save' | 'share' | null>(null);
   const [canvasPreset, setCanvasPreset] = useState<ReceiptCanvasPresetId>('black');
+  const [backgroundPhotoUri, setBackgroundPhotoUri] = useState<string | null>(null);
   const [aspectPresetId, setAspectPresetId] = useState<ReceiptAspectPresetId>('story');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [thermalOpts, setThermalOpts] = useState<ThermalizeOptions>(() => ({
@@ -138,6 +139,11 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
   const canvasBackground = useMemo(() => getReceiptCanvasBackground(canvasPreset), [canvasPreset]);
   const aspectPreset = useMemo(() => getReceiptAspectPreset(aspectPresetId), [aspectPresetId]);
   const exportPixelSize = useMemo(() => getReceiptExportSize(aspectPreset), [aspectPreset]);
+
+  const handleCanvasPresetSelect = useCallback((id: ReceiptCanvasPresetId) => {
+    setBackgroundPhotoUri(null);
+    setCanvasPreset(id);
+  }, []);
 
   const displayPhotoUri = useMemo(() => {
     if (!photoUri) return null;
@@ -268,6 +274,7 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 debt={debt}
                 fmt={fmt}
                 canvasBackground={canvasBackground}
+                backgroundImageUri={backgroundPhotoUri}
                 photoUri={displayPhotoUri}
                 frameWidth={aspectPreset.frameWidth}
                 frameHeight={aspectPreset.frameHeight}
@@ -281,6 +288,7 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
                 debt={debt}
                 fmt={fmt}
                 canvasBackground={canvasBackground}
+                backgroundImageUri={backgroundPhotoUri}
                 photoUri={displayPhotoUri}
                 frameWidth={aspectPreset.frameWidth}
                 frameHeight={aspectPreset.frameHeight}
@@ -344,7 +352,9 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
           <ReceiptBackgroundSheet
             ref={backgroundSheetRef}
             selectedId={canvasPreset}
-            onSelect={setCanvasPreset}
+            onSelect={handleCanvasPresetSelect}
+            backgroundPhotoUri={backgroundPhotoUri}
+            onBackgroundPhotoUri={setBackgroundPhotoUri}
           />
           <ReceiptAspectSheet
             ref={aspectSheetRef}
