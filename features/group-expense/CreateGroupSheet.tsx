@@ -7,12 +7,13 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { notifySuccess } from '@/lib/appToast';
 import { useRouter } from 'expo-router';
 
 export interface CreateGroupSheetHandle {
@@ -65,6 +66,7 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
   const createGroup = useGroupExpenseStore((s) => s.createGroup);
   const router = useRouter();
   const [name, setName] = useState('');
+  const { toast } = useToast();
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -87,6 +89,7 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
       Alert.alert('Name required', 'Give your group a name to continue.');
       return;
     }
+    notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
     sheetRef.current?.dismiss();
     router.push({ pathname: '/group/[id]', params: { id } });
   };

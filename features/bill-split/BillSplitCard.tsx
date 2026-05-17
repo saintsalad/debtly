@@ -7,6 +7,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useGlassInsetFill } from '@/lib/glassSurface';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
+import { useToast } from 'heroui-native';
+import { notifySuccess } from '@/lib/appToast';
 
 interface BillSplitCardProps {
   split: BillSplit;
@@ -108,6 +110,7 @@ export function BillSplitCard({
   const { fmt } = useCurrency();
   const toggleParticipantPaid = useBillSplitStore((s) => s.toggleParticipantPaid);
   const deleteSplit = useBillSplitStore((s) => s.deleteSplit);
+  const { toast } = useToast();
 
   const settledCount = split.participants.filter((participant) => participant.paid).length;
   const outstanding = split.participants
@@ -117,7 +120,10 @@ export function BillSplitCard({
   const confirmDelete = () => {
     Alert.alert('Delete split?', 'This bill split will be removed.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteSplit(split.id) },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        deleteSplit(split.id);
+        notifySuccess(toast, 'Bill split removed');
+      } },
     ]);
   };
 

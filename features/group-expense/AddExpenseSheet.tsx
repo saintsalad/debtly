@@ -21,6 +21,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { notifySuccess } from '@/lib/appToast';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -28,7 +29,7 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { ChevronDown } from 'lucide-react-native';
 import React, { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -299,6 +300,8 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const groups = useGroupExpenseStore((s) => s.groups);
   const expenses = useGroupExpenseStore((s) => s.expenses);
 
+  const { toast } = useToast();
+
   const [groupId, setGroupId] = useState<string | null>(null);
   const [expenseId, setExpenseId] = useState<string | undefined>();
   const [title, setTitle] = useState('');
@@ -457,6 +460,11 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     if (error) {
       Alert.alert('Could not save', error);
       return;
+    }
+    if (expenseId) {
+      notifySuccess(toast, 'Expense updated');
+    } else {
+      notifySuccess(toast, 'Expense added');
     }
     sheetRef.current?.dismiss();
   };
@@ -805,6 +813,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                     style: 'destructive',
                     onPress: () => {
                       deleteExpense(expenseId);
+                      notifySuccess(toast, 'Expense deleted');
                       sheetRef.current?.dismiss();
                     },
                   },

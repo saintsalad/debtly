@@ -9,9 +9,11 @@ import { Debt } from '@/features/debts/types';
 import { getRemainingBalance } from '@/features/debts/debtCalculations';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatDate, getComputedStatus } from '@/lib/utils';
+import { notifySuccess } from '@/lib/appToast';
+import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useDebtStore } from '@/stores/debtStore';
 import { useCurrency } from '@/hooks/useCurrency';
-import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
+import { useToast } from 'heroui-native';
 
 interface DebtCardProps {
   debt: Debt;
@@ -89,6 +91,7 @@ export function DebtCard({ debt, index }: DebtCardProps) {
   const styles = useMemo(() => createStyles(palette, shadow), [palette, shadow]);
   const { markPaid, deleteDebt } = useDebtStore();
   const { fmt } = useCurrency();
+  const { toast } = useToast();
   const swipeableRef = useRef<Swipeable>(null);
 
   const opacity = useSharedValue(0);
@@ -125,13 +128,21 @@ export function DebtCard({ debt, index }: DebtCardProps) {
   const handleDelete = () => {
     Alert.alert('Delete debt?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel', onPress: () => swipeableRef.current?.close() },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteDebt(debt.id) },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteDebt(debt.id);
+          notifySuccess(toast, 'Transaction removed');
+        },
+      },
     ]);
   };
 
   const handleMarkPaid = () => {
     swipeableRef.current?.close();
     markPaid(debt.id);
+    notifySuccess(toast, 'Marked as paid');
   };
 
   const renderRightActions = () => (

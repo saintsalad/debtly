@@ -7,7 +7,7 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { getCurrentUserMember } from '@/features/group-expense/balanceEngine';
 import {
@@ -22,6 +22,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { notifySuccess } from '@/lib/appToast';
 
 export interface SettlementPreset {
   fromMemberId?: string;
@@ -90,6 +91,8 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
     const recordSettlement = useGroupExpenseStore((s) => s.recordSettlement);
     const groups = useGroupExpenseStore((s) => s.groups);
 
+    const { toast } = useToast();
+
     const [groupId, setGroupId] = useState<string | null>(null);
     const [fromMemberId, setFromMemberId] = useState('');
     const [toMemberId, setToMemberId] = useState('');
@@ -151,6 +154,7 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
         Alert.alert('Could not record', error);
         return;
       }
+      notifySuccess(toast, 'Settlement recorded');
       sheetRef.current?.dismiss();
     };
 

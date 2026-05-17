@@ -21,11 +21,12 @@ import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { getComputedStatus, getTransactionDuePresentation } from '@/lib/utils';
+import { notifySuccess } from '@/lib/appToast';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { HeroUINativeProvider } from 'heroui-native';
+import { HeroUINativeProvider, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { Bell, MessageSquare, Pencil, Printer, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -271,6 +272,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
   const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
   const debt = useDebtStore((state) => state.debts.find((item) => item.id === debtId));
+  const { toast } = useToast();
   useEffect(() => {
     if (!debt) {
       onClose();
@@ -326,6 +328,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
     }
 
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notifySuccess(toast, 'Payment recorded', 'Partial payment saved.');
 
     const nextDebt = useDebtStore.getState().debts.find((item) => item.id === debt.id);
     if (!nextDebt || getComputedStatus(nextDebt) === 'paid') {
@@ -343,6 +346,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
         onPress: () => {
           markPaid(debt.id);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Marked as paid', 'Remaining balance is settled.');
           onClose();
         },
       },
@@ -380,6 +384,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
         style: 'destructive',
         onPress: () => {
           deleteDebt(debt.id);
+          notifySuccess(toast, 'Transaction removed');
         },
       },
     ]);

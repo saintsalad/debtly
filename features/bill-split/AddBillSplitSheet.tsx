@@ -9,11 +9,12 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useColors, space, type ColorPalette } from '@/lib/platform';
+import { notifySuccess } from '@/lib/appToast';
 import { useCurrency } from '@/hooks/useCurrency';
 
 export interface AddBillSplitSheetHandle {
@@ -97,6 +98,7 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
   const insets = useSafeAreaInsets();
   const addSplit = useBillSplitStore((s) => s.addSplit);
   const { symbol } = useCurrency();
+  const { toast } = useToast();
 
   const [title, setTitle] = useState('');
   const [total, setTotal] = useState('');
@@ -140,6 +142,7 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
     }
 
     addSplit({ title: title.trim(), total: amount, participantNames });
+    notifySuccess(toast, 'Split added');
     close();
     reset();
   };

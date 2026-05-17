@@ -7,13 +7,14 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { copyInviteLink } from '@/features/group-expense/groupExpenseActions';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { notifySuccess } from '@/lib/appToast';
 
 export interface InviteMembersSheetHandle {
   present: (groupId: string) => void;
@@ -71,6 +72,7 @@ export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function 
 
   const [groupId, setGroupId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const { toast } = useToast();
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
 
@@ -96,6 +98,7 @@ export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function 
       return;
     }
     addMember(groupId, name);
+    notifySuccess(toast, 'Member added');
     setName('');
     sheetRef.current?.dismiss();
   };

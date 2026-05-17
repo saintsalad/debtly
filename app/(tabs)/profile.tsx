@@ -35,6 +35,8 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
+import { notifySuccess } from '@/lib/appToast';
+import { useToast } from 'heroui-native';
 
 interface RowProps {
   icon: LucideIcon;
@@ -199,6 +201,7 @@ export default function ProfileScreen() {
   const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
   const clearAll = useDebtStore((s) => s.clearAll);
   const { currency } = useCurrency();
+  const { toast } = useToast();
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(name);
@@ -213,7 +216,10 @@ export default function ProfileScreen() {
     Alert.alert('Currency', 'Select your currency', [
       ...Object.entries(CURRENCIES).map(([code, { symbol, label }]) => ({
         text: `${symbol}  ${code}  ·  ${label}`,
-        onPress: () => setCurrency(code),
+        onPress: () => {
+          setCurrency(code);
+          notifySuccess(toast, 'Currency updated');
+        },
       })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
@@ -222,7 +228,14 @@ export default function ProfileScreen() {
   const confirmClearAll = () => {
     Alert.alert('Clear all data?', 'All debts will be permanently deleted.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete all', style: 'destructive', onPress: clearAll },
+      {
+        text: 'Delete all',
+        style: 'destructive',
+        onPress: () => {
+          clearAll();
+          notifySuccess(toast, 'All data cleared');
+        },
+      },
     ]);
   };
   const insets = useSafeAreaInsets();

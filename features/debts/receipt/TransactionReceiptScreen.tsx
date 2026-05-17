@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Download, Grid3x3, ImagePlus, Palette, Ratio, Share2, X } from 'lucide-react-native';
 import { pickReceiptPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { HeroUINativeProvider } from 'heroui-native';
+import { HeroUINativeProvider, useToast } from 'heroui-native';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { captureStoryReceiptImage } from '@/features/debts/receipt/captureReceiptImage';
 import {
@@ -49,6 +49,7 @@ import {
 } from '@/features/debts/receipt/thermalPortrait';
 import type { Debt } from '@/features/debts/types';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { notifySuccess } from '@/lib/appToast';
 import { useProfileStore } from '@/stores/profileStore';
 
 interface TransactionReceiptScreenProps {
@@ -119,6 +120,7 @@ function createStyles(palette: ColorPalette) {
 export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionReceiptScreenProps) {
   const palette = useColors();
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const captureRef = useRef<View>(null);
   const backgroundSheetRef = useRef<ReceiptBackgroundSheetHandle>(null);
@@ -220,12 +222,12 @@ export function TransactionReceiptScreen({ debt, fmt, onClose }: TransactionRece
       if (!uri) return;
       const saved = await saveReceiptToPhotos(uri);
       if (saved) {
-        Alert.alert('Saved', 'Receipt image saved to your photo library.');
+        notifySuccess(toast, 'Saved', 'Receipt image saved to your photo library.');
       }
     } finally {
       setBusy(null);
     }
-  }, [busy, exportImage]);
+  }, [busy, exportImage, toast]);
 
   const handleShare = useCallback(async () => {
     if (busy) return;

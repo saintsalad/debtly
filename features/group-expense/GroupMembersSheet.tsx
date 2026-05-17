@@ -9,7 +9,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import { Pencil, Trash2 } from 'lucide-react-native';
-import { HeroUINativeProvider } from 'heroui-native';
+import { HeroUINativeProvider, useToast } from 'heroui-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ListDivider } from '@/components/ui/ListDivider';
@@ -18,6 +18,7 @@ import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { notifySuccess } from '@/lib/appToast';
 
 export interface GroupMembersSheetHandle {
   present: (groupId: string) => void;
@@ -218,6 +219,8 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
   const renameMember = useGroupExpenseStore((s) => s.renameMember);
   const removeMember = useGroupExpenseStore((s) => s.removeMember);
 
+  const { toast } = useToast();
+
   const [groupId, setGroupId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
@@ -265,6 +268,7 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
           onPress: () => {
             removeMember(groupId, member.id);
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            notifySuccess(toast, 'Member removed');
             if (renamingId === member.id) {
               setRenamingId(null);
               setRenameDraft('');
@@ -288,6 +292,7 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notifySuccess(toast, 'Name updated');
     setRenamingId(null);
     setRenameDraft('');
   };

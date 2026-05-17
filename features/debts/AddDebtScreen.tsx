@@ -18,7 +18,7 @@ import {
 import Animated from 'react-native-reanimated';
 import { Check, ChevronDown, ChevronRight, Plus, ArrowDown, ArrowUp, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { FormSwitchRow } from '@/components/ui/FormSwitchRow';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
@@ -41,6 +41,7 @@ import {
   InterestType,
   RecurrenceFrequency,
 } from '@/features/debts/types';
+import { notifySuccess } from '@/lib/appToast';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
@@ -211,6 +212,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   const existingDebt = useDebtStore((s) => (debtId ? s.debts.find((d) => d.id === debtId) : undefined));
   const isEditing = Boolean(debtId);
   const insets = useSafeAreaInsets();
+  const { toast } = useToast();
 
   // ── Primary fields ──────────────────────────────────────────────────────
   const [debtType, setDebtType] = useState<DebtType>(
@@ -399,6 +401,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
         ...recurringFields,
         instalmentIndex: preservedInstalmentIndex,
       });
+      notifySuccess(toast, 'Transaction updated', 'Your changes were saved.');
       onClose();
       return;
     }
@@ -412,12 +415,14 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
       }
       const error = addDebt({ ...baseInput, personName: '', splitPeople: people });
       if (error) { Alert.alert('Unable to save', error); return; }
+      notifySuccess(toast, 'Split added', 'A separate debt was created for each person.');
       close();
       return;
     }
 
     const error = addDebt({ ...baseInput, personName: personName.trim() });
     if (error) { Alert.alert('Unable to save debt', error); return; }
+    notifySuccess(toast, 'Debt added', 'Transaction saved.');
     close();
   };
 

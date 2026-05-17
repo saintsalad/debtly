@@ -41,6 +41,8 @@ import { Camera, ChevronLeft, MoreHorizontal, Share2, Trash2, UserPlus } from 'l
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useToast } from 'heroui-native';
+import { notifySuccess } from '@/lib/appToast';
 
 const HERO_CARD_MIN_HEIGHT = 304;
 const HERO_GRADIENT_TOP = 56;
@@ -186,6 +188,7 @@ export function GroupDetailScreen() {
   const membersSheetRef = useRef<GroupMembersSheetHandle>(null);
   const moreMenuAnchorRef = useRef<View>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const { toast } = useToast();
 
   const summary = useMemo(
     () => (group ? selectGroupBalances(group, expenses, settlements) : null),
@@ -236,6 +239,7 @@ export function GroupDetailScreen() {
       if (uri) {
         setGroupImage(group.id, uri);
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        notifySuccess(toast, 'Photo updated');
       }
     };
 
@@ -254,6 +258,7 @@ export function GroupDetailScreen() {
         onPress: () => {
           setGroupImage(group.id, undefined);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Photo removed');
         },
       });
     }
@@ -261,7 +266,7 @@ export function GroupDetailScreen() {
     buttons.push({ text: 'Cancel', style: 'cancel' });
 
     Alert.alert('Group photo', 'Add or change the banner image for this group.', buttons);
-  }, [group, setGroupImage]);
+  }, [group, setGroupImage, toast]);
 
   const closeMoreMenu = useCallback(() => setMoreMenuOpen(false), []);
 
