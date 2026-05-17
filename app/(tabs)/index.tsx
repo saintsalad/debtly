@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SystemUI from 'expo-system-ui';
@@ -75,6 +76,7 @@ function createStyles(palette: ColorPalette, scrollBottomPadding: number) {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const palette = useColors();
   const scrollBottomPadding =
     Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
@@ -148,6 +150,7 @@ export default function HomeScreen() {
             receivablePending={owedToMe.length}
             payablePending={iOwe.length}
             fmt={fmt}
+            onPress={() => router.push('/insights')}
           />
         </Animated.View>
 

@@ -57,6 +57,10 @@ export default function RootLayout() {
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
                     <Stack.Screen
+                      name="insights"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
                       name="group/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />

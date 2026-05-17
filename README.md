@@ -15,7 +15,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 
 ### Home
 
-- Greeting and balance **insights** (total owed to you / you owe, pending counts, entries this year).
+- Greeting and balance **insights** (total owed to you / you owe, pending counts, entries this year). Tap the **Insights** gradient card for the full **Insights** screen (streaks, stats, group summaries).
 - **Upcoming dues** and **recent activity** shortcuts into transaction detail.
 
 ### Transactions
@@ -59,6 +59,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 app/                    # Expo Router screens (tabs, group detail, transaction flows)
 components/ui/          # Shared UI (glass cards, tab bar, avatars, sheets)
 features/debts/         # Personal debt ledger, interest, payments, transaction UI
+features/insights/       # Insights screen analytics (streaks, aggregates)
 features/group-expense/ # Groups, balance engine, settlements, activity log
 stores/                 # Zustand stores (debts, groups, profile)
 lib/                    # Platform tokens, storage, mocks for first launch
@@ -99,6 +100,7 @@ pnpm test
 - [x] Money input caps and validation tests
 - [x] Centralized design tokens (`lib/theme/tokens.ts`) for brand, semantic colors, and chrome (tab bar, glass, shadows)
 - [x] **Print receipt** for individual transactions (thermal-style share / print flow)
+- [x] **Insights** screen (`app/insights.tsx`) — streaks, yearly entry chart, tiles (paid, people, payments; group row when you have groups); opens from Home Insights card
 
 ### In progress / planned
 
@@ -109,7 +111,6 @@ pnpm test
 - [ ] **WebSocket / real-time** updates for split bill groups (live activity and balances where it matters)
 - [ ] **Registration page** toward authenticated accounts and **shared group state across users**
 - [ ] Remote backend and multi-device sync (repository adapter stub exists; stores are local-only today)
-- [ ] **Insights** page (dedicated analytics beyond Home summary widgets)
 - [ ] **Onboarding** design (first launch, progressive disclosure, empty states)
 - [ ] Broader automated test coverage (UI / integration)
 - [ ] Receipt attachments and richer export beyond share sheets / print

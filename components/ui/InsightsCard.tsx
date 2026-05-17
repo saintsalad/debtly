@@ -1,7 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { radius, space, type, useCardShadow } from '@/lib/platform';
 
@@ -18,6 +19,7 @@ interface InsightsCardProps {
   receivablePending: number;
   payablePending: number;
   fmt: (amount: number) => string;
+  onPress?: () => void;
 }
 
 function MetricRow({
@@ -49,17 +51,12 @@ export function InsightsCard({
   receivablePending,
   payablePending,
   fmt,
+  onPress,
 }: InsightsCardProps) {
   const shadow = useCardShadow();
 
-  return (
-    <LinearGradient
-      colors={[...GRADIENT_COLORS]}
-      locations={[...GRADIENT_LOCATIONS]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={[styles.card, shadow]}
-    >
+  const content = (
+    <>
       <Text style={styles.title}>Insights</Text>
 
       <View style={styles.body}>
@@ -84,6 +81,39 @@ export function InsightsCard({
           />
         </View>
       </View>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Opens transaction insights"
+        onPress={onPress}
+        onPressIn={() => void Haptics.selectionAsync()}
+      >
+        <LinearGradient
+          colors={[...GRADIENT_COLORS]}
+          locations={[...GRADIENT_LOCATIONS]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[styles.card, shadow]}
+        >
+          {content}
+        </LinearGradient>
+      </Pressable>
+    );
+  }
+
+  return (
+    <LinearGradient
+      colors={[...GRADIENT_COLORS]}
+      locations={[...GRADIENT_LOCATIONS]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={[styles.card, shadow]}
+    >
+      {content}
     </LinearGradient>
   );
 }
