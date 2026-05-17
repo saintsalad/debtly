@@ -1,11 +1,16 @@
 import { AppScreen } from '@/components/ui/AppScreen';
-import { GlassCard } from '@/components/ui/GlassCard';
 import { ContextMenuDropdown, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { GlassCard } from '@/components/ui/GlassCard';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { TransactionFilterSheet, type TransactionFilterSheetHandle } from '@/features/debts/TransactionFilterSheet';
 import { TransactionRow } from '@/features/debts/TransactionRow';
+import {
+  debtSegmentGlassTrack,
+  debtSegmentMinTouchHeight,
+  TRANSACTION_DEBT_SEGMENT_LABELS,
+} from '@/features/debts/debtSegmentedChrome';
 import {
   applyTransactionFilters,
   DEFAULT_TRANSACTION_FILTERS,
@@ -15,15 +20,10 @@ import {
 import { filterDebtsForTransactionsTab } from '@/features/debts/transactionList';
 import { buildTransactionSections } from '@/features/debts/transactionSections';
 import { Debt } from '@/features/debts/types';
-import {
-  TRANSACTION_DEBT_SEGMENT_LABELS,
-  debtSegmentGlassTrack,
-  debtSegmentMinTouchHeight,
-} from '@/features/debts/debtSegmentedChrome';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { glassBorderWidth } from '@/lib/glassBorder';
-import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGlassSeparatorColor } from '@/lib/glassSurface';
+import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
   scrollContentLayerStyle,
@@ -813,7 +813,7 @@ export default function TransactionsScreen() {
   );
 
   const segmentedAccentByIndex = useMemo(
-    (): Array<string | undefined> => [undefined, palette.positive, palette.negative],
+    (): (string | undefined)[] => [undefined, palette.positive, palette.negative],
     [palette.positive, palette.negative]
   );
 
@@ -981,6 +981,7 @@ export default function TransactionsScreen() {
                         <View style={styles.segmentIdleWrap}>
                           <SegmentedControl
                             variant="inline"
+                            trackWidthPercent={80}
                             trackStyle={segmentedTrackStyle}
                             icons={[undefined, ArrowUp, ArrowDown]}
                             selectedForegroundByIndex={segmentedAccentByIndex}
