@@ -12,19 +12,24 @@ export type TransactionDuePresentationTone =
   | 'due_today'
   | 'overdue';
 
-export const CURRENCIES: Record<string, { symbol: string; label: string }> = {
+/** Currencies available in profile settings and for new amounts. */
+export const SUPPORTED_CURRENCY_CODES = ['PHP', 'USD', 'EUR', 'JPY'] as const;
+export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCY_CODES)[number];
+
+export const CURRENCIES: Record<SupportedCurrencyCode, { symbol: string; label: string }> = {
   PHP: { symbol: '₱', label: 'Philippine Peso' },
   USD: { symbol: '$', label: 'US Dollar' },
   EUR: { symbol: '€', label: 'Euro' },
-  GBP: { symbol: '£', label: 'British Pound' },
   JPY: { symbol: '¥', label: 'Japanese Yen' },
-  SGD: { symbol: 'S$', label: 'Singapore Dollar' },
-  AUD: { symbol: 'A$', label: 'Australian Dollar' },
-  CAD: { symbol: 'C$', label: 'Canadian Dollar' },
 };
 
+export function getCurrencyMeta(code: string): { symbol: string; label: string } {
+  const meta = CURRENCIES[code as SupportedCurrencyCode];
+  return meta ?? { symbol: code, label: code };
+}
+
 export const formatCurrency = (amount: number, currency = 'PHP'): string => {
-  const symbol = CURRENCIES[currency]?.symbol ?? currency;
+  const symbol = getCurrencyMeta(currency).symbol;
   const abs = Math.abs(amount).toFixed(2);
   const [whole, cents] = abs.split('.');
   const formatted = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');

@@ -1,9 +1,9 @@
 import { useProfileStore } from '@/stores/profileStore';
-import { formatCurrency, CURRENCIES } from '@/lib/utils';
+import { formatCurrency, getCurrencyMeta } from '@/lib/utils';
 
 export const useCurrency = () => {
   const currency = useProfileStore((s) => s.currency);
-  const symbol = CURRENCIES[currency]?.symbol ?? currency;
+  const symbol = getCurrencyMeta(currency).symbol;
   return {
     currency,
     symbol,

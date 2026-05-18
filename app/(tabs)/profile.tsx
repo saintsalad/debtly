@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SystemUI from 'expo-system-ui';
 import {
@@ -30,8 +30,12 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { getDb } from '@/lib/db/client';
 import { clearAllData } from '@/lib/db/clearAllData';
+import {
+  CurrencyPickerSheet,
+  type CurrencyPickerSheetHandle,
+} from '@/components/profile/CurrencyPickerSheet';
 import { useProfileStore } from '@/stores/profileStore';
-import { CURRENCIES } from '@/lib/utils';
+import { getCurrencyMeta, type SupportedCurrencyCode } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
@@ -202,6 +206,8 @@ export default function ProfileScreen() {
   const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
   const { currency } = useCurrency();
   const { toast } = useToast();
+  const currencyPickerRef = useRef<CurrencyPickerSheetHandle>(null);
+  const currencyMeta = useMemo(() => getCurrencyMeta(currency), [currency]);
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(name);
@@ -213,16 +219,12 @@ export default function ProfileScreen() {
   };
 
   const pickCurrency = () => {
-    Alert.alert('Currency', 'Select your currency', [
-      ...Object.entries(CURRENCIES).map(([code, { symbol, label }]) => ({
-        text: `${symbol}  ${code}  ·  ${label}`,
-        onPress: () => {
-          setCurrency(code);
-          notifySuccess(toast, 'Currency updated');
-        },
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
+    currencyPickerRef.current?.present();
+  };
+
+  const handleCurrencySelect = (code: SupportedCurrencyCode) => {
+    setCurrency(code);
+    notifySuccess(toast, 'Currency updated');
   };
 
   const confirmClearAll = () => {
@@ -317,7 +319,7 @@ export default function ProfileScreen() {
           <Row
             icon={Wallet}
             label="Currency"
-            value={`${CURRENCIES[currency]?.symbol ?? ''} ${currency}`}
+            value={`${currencyMeta.symbol} ${currencyMeta.label}`}
             onPress={pickCurrency}
             palette={palette}
             styles={styles}
@@ -353,6 +355,12 @@ export default function ProfileScreen() {
           />
         </Section>
       </Animated.ScrollView>
+
+      <CurrencyPickerSheet
+        ref={currencyPickerRef}
+        selectedCode={currency}
+        onSelect={handleCurrencySelect}
+      />
     </AppScreen>
   );
 }

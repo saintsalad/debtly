@@ -36,7 +36,7 @@ import {
   StatusBarScrollFadeStrip,
   useStatusBarScrollFade,
 } from '@/lib/statusBarScrollFade';
-import { CURRENCIES } from '@/lib/utils';
+import { getCurrencyMeta } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 import * as Haptics from 'expo-haptics';
@@ -195,7 +195,7 @@ export function GroupDetailScreen() {
   const cardShadow = useCardShadow();
   const { fmt } = useCurrency();
   const currency = useProfileStore((s) => s.currency);
-  const currencySymbol = CURRENCIES[currency]?.symbol ?? currency;
+  const currencySymbol = getCurrencyMeta(currency).symbol;
 
   const group = useGroupExpenseStore((s) => s.getGroup(id ?? ''));
   const expenses = useGroupExpenseStore((s) => s.expenses);

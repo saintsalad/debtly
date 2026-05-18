@@ -9,7 +9,7 @@ import type {
   SplitGroup,
 } from '@/features/group-expense/types';
 import { getCurrentUserMember } from '@/features/group-expense/balanceEngine';
-import { CURRENCIES, generateId } from '@/lib/utils';
+import { generateId, getCurrencyMeta } from '@/lib/utils';
 
 function memberName(group: SplitGroup, memberId?: string): string {
   if (!memberId) return 'Someone';
@@ -53,7 +53,7 @@ export function createLogEntry(
 }
 
 function fmtMinor(amountMinor: number, currency: string): string {
-  const symbol = CURRENCIES[currency as keyof typeof CURRENCIES]?.symbol ?? currency;
+  const symbol = getCurrencyMeta(currency).symbol;
   return `${symbol}${minorToMajor(amountMinor).toFixed(2)}`;
 }
 
