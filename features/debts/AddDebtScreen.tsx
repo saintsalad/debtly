@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import {
+  ADD_DEBT_NAME_LABEL,
+  DEBT_NAME_LABEL,
+  DEBT_NAME_PLACEHOLDER,
+  DEBT_NAMES_LABEL,
+  ENTER_DEBT_NAME,
+  debtNameSplitPlaceholder,
+} from '@/features/debts/copy';
+import {
   ADD_DEBT_DIRECTION_LABELS,
   debtSegmentGlassTrack,
   debtSegmentMinTouchHeight,
@@ -43,6 +51,12 @@ import {
 } from '@/features/debts/types';
 import { notifySuccess } from '@/lib/appToast';
 import { useColors, layout, radius, space, type, type ColorPalette } from '@/lib/platform';
+import {
+  scrollContentLayerStyle,
+  screenHeaderLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { useCurrency } from '@/hooks/useCurrency';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
@@ -51,6 +65,8 @@ interface AddDebtScreenProps {
   debtId?: string;
 }
 
+const HEADER_ROW_MIN_HEIGHT = 36;
+
 const RECURRENCE_OPTIONS: RecurrenceFrequency[] = ['weekly', 'monthly', 'yearly'];
 const INTEREST_ACCRUAL_OPTIONS: InterestAccrualFrequency[] = ['monthly', 'yearly'];
 const INTEREST_TYPE_OPTIONS: InterestType[] = ['simple', 'compound'];
@@ -58,14 +74,29 @@ const INTEREST_TYPE_OPTIONS: InterestType[] = ['simple', 'compound'];
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: palette.bg },
-    header: {
+    layerStack: {
+      flex: 1,
+      position: 'relative',
+    },
+    scroll: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: space[5],
+      paddingBottom: space[3],
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
+    },
+    headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: space[5],
-      paddingBottom: space[3],
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: palette.opaqueSeparator,
+      minHeight: HEADER_ROW_MIN_HEIGHT,
     },
     title: { flex: 1, ...type.headline, color: palette.label, textAlign: 'center' },
     // Match Transactions list shell horizontal inset (`layout.screenPaddingX`).
@@ -73,7 +104,6 @@ function createStyles(palette: ColorPalette) {
       flexGrow: 1,
       gap: space[4],
       paddingHorizontal: layout.screenPaddingX,
-      paddingTop: space[4],
     },
     /** Spacing between direction segmented + helper (HeroUI TextField `gap-1.5` / 6). */
     directionBlock: { gap: 6 },
@@ -153,7 +183,7 @@ function SplitPeopleList({
         <View key={i} style={styles.splitPersonRow}>
           <TextInput
             style={[styles.input, styles.splitPersonInput]}
-            placeholder={`Person ${i + 1}`}
+            placeholder={debtNameSplitPlaceholder(i)}
             placeholderTextColor={palette.placeholder}
             value={person}
             onChangeText={(val) => {
@@ -183,7 +213,7 @@ function SplitPeopleList({
         onPress={() => onChange([...people, ''])}
       >
         <Plus size={14} color={palette.tint} />
-        <GlassButton.Label>Add person</GlassButton.Label>
+        <GlassButton.Label>{ADD_DEBT_NAME_LABEL}</GlassButton.Label>
       </GlassButton>
     </View>
   );
@@ -213,6 +243,12 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   const isEditing = Boolean(debtId);
   const insets = useSafeAreaInsets();
   const { toast } = useToast();
+  const { onScroll: addDebtScrollFadeOnScroll } = useStatusBarScrollFade({ overlayHost: 'screen' });
+
+  const scrollTopInset = useMemo(
+    () => insets.top + space[3] + HEADER_ROW_MIN_HEIGHT + space[3] + space[4],
+    [insets.top]
+  );
 
   // ── Primary fields ──────────────────────────────────────────────────────
   const [debtType, setDebtType] = useState<DebtType>(
@@ -300,7 +336,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = () => {
     if (!isSplitWithOthers && !personName.trim()) {
-      Alert.alert('Name required', "Enter the person's name.");
+      Alert.alert('Name required', ENTER_DEBT_NAME);
       return;
     }
 
@@ -415,7 +451,11 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
       }
       const error = addDebt({ ...baseInput, personName: '', splitPeople: people });
       if (error) { Alert.alert('Unable to save', error); return; }
-      notifySuccess(toast, 'Split added', 'A separate debt was created for each person.');
+      notifySuccess(
+        toast,
+        'Split added',
+        'A separate debt was created for each name you entered.'
+      );
       close();
       return;
     }
@@ -432,30 +472,26 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
   return (
     <View style={styles.screen}>
       <HeroUINativeProvider>
-        <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
-          <HeaderIconButton icon={X} accessibilityLabel="Cancel" onPress={close} />
-          <Text style={styles.title}>{isEditing ? 'Edit Transaction' : 'New Debt'}</Text>
-          <HeaderIconButton
-            icon={Check}
-            accessibilityLabel={isEditing ? 'Save changes' : 'Save'}
-            onPress={handleSubmit}
-            variant="tint"
-          />
-        </View>
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={insets.top}
-        >
-          <Animated.ScrollView
-            keyboardShouldPersistTaps="always"
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.formContent,
-              { paddingBottom: insets.bottom + layout.screenPaddingBottom },
-            ]}
+        <View style={styles.layerStack} collapsable={false}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={insets.top}
           >
+            <Animated.ScrollView
+              style={[styles.scroll, scrollContentLayerStyle]}
+              keyboardShouldPersistTaps="always"
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={addDebtScrollFadeOnScroll}
+              contentContainerStyle={[
+                styles.formContent,
+                {
+                  paddingTop: scrollTopInset,
+                  paddingBottom: insets.bottom + layout.screenPaddingBottom,
+                },
+              ]}
+            >
             {/* Owed vs owed segmented — same chrome as Transactions; outside TextField so helper isn’t inset vs the track */}
             <View style={styles.directionBlock}>
               <View style={styles.segmentIdleWrap}>
@@ -480,10 +516,10 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
               </Description>
             </View>
 
-            {/* ── Person / Split ── */}
+            {/* ── Name / Split ── */}
             {isSplitWithOthers ? (
               <TextField isRequired>
-                <Label>People</Label>
+                <Label>{DEBT_NAMES_LABEL}</Label>
                 <SplitPeopleList
                   people={splitPeople}
                   onChange={setSplitPeople}
@@ -497,10 +533,10 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
               </TextField>
             ) : (
               <TextField isRequired>
-                <Label>Person</Label>
+                <Label>{DEBT_NAME_LABEL}</Label>
                 <TextInput
                   style={styles.input}
-                  placeholder="Full name"
+                  placeholder={DEBT_NAME_PLACEHOLDER}
                   placeholderTextColor={palette.placeholder}
                   value={personName}
                   onChangeText={setPersonName}
@@ -654,7 +690,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                 {debtType === 'owed_to_me' && !isEditing ? (
                   <FormSwitchRow
                     label="Split with others"
-                    description="Divide equally across multiple people."
+                    description="Divide equally across multiple names."
                     value={isSplitWithOthers}
                     onValueChange={setIsSplitWithOthers}
                     showSeparator
@@ -704,8 +740,28 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                 </View>
               ) : null}
             </View>
-          </Animated.ScrollView>
-        </KeyboardAvoidingView>
+            </Animated.ScrollView>
+          </KeyboardAvoidingView>
+
+          <StatusBarScrollFadeStrip />
+
+          <View
+            style={[styles.headerOverlay, { paddingTop: insets.top + space[3] }]}
+            pointerEvents="box-none"
+            collapsable={false}
+          >
+            <View style={styles.headerRow}>
+              <HeaderIconButton icon={X} accessibilityLabel="Cancel" onPress={close} />
+              <Text style={styles.title}>{isEditing ? 'Edit Transaction' : 'New Debt'}</Text>
+              <HeaderIconButton
+                icon={Check}
+                accessibilityLabel={isEditing ? 'Save changes' : 'Save'}
+                onPress={handleSubmit}
+                variant="tint"
+              />
+            </View>
+          </View>
+        </View>
       </HeroUINativeProvider>
     </View>
   );

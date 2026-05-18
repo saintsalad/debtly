@@ -1,3 +1,4 @@
+import { formatShareNameLine } from '@/features/debts/copy';
 import { Alert, Linking, Platform, Share } from 'react-native';
 import { Debt } from '@/features/debts/types';
 import {
@@ -43,7 +44,7 @@ export function buildTransactionSummary(debt: Debt, fmt: (amount: number) => str
   const lines = [
     'Debtly transaction',
     '',
-    `Person: ${debt.personName}`,
+    formatShareNameLine(debt.personName),
     `Direction: ${direction}`,
     `Principal: ${fmt(principal)}`,
     `Remaining: ${fmt(remaining)}`,

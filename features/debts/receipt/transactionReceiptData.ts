@@ -1,3 +1,4 @@
+import { RECEIPT_NAME_LABEL } from '@/features/debts/copy';
 import {
   getAccruedInterest,
   getPrincipalAmount,
@@ -118,7 +119,7 @@ export function buildReceiptRows(
 
   const rows: ReceiptRow[] = [];
   if (!options.omitPerson) {
-    rows.push({ label: 'Person', value: debt.personName });
+    rows.push({ label: RECEIPT_NAME_LABEL, value: debt.personName });
   }
   rows.push({ label: 'Principal', value: fmt(principal) });
   if (!options.omitRemaining) {

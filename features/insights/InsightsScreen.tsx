@@ -1,6 +1,7 @@
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { ScreenBlueGradient } from '@/components/ui/ScreenBlueGradient';
 import { filterDebtsForTransactionsTab } from '@/features/debts/transactionList';
+import { entriesThisYearHeroLabel } from '@/features/insights/copy';
 import {
   buildGroupExpenseInsights,
   buildTransactionInsights,
@@ -512,7 +513,9 @@ export function InsightsScreen({ onClose }: InsightsScreenProps) {
             <View style={styles.yearlyRow}>
               <View style={styles.yearlyHero}>
                 <Text style={styles.yearlyHeroVal}>{insights.entriesThisYear}</Text>
-                <Text style={styles.yearlyHeroLabel}>Entries{'\n'}This year</Text>
+                <Text style={styles.yearlyHeroLabel}>
+                  {entriesThisYearHeroLabel(insights.entriesThisYear)}
+                </Text>
               </View>
               <MonthlyEntryBars counts={insights.monthlyEntryCounts} styles={styles} />
             </View>
@@ -540,7 +543,7 @@ export function InsightsScreen({ onClose }: InsightsScreenProps) {
                 style={styles.metricTileWithIcon}
               >
                 <View style={styles.tileIconHeaderRow}>
-                  <Text style={styles.tileEyebrow}>People</Text>
+                  <Text style={styles.tileEyebrow}>Names</Text>
                   <View style={styles.tileIconBadgeOnGradient} accessibilityElementsHidden>
                     <Users size={15} color={ON_GRADIENT} strokeWidth={2.25} />
                   </View>
@@ -551,7 +554,7 @@ export function InsightsScreen({ onClose }: InsightsScreenProps) {
             ) : (
               <View style={[styles.metricTileWithIcon, { backgroundColor: palette.fillSecondary }]}>
                 <View style={styles.tileIconHeaderRow}>
-                  <Text style={styles.peopleTileEyebrow}>People</Text>
+                  <Text style={styles.peopleTileEyebrow}>Names</Text>
                   <View style={styles.tileIconBadgeLight} accessibilityElementsHidden>
                     <Users size={15} color={palette.label} strokeWidth={2.25} />
                   </View>

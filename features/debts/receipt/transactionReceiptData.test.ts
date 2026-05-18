@@ -72,20 +72,20 @@ describe('buildReceiptRows', () => {
   it('includes core fields for a simple debt', () => {
     const rows = buildReceiptRows(makeDebt(), fmt);
     const labels = rows.map((r) => r.label);
-    expect(labels).toContain('Person');
+    expect(labels).toContain('Name');
     expect(labels).toContain('Principal');
     expect(labels).toContain('Remaining');
     expect(labels).toContain('Status');
     expect(labels).not.toContain('Direction');
     expect(labels).not.toContain('Added');
     expect(labels).not.toContain('Updated');
-    expect(rows.find((r) => r.label === 'Person')?.value).toBe('Victor');
+    expect(rows.find((r) => r.label === 'Name')?.value).toBe('Victor');
   });
 
   it('omits person and remaining for compact receipt layout', () => {
     const rows = buildReceiptRows(makeDebt(), fmt, { omitPerson: true, omitRemaining: true });
     const labels = rows.map((r) => r.label);
-    expect(labels).not.toContain('Person');
+    expect(labels).not.toContain('Name');
     expect(labels).not.toContain('Remaining');
     expect(labels).toContain('Principal');
     expect(labels).toContain('Status');
@@ -204,7 +204,7 @@ describe('buildTransactionReceiptData', () => {
     expect(data.header.title).toBe("Alex's Debt");
     expect(data.header.date).toContain('2026');
     expect(data.header.amount).toBe('₱950.00');
-    expect(data.rows.map((r) => r.label)).not.toContain('Person');
+    expect(data.rows.map((r) => r.label)).not.toContain('Name');
     expect(data.rows.map((r) => r.label)).not.toContain('Remaining');
   });
 
@@ -216,7 +216,7 @@ describe('buildTransactionReceiptData', () => {
     );
     expect(data.header.title).toBe('My Debt');
     expect(data.header.amount).toBe('₱950.00');
-    expect(data.rows.map((r) => r.label)).not.toContain('Person');
+    expect(data.rows.map((r) => r.label)).not.toContain('Name');
     expect(data.rows.map((r) => r.label)).not.toContain('Remaining');
   });
 });

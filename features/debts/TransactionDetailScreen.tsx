@@ -20,6 +20,12 @@ import { openSmsReminder, sendTransactionReminder } from '@/features/debts/trans
 import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
 import { useCurrency } from '@/hooks/useCurrency';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import {
+  scrollContentLayerStyle,
+  screenHeaderLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { getComputedStatus, getTransactionDuePresentation } from '@/lib/utils';
 import { notifySuccess } from '@/lib/appToast';
 import { useDebtStore } from '@/stores/debtStore';
@@ -45,6 +51,8 @@ interface TransactionDetailScreenProps {
   onClose: () => void;
 }
 
+const HEADER_ROW_MIN_HEIGHT = 36;
+
 function formatFullDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
@@ -59,14 +67,29 @@ function createStyles(palette: ColorPalette) {
       flex: 1,
       backgroundColor: palette.bg,
     },
-    header: {
+    layerStack: {
+      flex: 1,
+      position: 'relative',
+    },
+    scroll: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: space[5],
+      paddingBottom: space[3],
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
+    },
+    headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: space[5],
-      paddingBottom: space[3],
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: palette.opaqueSeparator,
+      minHeight: HEADER_ROW_MIN_HEIGHT,
     },
     headerTitle: {
       flex: 1,
@@ -74,13 +97,8 @@ function createStyles(palette: ColorPalette) {
       color: palette.label,
       textAlign: 'center',
     },
-    headerSpacer: {
-      width: 36,
-      height: 36,
-    },
     content: {
       paddingHorizontal: space[4],
-      paddingTop: space[2],
       gap: space[6],
     },
     hero: {
@@ -269,6 +287,11 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
   const { fmt } = useCurrency();
   const { markPaid, markUnpaid, deleteDebt, recordPayment } = useDebtStore();
   const insets = useSafeAreaInsets();
+  const { onScroll: transactionScrollFadeOnScroll } = useStatusBarScrollFade({ overlayHost: 'screen' });
+  const scrollTopInset = useMemo(
+    () => insets.top + space[3] + HEADER_ROW_MIN_HEIGHT + space[3] + space[2],
+    [insets.top]
+  );
   const partialPaymentSheetRef = useRef<PartialPaymentSheetHandle>(null);
   const recordPaymentSheetRef = useRef<RecordPaymentSheetHandle>(null);
   const debt = useDebtStore((state) => state.debts.find((item) => item.id === debtId));
@@ -419,20 +442,21 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
     <BottomSheetModalProvider>
       <View style={styles.screen}>
         <HeroUINativeProvider>
-          <View style={[styles.header, { paddingTop: insets.top + space[2] }]}>
-            <HeaderIconButton icon={X} accessibilityLabel="Close" onPress={onClose} />
-            <Text style={styles.headerTitle}>Transaction</Text>
-            <HeaderIconButton icon={Pencil} accessibilityLabel="Edit transaction" onPress={handleEdit} />
-          </View>
-
-          <Animated.ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[
-              styles.content,
-              { paddingBottom: insets.bottom + layout.screenPaddingBottom },
-            ]}
-          >
+          <View style={styles.layerStack} collapsable={false}>
+            <Animated.ScrollView
+              style={[styles.scroll, scrollContentLayerStyle]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              scrollEventThrottle={16}
+              onScroll={transactionScrollFadeOnScroll}
+              contentContainerStyle={[
+                styles.content,
+                {
+                  paddingTop: scrollTopInset,
+                  paddingBottom: insets.bottom + layout.screenPaddingBottom,
+                },
+              ]}
+            >
             <View style={styles.hero}>
               <Avatar
                 name={debt.personName}
@@ -621,7 +645,26 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
                 />
               </View>
             </View>
-          </Animated.ScrollView>
+            </Animated.ScrollView>
+
+            <StatusBarScrollFadeStrip />
+
+            <View
+              style={[styles.headerOverlay, { paddingTop: insets.top + space[3] }]}
+              pointerEvents="box-none"
+              collapsable={false}
+            >
+              <View style={styles.headerRow}>
+                <HeaderIconButton icon={X} accessibilityLabel="Close" onPress={onClose} />
+                <Text style={styles.headerTitle}>Transaction</Text>
+                <HeaderIconButton
+                  icon={Pencil}
+                  accessibilityLabel="Edit transaction"
+                  onPress={handleEdit}
+                />
+              </View>
+            </View>
+          </View>
         </HeroUINativeProvider>
       </View>
       <RecordPaymentSheet

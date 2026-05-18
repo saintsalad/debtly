@@ -1,3 +1,4 @@
+import { ENTER_DEBT_NAME, ENTER_TWO_NAMES_TO_SPLIT } from '@/features/debts/copy';
 import { AddDebtInput, Debt, RecurrenceFrequency } from '@/features/debts/types';
 import { MAX_INTEREST_RATE_BPS, majorToMinor } from '@/features/debts/money';
 import { toLocalDateString } from '@/features/debts/dates';
@@ -42,11 +43,11 @@ export function validateAddDebtInput(input: AddDebtInput): string | null {
   const splitAcrossMultiple = splitNames.length >= 2;
 
   if (!splitAcrossMultiple && !input.personName.trim()) {
-    return "Enter the person's name.";
+    return ENTER_DEBT_NAME;
   }
 
   if ((input.splitPeople?.length ?? 0) > 0 && splitNames.length === 1) {
-    return 'Enter at least two people to split across.';
+    return ENTER_TWO_NAMES_TO_SPLIT;
   }
 
   const principalMinor = majorToMinor(input.amount);

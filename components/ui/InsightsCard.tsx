@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { entriesThisYearWord } from '@/features/insights/copy';
 import { radius, space, type, useCardShadow } from '@/lib/platform';
 
 const GRADIENT_COLORS = ['#8F7DFF', '#6B5CE8', '#3D56C4', '#2A408F'] as const;
@@ -54,6 +55,7 @@ export function InsightsCard({
   onPress,
 }: InsightsCardProps) {
   const shadow = useCardShadow();
+  const entriesLabel = entriesThisYearWord(entriesThisYear);
 
   const content = (
     <>
@@ -63,7 +65,7 @@ export function InsightsCard({
         <View style={styles.entriesColumn}>
           <Text style={styles.heroValue}>{entriesThisYear}</Text>
           <Text style={styles.heroLabel}>
-            <Text style={styles.heroLabelStrong}>Entries </Text>
+            <Text style={styles.heroLabelStrong}>{entriesLabel} </Text>
             <Text style={styles.heroLabelMuted}>this year</Text>
           </Text>
         </View>

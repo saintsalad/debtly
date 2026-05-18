@@ -1,3 +1,4 @@
+import { ADD_AT_LEAST_ONE_NAME } from '@/features/debts/copy';
 import { create } from 'zustand';
 import { Debt, AddDebtInput, RecordPaymentInput } from '@/features/debts/types';
 import {
@@ -114,7 +115,7 @@ export const useDebtStore = create<DebtState>()((set, get) => ({
         // Feature #1: split a single payment across multiple people
         if (input.splitPeople && input.splitPeople.length > 0) {
           const people = input.splitPeople.filter((p) => p.trim());
-          if (people.length === 0) return 'Add at least one person.';
+          if (people.length === 0) return ADD_AT_LEAST_ONE_NAME;
 
           const perPersonAmount = input.amount / people.length;
           const sharedSplitGroupId = generateId();
