@@ -363,15 +363,15 @@ function MonthlyEntryBars({
         {counts.map((c, i) => {
           const h = Math.max(4, Math.round((c / max) * 68));
           return (
-            <View key={`m-${MONTH_AXIS[i] ?? i}`} style={styles.barCell}>
+            <View key={`bar-${i}`} style={styles.barCell}>
               <View style={[styles.barFill, { height: h }]} />
             </View>
           );
         })}
       </View>
       <View style={styles.axisRow}>
-        {MONTH_AXIS.map((m) => (
-          <View key={`lbl-${m}`} style={styles.axisCell}>
+        {MONTH_AXIS.map((m, i) => (
+          <View key={`lbl-${i}`} style={styles.axisCell}>
             <Text style={styles.axisLabel}>{m}</Text>
           </View>
         ))}
