@@ -10,7 +10,9 @@ interface ReceiptRowProps {
 export function ReceiptRow({ row }: ReceiptRowProps) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{row.label}</Text>
+      <Text style={styles.label} numberOfLines={5}>
+        {row.label}
+      </Text>
       <Text style={styles.value} numberOfLines={3}>
         {row.value}
       </Text>

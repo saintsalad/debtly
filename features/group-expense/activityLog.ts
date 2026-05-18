@@ -255,6 +255,27 @@ export function logGroupCreated(group: SplitGroup, actorMemberId: string): Activ
   });
 }
 
+/**
+ * Invite host — persisting `SplitGroup.createdByMemberId` preferred; fallback to oldest `group_created` log row.
+ */
+export function getGroupCreatorMemberId(
+  group: SplitGroup,
+  activityLog: readonly ActivityLogEntry[]
+): string | undefined {
+  if (group.createdByMemberId) return group.createdByMemberId;
+
+  const createdEntries = activityLog
+    .filter((e) => e.groupId === group.id && e.kind === 'group_created')
+    .slice()
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+  const fromLog = createdEntries[0]?.actorMemberId;
+  if (fromLog) return fromLog;
+
+  if (group.members.length === 0) return undefined;
+  return [...group.members].sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))[0]?.id;
+}
+
 export function logGroupUpdated(
   group: SplitGroup,
   actorMemberId: string,

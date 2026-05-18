@@ -25,6 +25,8 @@ export interface SplitGroup {
   imageUri?: string;
   inviteCode: string;
   members: GroupMember[];
+  /** Member who created the group (invite host). Persisted from createGroup; backfilled on load for older data. */
+  createdByMemberId?: string;
   createdAt: string;
   updatedAt: string;
   version: number;

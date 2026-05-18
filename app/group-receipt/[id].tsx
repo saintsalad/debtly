@@ -4,11 +4,13 @@ import { buildGroupSplitReceiptData } from '@/features/group-expense/groupReceip
 import { PrintedReceiptShareScreen } from '@/features/debts/receipt/PrintedReceiptShareScreen';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 export default function GroupReceiptRoute() {
   const router = useRouter();
   const { fmt } = useCurrency();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const profileName = useProfileStore((s) => s.name);
   const group = useGroupExpenseStore((s) => (id ? s.getGroup(id) : undefined));
   const expenses = useGroupExpenseStore((s) => s.expenses);
   const settlements = useGroupExpenseStore((s) => s.settlements);
@@ -19,8 +21,8 @@ export default function GroupReceiptRoute() {
 
   const receiptData = useMemo(() => {
     if (!group || !id) return null;
-    return buildGroupSplitReceiptData(group, expenses, settlements, fmt);
-  }, [group, id, expenses, settlements, fmt]);
+    return buildGroupSplitReceiptData(group, expenses, settlements, fmt, new Date(), profileName);
+  }, [group, id, expenses, settlements, fmt, profileName]);
 
   if (!id || !group || !receiptData) {
     return null;

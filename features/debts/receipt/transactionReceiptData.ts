@@ -40,6 +40,8 @@ export interface TransactionReceiptData {
   paymentLines: ReceiptRow[];
   /** When non-empty, replaces flat `rows` with titled sections (e.g. split groups). */
   sections?: ReceiptSection[];
+  /** When true, skip the slip footer line labeled Amount (groups use SUMMARY + per‑expense values). */
+  omitFooterAmountRow?: boolean;
 }
 
 export interface BuildReceiptRowsOptions {

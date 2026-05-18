@@ -146,7 +146,9 @@ export function ThermalReceiptSlip({ data, photoUri }: ThermalReceiptSlipProps) 
             <ReceiptDottedRule />
 
             <View style={[styles.contentPad, styles.stack]}>
-              <ReceiptRow row={{ label: 'Amount', value: header.amount }} />
+              {!data.omitFooterAmountRow ? (
+                <ReceiptRow row={{ label: 'Amount', value: header.amount }} />
+              ) : null}
               <View style={styles.footer}>
                 <Text style={styles.footerTagline}>{footerTagline}</Text>
               </View>

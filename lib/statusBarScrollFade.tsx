@@ -112,6 +112,74 @@ function StatusBarScrollFadeOverlay({ scrollY }: { scrollY: SharedValue<number> 
   );
 }
 
+/** Bottom sheets / modal lists: Insights-style fade from solid sheet surface toward transparent. */
+export function SheetSurfaceScrollFadeStrip({
+  scrollY,
+  surfaceHex,
+  height,
+}: {
+  scrollY: SharedValue<number>;
+  surfaceHex: string;
+  height: number;
+}) {
+  const wrapStyle = useMemo(() => ({ width: '100%' as const, height }), [height]);
+
+  const gradientColors = useMemo(
+    (): [string, string, string, string] => [
+      surfaceHex,
+      hexToRgba(surfaceHex, 0.78),
+      hexToRgba(surfaceHex, 0.38),
+      hexToRgba(surfaceHex, 0),
+    ],
+    [surfaceHex]
+  );
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [0, 20], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      collapsable={false}
+      style={[
+        {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height,
+          overflow: 'hidden',
+          backgroundColor: 'transparent',
+        },
+        scrollFadeLayerStyle,
+        animatedStyle,
+      ]}
+    >
+      <LinearGradient
+        colors={gradientColors}
+        locations={[0, 0.32, 0.68, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={wrapStyle}
+      />
+    </Animated.View>
+  );
+}
+
+export function useSheetSurfaceScrollFade() {
+  const scrollY = useSharedValue(0);
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      scrollY.value = e.contentOffset.y;
+    },
+  });
+  const resetScrollY = useCallback(() => {
+    scrollY.value = 0;
+  }, [scrollY]);
+  return { scrollY, onScroll, resetScrollY };
+}
+
 export function StatusBarScrollFadeProvider({ children }: { children: React.ReactNode }) {
   const scrollY = useSharedValue(0);
   const [screenHostedOverlay, setScreenHostedOverlay] = useState(false);

@@ -35,6 +35,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 - **Record settlement** when someone pays their share.
 - Group detail: balance hero, per-member balances, activity feed (expenses, edits, settlements, member changes).
 - Share group summary and balance reminders (including localized SMS-style copy).
+- **Print / share receipt** — thermal-style group slip (`app/group-receipt/[id]` from group detail ⋯ menu), with summed splits when the same payer and participants repeat, and settlement-aware member balances.
 - Group list with search and sectioned list UI aligned with Transactions.
 
 ### Profile
@@ -99,14 +100,14 @@ pnpm test
 - [x] Deep link handler for group invite codes (local join flow)
 - [x] Money input caps and validation tests
 - [x] Centralized design tokens (`lib/theme/tokens.ts`) for brand, semantic colors, and chrome (tab bar, glass, shadows)
-- [x] **Print receipt** for individual transactions (thermal-style share / print flow)
+- [x] **Print receipt** for personal transactions (thermal-style share / print flow)
+- [x] **Print / share receipt** for group splits (thermal slip from group ⋯ menu; SUMMARY + per-expense member lines)
 - [x] **Insights** screen (`app/insights.tsx`) — streaks, yearly entry chart, tiles (paid, people, payments; group row when you have groups); opens from Home Insights card
 
 ### In progress / planned
 
 - [ ] **SQLite** integration for fully local storage (evolve beyond AsyncStorage for scale and querying)
 - [ ] **Import / export** data (backup, migrate devices, interoperability)
-- [ ] **Print receipt** for split bill / group expenses (parity with transaction receipts)
 - [x] **Toast / in-app notifications** for successful actions (and clearer feedback elsewhere as needed)
 - [ ] **WebSocket / real-time** updates for split bill groups (live activity and balances where it matters)
 - [ ] **Registration page** toward authenticated accounts and **shared group state across users**

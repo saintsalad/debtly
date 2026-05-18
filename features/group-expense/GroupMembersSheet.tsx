@@ -1,5 +1,6 @@
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -17,8 +18,21 @@ import type { GroupMember } from '@/features/group-expense/types';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
+import {
+  screenHeaderLayerStyle,
+  scrollContentLayerStyle,
+  SheetSurfaceScrollFadeStrip,
+  useSheetSurfaceScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
+
+const AnimatedBottomSheetScrollView = Animated.createAnimatedComponent(BottomSheetScrollView);
+
+/** Over-scroll padding so rows clear the floating “Members” title block. */
+const MEMBERS_HEADER_SCROLL_PADDING_TOP = 72;
+/** Gradient height under title area (Insights-style pacing). */
+const MEMBERS_SHEET_SCROLL_FADE_HEIGHT = 96;
 
 export interface GroupMembersSheetHandle {
   present: (groupId: string) => void;
@@ -40,12 +54,19 @@ function createSheetStyles(palette: ColorPalette) {
       borderTopRightRadius: 24,
       backgroundColor: palette.surface,
     },
+    sheetBody: {
+      flex: 1,
+      position: 'relative',
+    },
     handle: { width: 40, backgroundColor: palette.opaqueSeparator },
-    header: {
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
       paddingHorizontal: space[5],
       paddingBottom: space[3],
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: palette.opaqueSeparator,
+      backgroundColor: 'transparent',
     },
     title: { ...type.headline, fontWeight: '600', color: palette.label },
     subtitle: {
@@ -55,7 +76,6 @@ function createSheetStyles(palette: ColorPalette) {
     },
     content: {
       paddingHorizontal: space[5],
-      paddingTop: space[3],
       gap: space[3],
     },
     row: {
@@ -221,6 +241,8 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
 
   const { toast } = useToast();
 
+  const { scrollY, onScroll, resetScrollY } = useSheetSurfaceScrollFade();
+
   const [groupId, setGroupId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
@@ -236,15 +258,20 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
     []
   );
 
-  useImperativeHandle(ref, () => ({
-    present: (gid) => {
-      setGroupId(gid);
-      setRenamingId(null);
-      setRenameDraft('');
-      presentSheet(() => sheetRef.current?.present());
-    },
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
+  useImperativeHandle(
+    ref,
+    () => ({
+      present: (gid) => {
+        resetScrollY();
+        setGroupId(gid);
+        setRenamingId(null);
+        setRenameDraft('');
+        presentSheet(() => sheetRef.current?.present());
+      },
+      dismiss: () => sheetRef.current?.dismiss(),
+    }),
+    [presentSheet, resetScrollY]
+  );
 
   const confirmRemove = (member: GroupMember) => {
     if (!groupId) return;
@@ -308,46 +335,71 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
       backgroundStyle={styles.sheet}
       containerComponent={containerComponent}
       onDismiss={() => {
+        resetScrollY();
         setRenamingId(null);
         setRenameDraft('');
       }}
     >
       <HeroUINativeProvider>
-        <View style={styles.header}>
-          <Text style={styles.title}>Members</Text>
-          <Text style={styles.subtitle}>
-            {members.length} {members.length === 1 ? 'person' : 'people'} in this group
-          </Text>
+        <View style={styles.sheetBody}>
+          <AnimatedBottomSheetScrollView
+            style={scrollContentLayerStyle}
+            showsVerticalScrollIndicator={false}
+            onScroll={onScroll}
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingTop: MEMBERS_HEADER_SCROLL_PADDING_TOP,
+                paddingBottom: contentBottomPadding,
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {members.map((member, index) => (
+              <View key={member.id}>
+                <MemberRow
+                  member={member}
+                  canManage={isHost && !member.isCurrentUser}
+                  isRenaming={renamingId === member.id}
+                  renameDraft={renameDraft}
+                  onRenameDraftChange={setRenameDraft}
+                  onStartRename={() => startRename(member)}
+                  onSaveRename={saveRename}
+                  onCancelRename={() => {
+                    setRenamingId(null);
+                    setRenameDraft('');
+                  }}
+                  onRemove={() => confirmRemove(member)}
+                  styles={styles}
+                  palette={palette}
+                  keyboardAppearance={keyboardAppearance}
+                />
+                {index < members.length - 1 &&
+                renamingId !== member.id &&
+                renamingId !== members[index + 1]?.id ? (
+                  <ListDivider />
+                ) : null}
+              </View>
+            ))}
+          </AnimatedBottomSheetScrollView>
+
+          <SheetSurfaceScrollFadeStrip
+            scrollY={scrollY}
+            surfaceHex={palette.surface}
+            height={MEMBERS_SHEET_SCROLL_FADE_HEIGHT}
+          />
+
+          <View
+            style={[styles.headerOverlay, screenHeaderLayerStyle]}
+            pointerEvents="box-none"
+            collapsable={false}
+          >
+            <Text style={styles.title}>Members</Text>
+            <Text style={styles.subtitle}>
+              {members.length} {members.length === 1 ? 'person' : 'people'} in this group
+            </Text>
+          </View>
         </View>
-        <BottomSheetScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {members.map((member, index) => (
-            <View key={member.id}>
-              <MemberRow
-                member={member}
-                canManage={isHost && !member.isCurrentUser}
-                isRenaming={renamingId === member.id}
-                renameDraft={renameDraft}
-                onRenameDraftChange={setRenameDraft}
-                onStartRename={() => startRename(member)}
-                onSaveRename={saveRename}
-                onCancelRename={() => {
-                  setRenamingId(null);
-                  setRenameDraft('');
-                }}
-                onRemove={() => confirmRemove(member)}
-                styles={styles}
-                palette={palette}
-                keyboardAppearance={keyboardAppearance}
-              />
-              {index < members.length - 1 && renamingId !== member.id && renamingId !== members[index + 1]?.id ? (
-                <ListDivider />
-              ) : null}
-            </View>
-          ))}
-        </BottomSheetScrollView>
       </HeroUINativeProvider>
     </BottomSheetModal>
   );

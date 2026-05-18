@@ -1,4 +1,4 @@
-import { rebuildActivityLogFromState } from '@/features/group-expense/activityLog';
+import { getGroupCreatorMemberId, rebuildActivityLogFromState } from '@/features/group-expense/activityLog';
 import { majorToMinor } from '@/features/debts/money';
 import { generateId } from '@/lib/utils';
 import type {
@@ -46,6 +46,7 @@ export function migrateBillSplitsToGroups(
       name: split.title,
       inviteCode: generateInviteCode(),
       members,
+      createdByMemberId: currentUserId,
       createdAt: split.createdAt,
       updatedAt: split.updatedAt,
       version: 1,
@@ -124,6 +125,14 @@ export function migratePersistedState(
   if (migrated.activityLog.length === 0 && migrated.groups.length > 0) {
     migrated = { ...migrated, activityLog: rebuildActivityLogFromState(migrated) };
   }
+
+  migrated = {
+    ...migrated,
+    groups: migrated.groups.map((g) => ({
+      ...g,
+      createdByMemberId: g.createdByMemberId ?? getGroupCreatorMemberId(g, migrated.activityLog),
+    })),
+  };
 
   return migrated;
 }

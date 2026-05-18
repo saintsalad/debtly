@@ -134,6 +134,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           imageUri,
           inviteCode: generateInviteCode(),
           members: [currentUser, ...extraMembers],
+          createdByMemberId: currentUser.id,
           createdAt: now,
           updatedAt: now,
           version: 1,

@@ -7,7 +7,7 @@ import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { buildGroupActivity } from '@/features/group-expense/activityFeed';
 import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
-import { isExpenseTappable } from '@/features/group-expense/activityLog';
+import { getGroupCreatorMemberId, isExpenseTappable } from '@/features/group-expense/activityLog';
 import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { selectGroupBalances, settlementsExistBetweenMembers } from '@/features/group-expense/balanceEngine';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
@@ -30,6 +30,12 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
 import { notifySuccess } from '@/lib/appToast';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
+import {
+  screenHeaderLayerStyle,
+  scrollContentLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { CURRENCIES } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -41,25 +47,38 @@ import { StatusBar } from 'expo-status-bar';
 import { useToast } from 'heroui-native';
 import { Camera, ChevronLeft, MoreHorizontal, Printer, Share2, Trash2, UserPlus } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const HERO_CARD_MIN_HEIGHT = 304;
 const HERO_GRADIENT_TOP = 56;
 const FOOTER_TOP_RADIUS = 20;
 
+/** Mirrors Insights header row height for consistent scroll top inset / fade pacing. */
+const HEADER_ROW_MIN_HEIGHT = 36;
+
 function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: 'transparent' },
-    inner: {
+    layerStack: {
       flex: 1,
-      paddingHorizontal: layout.screenPaddingX,
+      position: 'relative',
     },
-    header: {
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingBottom: space[3],
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
+    },
+    headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: space[2],
-      paddingBottom: space[3],
+      minHeight: HEADER_ROW_MIN_HEIGHT,
     },
     title: {
       flex: 1,
@@ -68,7 +87,10 @@ function createStyles(palette: ColorPalette) {
       color: palette.label,
       textAlign: 'center',
     },
-    scroll: { flex: 1 },
+    scroll: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
     content: {
       gap: space[5],
       paddingBottom: space[10],
@@ -280,37 +302,44 @@ export function GroupDetailScreen() {
 
   const groupMoreMenuSections = useMemo((): ContextMenuSection[] => {
     if (!group) return [];
-    return [
+    const viewerMemberId = group.members.find((m) => m.isCurrentUser)?.id;
+    const creatorMemberId = getGroupCreatorMemberId(group, activityLog);
+    const canDeleteGroup = Boolean(
+      viewerMemberId && creatorMemberId && viewerMemberId === creatorMemberId
+    );
+
+    const mainItems: ContextMenuSection['items'] = [
       {
-        items: [
-          {
-            id: 'photo',
-            title: 'Group photo',
-            icon: Camera,
-            onPress: () => openGroupPhotoOptions(),
-          },
-          {
-            id: 'share',
-            title: 'Share summary',
-            icon: Share2,
-            onPress: () =>
-              void shareGroupSummary(group, expenses, settlements, fmt, currencySymbol),
-          },
-          {
-            id: 'print-receipt',
-            title: 'Print receipt',
-            icon: Printer,
-            onPress: () => {
-              closeMoreMenu();
-              router.push({
-                pathname: '/group-receipt/[id]',
-                params: { id: group.id },
-              });
-            },
-          },
-        ],
+        id: 'photo',
+        title: 'Group photo',
+        icon: Camera,
+        onPress: () => openGroupPhotoOptions(),
       },
       {
+        id: 'share',
+        title: 'Share summary',
+        icon: Share2,
+        onPress: () =>
+          void shareGroupSummary(group, expenses, settlements, fmt, currencySymbol),
+      },
+      {
+        id: 'print-receipt',
+        title: 'Print receipt',
+        icon: Printer,
+        onPress: () => {
+          closeMoreMenu();
+          router.push({
+            pathname: '/group-receipt/[id]',
+            params: { id: group.id },
+          });
+        },
+      },
+    ];
+
+    const sections: ContextMenuSection[] = [{ items: mainItems }];
+
+    if (canDeleteGroup) {
+      sections.push({
         items: [
           {
             id: 'delete',
@@ -331,9 +360,22 @@ export function GroupDetailScreen() {
               ]),
           },
         ],
-      },
-    ];
-  }, [group, expenses, settlements, fmt, currencySymbol, openGroupPhotoOptions, deleteGroup, router, closeMoreMenu]);
+      });
+    }
+
+    return sections;
+  }, [
+    group,
+    activityLog,
+    expenses,
+    settlements,
+    fmt,
+    currencySymbol,
+    openGroupPhotoOptions,
+    deleteGroup,
+    router,
+    closeMoreMenu,
+  ]);
 
   const currentUserId = useMemo(
     () => group?.members.find((m) => m.isCurrentUser)?.id,
@@ -376,6 +418,13 @@ export function GroupDetailScreen() {
     [group]
   );
 
+  const { onScroll: groupScrollFadeOnScroll } = useStatusBarScrollFade({ overlayHost: 'screen' });
+
+  const scrollTopInset = useMemo(
+    () => insets.top + space[3] + HEADER_ROW_MIN_HEIGHT + space[3] + space[2],
+    [insets.top]
+  );
+
   if (!group || !summary) {
     return (
       <AppScreen>
@@ -387,42 +436,21 @@ export function GroupDetailScreen() {
   return (
     <AppScreen reserveTabBarInset={false}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent />
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <View style={styles.inner}>
-          <View style={styles.header}>
-            <HeaderIconButton
-              icon={ChevronLeft}
-              accessibilityLabel="Back"
-              onPress={() => router.back()}
-              variant="secondary"
-            />
-            <Text style={styles.title} numberOfLines={1}>
-              {group.name}
-            </Text>
-            <HeaderIconButton
-              icon={UserPlus}
-              accessibilityLabel="Invite members"
-              onPress={() => inviteSheetRef.current?.present(group.id)}
-              variant="secondary"
-            />
-            <View ref={moreMenuAnchorRef} collapsable={false}>
-              <HeaderIconButton
-                icon={MoreHorizontal}
-                accessibilityLabel="More options"
-                onPress={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setMoreMenuOpen(true);
-                }}
-                variant="secondary"
-              />
-            </View>
-          </View>
-
-          <ScrollView
-            style={styles.scroll}
+      <View style={styles.root}>
+        <View style={styles.layerStack} collapsable={false}>
+          <Animated.ScrollView
+            style={[styles.scroll, scrollContentLayerStyle]}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            scrollEventThrottle={16}
+            onScroll={groupScrollFadeOnScroll}
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingTop: scrollTopInset,
+                paddingHorizontal: layout.screenPaddingX,
+              },
+            ]}
           >
             <View style={[group.imageUri ? styles.heroShell : styles.heroShellNoPhoto, cardShadow]}>
               {group.imageUri ? (
@@ -633,7 +661,50 @@ export function GroupDetailScreen() {
                 </GlassCard>
               )}
             </View>
-          </ScrollView>
+          </Animated.ScrollView>
+
+          <StatusBarScrollFadeStrip />
+
+          <View
+            style={[
+              styles.headerOverlay,
+              {
+                paddingTop: insets.top + space[3],
+                paddingHorizontal: layout.screenPaddingX,
+              },
+            ]}
+            pointerEvents="box-none"
+            collapsable={false}
+          >
+            <View style={styles.headerRow}>
+              <HeaderIconButton
+                icon={ChevronLeft}
+                accessibilityLabel="Back"
+                onPress={() => router.back()}
+                variant="secondary"
+              />
+              <Text style={styles.title} numberOfLines={1}>
+                {group.name}
+              </Text>
+              <HeaderIconButton
+                icon={UserPlus}
+                accessibilityLabel="Invite members"
+                onPress={() => inviteSheetRef.current?.present(group.id)}
+                variant="secondary"
+              />
+              <View ref={moreMenuAnchorRef} collapsable={false}>
+                <HeaderIconButton
+                  icon={MoreHorizontal}
+                  accessibilityLabel="More options"
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setMoreMenuOpen(true);
+                  }}
+                  variant="secondary"
+                />
+              </View>
+            </View>
+          </View>
         </View>
       </View>
 
