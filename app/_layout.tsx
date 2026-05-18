@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScopedTheme } from 'uniwind';
 import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
+import { DatabaseProvider } from '@/components/DatabaseProvider';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -62,14 +63,15 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <HeroUINativeProvider config={heroUiNativeConfig}>
-          <BottomSheetModalProvider>
-            <AddDebtProvider>
-              <TransactionDetailProvider>
-                <StatusBarScrollFadeProvider>
-                  <GroupInviteLinkHandler />
-                  <Stack>
+      <DatabaseProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <HeroUINativeProvider config={heroUiNativeConfig}>
+            <BottomSheetModalProvider>
+              <AddDebtProvider>
+                <TransactionDetailProvider>
+                  <StatusBarScrollFadeProvider>
+                    <GroupInviteLinkHandler />
+                    <Stack>
                     <Stack.Screen
                       name="(tabs)"
                       options={{
@@ -106,14 +108,15 @@ export default function RootLayout() {
                       name="group-receipt/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
-                  </Stack>
-                </StatusBarScrollFadeProvider>
-              </TransactionDetailProvider>
-            </AddDebtProvider>
-          </BottomSheetModalProvider>
-        </HeroUINativeProvider>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </ThemeProvider>
+                    </Stack>
+                  </StatusBarScrollFadeProvider>
+                </TransactionDetailProvider>
+              </AddDebtProvider>
+            </BottomSheetModalProvider>
+          </HeroUINativeProvider>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </ThemeProvider>
+      </DatabaseProvider>
     </GestureHandlerRootView>
   );
 }

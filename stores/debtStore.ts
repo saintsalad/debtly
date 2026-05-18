@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { Debt, AddDebtInput, RecordPaymentInput } from '@/features/debts/types';
 import {
   buildGroupSyncedDebt,
@@ -20,14 +19,11 @@ import {
   settleDebtLedger,
   syncDebtLedger,
 } from '@/features/debts/debtLedger';
-import { migrateDebts } from '@/features/debts/debtMigration';
 import {
   buildNextRecurringCycle,
   canGenerateNextRecurringCycle,
   stampRecurringGeneration,
 } from '@/features/debts/recurringEngine';
-import { zustandStorage } from '@/lib/storage';
-import { INITIAL_DEBTS } from '@/lib/mocks/initialDebts';
 import { majorToMinor } from '@/features/debts/money';
 import { generateId } from '@/lib/utils';
 
@@ -107,10 +103,8 @@ function isSpawnedRecurringCycle(parent: Debt, candidate: Debt, paidAt: string |
   return candidate.recurringGroupId === group;
 }
 
-export const useDebtStore = create<DebtState>()(
-  persist(
-    (set, get) => ({
-      debts: INITIAL_DEBTS,
+export const useDebtStore = create<DebtState>()((set, get) => ({
+      debts: [],
       addDebt: (input) => {
         const validationError = validateAddDebtInput(input);
         if (validationError) return validationError;
@@ -338,22 +332,7 @@ export const useDebtStore = create<DebtState>()(
         set((state) => ({
           debts: withSyncedDebts(state.debts.filter((d) => !isGroupSyncedDebt(d, groupId))),
         })),
-    }),
-    {
-      name: 'debtly-debts',
-      version: 2,
-      storage: createJSONStorage(() => zustandStorage),
-      migrate: (persistedState, version) => {
-        const state = persistedState as { debts?: Debt[] };
-        if (!state?.debts) return persistedState;
-        if (version < 2) {
-          return { ...state, debts: migrateDebts(state.debts) };
-        }
-        return { ...state, debts: migrateDebts(state.debts) };
-      },
-    }
-  )
-);
+}));
 
 export const useDebtSummary = () => {
   const debts = useDebtStore((s) => s.debts);

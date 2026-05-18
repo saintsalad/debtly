@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import {
   getActorMemberId,
   logExpenseAdded,
@@ -12,7 +11,6 @@ import {
   logMemberRenamed,
   logSettlement,
   logSettlementsVoidedBetween,
-  rebuildActivityLogFromState,
 } from '@/features/group-expense/activityLog';
 import {
   amountToMinor,
@@ -22,7 +20,6 @@ import {
   selectGroupBalances,
   validateExpenseShares,
 } from '@/features/group-expense/balanceEngine';
-import { migratePersistedState } from '@/features/group-expense/billSplitMigration';
 import { reconcileExpenseSplitsWhenMemberJoins } from '@/features/group-expense/memberJoinExpenseSplit';
 import { AMOUNT_EXCEEDS_MAX_MESSAGE, MAX_INPUT_AMOUNT_MINOR } from '@/features/debts/money';
 import type {
@@ -37,7 +34,6 @@ import type {
   SplitGroup,
 } from '@/features/group-expense/types';
 import { INITIAL_GROUP_EXPENSE_STATE } from '@/lib/mocks/initialGroupExpenses';
-import { zustandStorage } from '@/lib/storage';
 import { generateId } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -105,9 +101,7 @@ function createCurrentUserMember(name: string): GroupMember {
   };
 }
 
-export const useGroupExpenseStore = create<GroupExpenseStore>()(
-  persist(
-    (set, get) => ({
+export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
       ...INITIAL_GROUP_EXPENSE_STATE,
 
       createGroup: ({ name, memberNames = [], imageUri }) => {
@@ -658,56 +652,4 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
 
       getGroupSettlements: (groupId) =>
         get().settlements.filter((s) => s.groupId === groupId),
-    }),
-    {
-      name: 'debtly-group-expenses',
-      version: 4,
-      storage: createJSONStorage(() => zustandStorage),
-      migrate: (persistedState, version) => {
-        if (version < 2) {
-          return INITIAL_GROUP_EXPENSE_STATE;
-        }
-        const profileName = useProfileStore.getState().name || 'You';
-        let migrated = migratePersistedState(persistedState, profileName);
-        if (version < 3 && migrated.activityLog.length === 0 && migrated.groups.length > 0) {
-          migrated = { ...migrated, activityLog: rebuildActivityLogFromState(migrated) };
-        }
-        if (version < 4) {
-          migrated = {
-            ...migrated,
-            groups: migrated.groups.map((g) => {
-              const { informalBalanceSettled: _removed, ...rest } = g as SplitGroup & {
-                informalBalanceSettled?: Record<string, boolean>;
-              };
-              return rest;
-            }),
-          };
-        }
-        return migrated;
-      },
-      onRehydrateStorage: () => (state) => {
-        void (async () => {
-          let hydrated = state;
-          if (!hydrated?.groups?.length) {
-            const legacyRaw = await zustandStorage.getItem('debtly-bill-splits');
-            if (legacyRaw) {
-              try {
-                const parsed = JSON.parse(legacyRaw) as { state?: unknown };
-                const profileName = useProfileStore.getState().name || 'You';
-                const migrated = migratePersistedState(parsed.state ?? parsed, profileName);
-                useGroupExpenseStore.setState(migrated);
-                hydrated = useGroupExpenseStore.getState();
-              } catch {
-                // ignore corrupt legacy payload
-              }
-            }
-          }
-          if (!hydrated) return;
-          for (const group of hydrated.groups) {
-            syncLedgerForGroup(group.id, hydrated.groups, hydrated.expenses, hydrated.settlements);
-          }
-        })();
-      },
-    }
-  )
-);
+}));

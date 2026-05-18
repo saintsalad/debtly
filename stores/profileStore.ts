@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { zustandStorage } from '@/lib/storage';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
@@ -19,24 +17,16 @@ interface ProfileState {
   setReceiptThermalLook: (enabled: boolean) => void;
 }
 
-export const useProfileStore = create<ProfileState>()(
-  persist(
-    (set) => ({
-      name: 'Friend',
-      currency: 'PHP',
-      appearance: 'system',
-      showSplitBillsInTransactions: false,
-      receiptThermalLook: true,
-      setName: (name) => set({ name }),
-      setCurrency: (currency) => set({ currency }),
-      setAppearance: (appearance) => set({ appearance }),
-      setShowSplitBillsInTransactions: (showSplitBillsInTransactions) =>
-        set({ showSplitBillsInTransactions }),
-      setReceiptThermalLook: (receiptThermalLook) => set({ receiptThermalLook }),
-    }),
-    {
-      name: 'debtly-profile',
-      storage: createJSONStorage(() => zustandStorage),
-    }
-  )
-);
+export const useProfileStore = create<ProfileState>()((set) => ({
+  name: 'Friend',
+  currency: 'PHP',
+  appearance: 'system',
+  showSplitBillsInTransactions: false,
+  receiptThermalLook: true,
+  setName: (name) => set({ name }),
+  setCurrency: (currency) => set({ currency }),
+  setAppearance: (appearance) => set({ appearance }),
+  setShowSplitBillsInTransactions: (showSplitBillsInTransactions) =>
+    set({ showSplitBillsInTransactions }),
+  setReceiptThermalLook: (receiptThermalLook) => set({ receiptThermalLook }),
+}));

@@ -3,7 +3,8 @@ import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 
 /**
  * Thin adapter over Zustand for future remote repository swap.
- * MVP: all reads/writes go through the store synchronously.
+ * Persistence is SQLite-backed via DatabaseProvider (debounced store → DB).
+ * Future: ConvexGroupExpenseRepository implements the same interface for cloud sync.
  */
 export const localGroupExpenseRepository: IGroupExpenseRepository = {
   async load() {

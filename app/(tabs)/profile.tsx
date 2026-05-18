@@ -28,7 +28,8 @@ import {
 } from 'lucide-react-native';
 import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
-import { useDebtStore } from '@/stores/debtStore';
+import { getDb } from '@/lib/db/client';
+import { clearAllData } from '@/lib/db/clearAllData';
 import { useProfileStore } from '@/stores/profileStore';
 import { CURRENCIES } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -199,7 +200,6 @@ export default function ProfileScreen() {
   const setReceiptThermalLook = useProfileStore((s) => s.setReceiptThermalLook);
   const showSplitBillsInTransactions = useProfileStore((s) => s.showSplitBillsInTransactions);
   const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
-  const clearAll = useDebtStore((s) => s.clearAll);
   const { currency } = useCurrency();
   const { toast } = useToast();
 
@@ -226,17 +226,22 @@ export default function ProfileScreen() {
   };
 
   const confirmClearAll = () => {
-    Alert.alert('Clear all data?', 'All debts will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete all',
-        style: 'destructive',
-        onPress: () => {
-          clearAll();
-          notifySuccess(toast, 'All data cleared');
+    Alert.alert(
+      'Clear all data?',
+      'All debts, groups, bill splits, and preferences will be reset on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete all',
+          style: 'destructive',
+          onPress: () => {
+            void clearAllData(getDb()).then(() => {
+              notifySuccess(toast, 'All data cleared');
+            });
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
   const insets = useSafeAreaInsets();
   const { onScroll: statusBarScrollFadeOnScroll } = useStatusBarScrollFade();

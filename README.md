@@ -50,7 +50,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 |------|--------|
 | Framework | [Expo](https://expo.dev) ~54, [Expo Router](https://docs.expo.dev/router/introduction/) |
 | UI | React Native, [HeroUI Native](https://github.com/heroui-inc/heroui-native), [Uniwind](https://uniwind.dev) (Tailwind v4) |
-| State | [Zustand](https://github.com/pmndrs/zustand) + AsyncStorage persistence |
+| State | [Zustand](https://github.com/pmndrs/zustand) + on-device [SQLite](docs/OFFLINE_STORAGE.md) ([expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/), [Drizzle ORM](https://orm.drizzle.team/)) |
 | Motion | react-native-reanimated, gesture-handler |
 | Tests | Vitest (`pnpm test`) |
 
@@ -96,12 +96,12 @@ pnpm test
 - [x] **Sharing** — transaction and group summaries, payment reminders, playful group balance SMS templates
 - [x] **Thermal receipts** — share or print styled slips for a single debt or a whole group (themes, aspect ratios, optional photo background)
 - [x] **Insights** — streaks, yearly activity chart, totals for paid / people / payments, group spending when you use splits
-- [x] **Offline-first** — everything saved on your device; sample data on first launch
+- [x] **Offline-first** — everything saved on your device in SQLite ([storage guide](docs/OFFLINE_STORAGE.md))
 - [x] **In-app feedback** — toasts when actions succeed
 
 ### Planned
 
-- [ ] **SQLite** — on-device database for larger histories and faster search (replacing AsyncStorage over time)
+- [x] **SQLite** — on-device database for debts, groups, profile, and bill splits ([guide](docs/OFFLINE_STORAGE.md))
 - [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
 - [ ] **Accounts & cloud sync** — sign in and keep groups in sync across phones
 - [ ] **Backup & export** — move or restore your data between devices
@@ -111,7 +111,7 @@ pnpm test
 
 ## Data & privacy
 
-All data is stored **on device** (AsyncStorage). There is no cloud account in the current build. Use **Clear all data** in Profile to reset debts, groups, and preferences.
+All data is stored **on device** in SQLite. Legacy installs are migrated once from AsyncStorage. There is no cloud account in the current build. Use **Clear all data** in Profile to reset debts, groups, bill splits, and preferences.
 
 ## License
 
