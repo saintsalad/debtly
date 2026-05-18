@@ -86,40 +86,28 @@ pnpm test
 
 ## Current progress
 
-### Shipped (MVP)
+### Shipped
 
-- [x] Four-tab shell: Home, Transactions, Split bill, Profile
-- [x] Personal debt CRUD, partial/full payments, mark paid, payment ledger
-- [x] Interest and recurring debt engines
-- [x] Group expense system with multi-method splits and settlement recording
-- [x] Balance engine (equal, exact, %, shares, adjustment) with unit tests
-- [x] Activity log and feed for group events
-- [x] Group → personal ledger sync (`groupDebtSync`)
-- [x] Local persistence and seed data on first launch
-- [x] Glass / native-feel UI, floating pill tab bar, scroll header patterns
-- [x] Deep link handler for group invite codes (local join flow)
-- [x] Money input caps and validation tests
-- [x] Centralized design tokens (`lib/theme/tokens.ts`) for brand, semantic colors, and chrome (tab bar, glass, shadows)
-- [x] **Print receipt** for personal transactions (thermal-style share / print flow)
-- [x] **Print / share receipt** for group splits (thermal slip from group ⋯ menu; SUMMARY + per-expense member lines)
-- [x] **Insights** screen (`app/insights.tsx`) — streaks, yearly entry chart, tiles (paid, people, payments; group row when you have groups); opens from Home Insights card
+- [x] **Home** — balance overview, upcoming dues, recent activity, shortcuts to Insights
+- [x] **Personal debts** — add and edit IOUs, partial payments, payment history, mark paid / unpaid
+- [x] **Smarter debts** — interest (simple or compound), recurring cycles with optional carry-over, instalment plans, split one payment across multiple people, schedule debts with a future start date
+- [x] **Transactions tab** — search, filters, sort, status (pending, partial, paid, overdue), optional group balances in one list
+- [x] **Group splits** — groups with members and cover photos, invite links, five split styles (equal, exact amounts, %, shares, adjust), settlements, per-person balances, activity feed
+- [x] **Sharing** — transaction and group summaries, payment reminders, playful group balance SMS templates
+- [x] **Thermal receipts** — share or print styled slips for a single debt or a whole group (themes, aspect ratios, optional photo background)
+- [x] **Insights** — streaks, yearly activity chart, totals for paid / people / payments, group spending when you use splits
+- [x] **Offline-first** — everything saved on your device; sample data on first launch
+- [x] **In-app feedback** — toasts when actions succeed
 
-### In progress / planned
+### Planned
 
-- [ ] **SQLite** integration for fully local storage (evolve beyond AsyncStorage for scale and querying)
-- [ ] **Import / export** data (backup, migrate devices, interoperability)
-- [x] **Toast / in-app notifications** for successful actions (and clearer feedback elsewhere as needed)
-- [ ] **WebSocket / real-time** updates for split bill groups (live activity and balances where it matters)
-- [ ] **Registration page** toward authenticated accounts and **shared group state across users**
-- [ ] Remote backend and multi-device sync (repository adapter stub exists; stores are local-only today)
-- [ ] **Onboarding** design (first launch, progressive disclosure, empty states)
-- [ ] Broader automated test coverage (UI / integration)
-- [ ] Receipt attachments and richer export beyond share sheets / print
-- [ ] Web polish (Expo web works but mobile is the focus)
-
-### Legacy note
-
-An older standalone **bill split** model (`features/bill-split`, `billSplitStore`) remains in the repo; new work uses **group expenses** (`features/group-expense`). Persisted state is migrated on load via `billSplitMigration`.
+- [ ] **SQLite** — on-device database for larger histories and faster search (replacing AsyncStorage over time)
+- [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
+- [ ] **Accounts & cloud sync** — sign in and keep groups in sync across phones
+- [ ] **Backup & export** — move or restore your data between devices
+- [ ] **Receipt photos** — attach images to group expenses
+- [ ] **Onboarding** — guided first launch and clearer empty states
+- [ ] **Reminders** — due-date and group activity notifications
 
 ## Data & privacy
 
