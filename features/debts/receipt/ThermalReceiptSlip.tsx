@@ -14,12 +14,15 @@ import {
   RECEIPT_WIDTH,
   receiptType,
 } from '@/features/debts/receipt/receiptTheme';
-import { buildTransactionReceiptData } from '@/features/debts/receipt/transactionReceiptData';
-import type { Debt } from '@/features/debts/types';
+import type { ReceiptSection, TransactionReceiptData } from '@/features/debts/receipt/transactionReceiptData';
+import { Receipt } from 'lucide-react-native';
+import React, { Fragment, useCallback, useId, useMemo, useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
+import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 
 /** Side “perforation” holes; radius matches historical 12px diameter notches. */
 const SIDE_NOTCH_R = 6;
-/** Vertical position of notch centers (same as former absolute `top: 45%`). */
 const SIDE_NOTCH_Y_RATIO = 0.45;
 
 function ReceiptPaperFill({
@@ -46,33 +49,25 @@ function ReceiptPaperFill({
           <Circle cx={width} cy={cy} r={SIDE_NOTCH_R} fill="#000000" />
         </Mask>
       </Defs>
-      <Rect
-        width={width}
-        height={height}
-        fill={RECEIPT_PAPER}
-        mask={`url(#${maskId})`}
-      />
+      <Rect width={width} height={height} fill={RECEIPT_PAPER} mask={`url(#${maskId})`} />
     </Svg>
   );
 }
-import { Receipt } from 'lucide-react-native';
-import React, { useCallback, useId, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
-import type { LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Defs, Mask, Rect } from 'react-native-svg';
 
-interface TransactionThermalReceiptProps {
-  debt: Debt;
-  fmt: (amount: number) => string;
+export interface ThermalReceiptSlipProps {
+  data: TransactionReceiptData;
   photoUri?: string | null;
 }
 
-export function TransactionThermalReceipt({
-  debt,
-  fmt,
-  photoUri,
-}: TransactionThermalReceiptProps) {
-  const data = useMemo(() => buildTransactionReceiptData(debt, fmt), [debt, fmt]);
+function normalizeSections(data: TransactionReceiptData): ReceiptSection[] {
+  if (data.sections && data.sections.length > 0) {
+    return data.sections.filter((s) => s.rows.length > 0);
+  }
+  return [{ title: '', rows: data.rows }];
+}
+
+export function ThermalReceiptSlip({ data, photoUri }: ThermalReceiptSlipProps) {
+  const sectionBlocks = useMemo(() => normalizeSections(data), [data]);
   const hasPayments = data.paymentLines.length > 0;
   const hasPhoto = Boolean(photoUri);
   const { header } = data;
@@ -81,7 +76,7 @@ export function TransactionThermalReceipt({
   const maskUid = useId();
   const paperMaskId = useMemo(
     () => `receiptPaperMask_${maskUid.replace(/[^a-zA-Z0-9_-]/g, '')}`,
-    [maskUid],
+    [maskUid]
   );
   const [paperHeight, setPaperHeight] = useState(0);
 
@@ -90,20 +85,14 @@ export function TransactionThermalReceipt({
     if (h > 0) setPaperHeight(h);
   }, []);
 
-  const tearEdge = (
-    <ReceiptTearEdge width={RECEIPT_WIDTH} color={RECEIPT_PAPER} />
-  );
+  const tearEdge = <ReceiptTearEdge width={RECEIPT_WIDTH} color={RECEIPT_PAPER} />;
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.edgeStack}>
         <View style={[styles.paper, paperHeight > 0 && styles.paperNoFill]} onLayout={onPaperLayout}>
           {paperHeight > 0 ? (
-            <ReceiptPaperFill
-              width={RECEIPT_WIDTH}
-              height={paperHeight}
-              maskId={paperMaskId}
-            />
+            <ReceiptPaperFill width={RECEIPT_WIDTH} height={paperHeight} maskId={paperMaskId} />
           ) : null}
           <View style={styles.body}>
             <View style={styles.contentPad}>
@@ -128,11 +117,19 @@ export function TransactionThermalReceipt({
 
             <ReceiptDottedRule />
 
-            <View style={[styles.contentPad, styles.stack]}>
-              {data.rows.map((row) => (
-                <ReceiptRow key={row.label} row={row} />
-              ))}
-            </View>
+            {sectionBlocks.map((sec, si) => (
+              <Fragment key={`sec-${si}`}>
+                {si > 0 ? <ReceiptDottedRule /> : null}
+                <View style={[styles.contentPad, styles.stack]}>
+                  {sec.title.trim().length > 0 ? (
+                    <Text style={styles.sectionHeading}>{sec.title}</Text>
+                  ) : null}
+                  {sec.rows.map((row, index) => (
+                    <ReceiptRow key={`row-${si}-${index}-${row.label}`} row={row} />
+                  ))}
+                </View>
+              </Fragment>
+            ))}
 
             {hasPayments ? (
               <>
@@ -140,7 +137,7 @@ export function TransactionThermalReceipt({
                 <View style={[styles.contentPad, styles.stack]}>
                   <Text style={styles.subsection}>Payments</Text>
                   {data.paymentLines.map((row, index) => (
-                    <ReceiptRow key={`${row.label}-${index}`} row={row} />
+                    <ReceiptRow key={`pay-${index}-${row.label}`} row={row} />
                   ))}
                 </View>
               </>
@@ -182,9 +179,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     overflow: 'hidden',
     zIndex: 1,
-    ...(Platform.OS === 'android'
-      ? { marginBottom: -RECEIPT_TEAR_PAPER_OVERLAP }
-      : null),
+    ...(Platform.OS === 'android' ? { marginBottom: -RECEIPT_TEAR_PAPER_OVERLAP } : null),
   },
   paperNoFill: {
     backgroundColor: 'transparent',
@@ -217,6 +212,13 @@ const styles = StyleSheet.create({
     ...receiptType.heroTitle,
     textAlign: 'right',
     flexShrink: 0,
+  },
+  sectionHeading: {
+    ...receiptType.subsection,
+    marginTop: 2,
+    marginBottom: 4,
+    textAlign: 'left',
+    letterSpacing: 1,
   },
   subsection: {
     ...receiptType.subsection,

@@ -188,6 +188,43 @@ export function netBetween(edges: EdgeMap, memberA: string, memberB: string): nu
   return bOwesA - aOwesB;
 }
 
+/** Sum of pairwise nets vs each other member — group-neutral pool position (sums to ~0 across members). */
+function netVersusEveryoneElse(edges: EdgeMap, memberId: string, allMemberIds: string[]): number {
+  let net = 0;
+  for (const otherId of allMemberIds) {
+    if (otherId === memberId) continue;
+    net += netBetween(edges, memberId, otherId);
+  }
+  return net;
+}
+
+/** Each member’s remaining split position vs the rest of the group (same math as balances, without a “viewer”). */
+export function selectEveryMemberNet(
+  group: SplitGroup,
+  expenses: GroupExpense[],
+  settlements: Settlement[]
+): Array<{ memberId: string; displayName: string; netMinor: number }> {
+  const groupExpenses = expenses.filter((e) => e.groupId === group.id && !e.deletedAt);
+  const groupSettlements = settlements.filter((s) => s.groupId === group.id);
+  const edges = buildGroupEdges(groupExpenses, groupSettlements, group.id);
+  const ids = group.members.map((m) => m.id);
+
+  return group.members.map((m) => ({
+    memberId: m.id,
+    displayName: m.displayName,
+    netMinor: netVersusEveryoneElse(edges, m.id, ids),
+  }));
+}
+
+/** True when every member’s net vs the group is zero (full ledger square). */
+export function isGroupLedgerBalanced(
+  group: SplitGroup,
+  expenses: GroupExpense[],
+  settlements: Settlement[]
+): boolean {
+  return selectEveryMemberNet(group, expenses, settlements).every((r) => r.netMinor === 0);
+}
+
 export function selectGroupBalances(
   group: SplitGroup,
   expenses: GroupExpense[],

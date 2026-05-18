@@ -6,11 +6,12 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
 import * as Haptics from 'expo-haptics';
-import { MessageCircle, Share2 } from 'lucide-react-native';
+import { MessageCircle, Printer, Share2 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export interface MemberBalanceCreditMenu {
+  onPrintReceipt: () => void;
   onShareReceipt: () => void;
   onSendMessage: () => void;
 }
@@ -68,6 +69,12 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
     return [
       {
         items: [
+          {
+            id: 'print',
+            title: 'Print receipt',
+            icon: Printer,
+            onPress: creditMenu.onPrintReceipt,
+          },
           {
             id: 'share',
             title: 'Share receipt',

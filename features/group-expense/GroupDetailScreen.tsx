@@ -37,7 +37,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Camera, ChevronLeft, MoreHorizontal, Share2, Trash2, UserPlus } from 'lucide-react-native';
+import { Camera, ChevronLeft, MoreHorizontal, Printer, Share2, Trash2, UserPlus } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -288,6 +288,16 @@ export function GroupDetailScreen() {
             onPress: () =>
               void shareGroupSummary(group, expenses, settlements, fmt, currencySymbol),
           },
+          {
+            id: 'print-receipt',
+            title: 'Print receipt',
+            icon: Printer,
+            onPress: () =>
+              router.push({
+                pathname: '/group-receipt/[id]',
+                params: { id: group.id },
+              }),
+          },
         ],
       },
       {
@@ -514,6 +524,11 @@ export function GroupDetailScreen() {
                         creditMenu={
                           bal.netMinor > 0
                             ? {
+                                onPrintReceipt: () =>
+                                  router.push({
+                                    pathname: '/group-receipt/[id]',
+                                    params: { id: group.id },
+                                  }),
                                 onShareReceipt: () =>
                                   void shareOwedBalanceReceipt(
                                     bal.displayName,

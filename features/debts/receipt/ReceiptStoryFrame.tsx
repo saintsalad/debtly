@@ -3,14 +3,14 @@ import { StyleSheet, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TransactionThermalReceipt } from '@/features/debts/receipt/TransactionThermalReceipt';
+import { ThermalReceiptSlip } from '@/features/debts/receipt/ThermalReceiptSlip';
 import type { ReceiptCanvasBackground, ReceiptCanvasGradient } from '@/features/debts/receipt/receiptCanvasPresets';
 import {
   getReceiptTiltDegrees,
   STORY_FRAME_HEIGHT,
   STORY_FRAME_WIDTH,
 } from '@/features/debts/receipt/receiptTheme';
-import type { Debt } from '@/features/debts/types';
+import type { TransactionReceiptData } from '@/features/debts/receipt/transactionReceiptData';
 
 const FRAME_PAD_V = 28;
 
@@ -30,32 +30,28 @@ function ReceiptCanvasFill({ spec }: { spec: ReceiptCanvasBackground }) {
   );
 }
 
-interface TransactionReceiptStoryFrameProps {
-  debt: Debt;
-  fmt: (amount: number) => string;
+interface ReceiptStoryFrameProps {
+  receiptData: TransactionReceiptData;
+  tiltSeed: string;
   canvasBackground: ReceiptCanvasBackground;
-  /** Full-bleed image behind the receipt; when set, replaces solid/gradient canvas. */
   backgroundImageUri?: string | null;
   photoUri?: string | null;
-  /** Preview/capture size (logical). Defaults to 360×640 story frame. */
   frameWidth?: number;
   frameHeight?: number;
 }
 
-/** Fixed 9:16 story canvas with receipt centered on the thermal scrim.
- *  Automatically scales the receipt down if its content is taller than the
- *  available canvas height so it always fits within the 9:16 ratio. */
-export function TransactionReceiptStoryFrame({
-  debt,
-  fmt,
+/** Canvas with framed thermal slip (story export presets, optional photo). */
+export function ReceiptStoryFrame({
+  receiptData,
+  tiltSeed,
   canvasBackground,
   backgroundImageUri,
   photoUri,
   frameWidth = STORY_FRAME_WIDTH,
   frameHeight = STORY_FRAME_HEIGHT,
-}: TransactionReceiptStoryFrameProps) {
+}: ReceiptStoryFrameProps) {
   const [scale, setScale] = useState(1);
-  const tiltDeg = useMemo(() => getReceiptTiltDegrees(debt.id), [debt.id]);
+  const tiltDeg = useMemo(() => getReceiptTiltDegrees(tiltSeed), [tiltSeed]);
   const availableHeight = frameHeight - FRAME_PAD_V * 2;
 
   function onReceiptLayout(e: LayoutChangeEvent) {
@@ -83,7 +79,7 @@ export function TransactionReceiptStoryFrame({
         onLayout={onReceiptLayout}
         style={[styles.receiptWrap, { transform: [{ scale }, { rotate: `${tiltDeg}deg` }] }]}
       >
-        <TransactionThermalReceipt debt={debt} fmt={fmt} photoUri={photoUri} />
+        <ThermalReceiptSlip data={receiptData} photoUri={photoUri} />
       </View>
     </View>
   );

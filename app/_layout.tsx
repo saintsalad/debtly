@@ -102,6 +102,10 @@ export default function RootLayout() {
                       name="group/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
+                    <Stack.Screen
+                      name="group-receipt/[id]"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
                   </Stack>
                 </StatusBarScrollFadeProvider>
               </TransactionDetailProvider>

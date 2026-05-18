@@ -26,12 +26,20 @@ export interface ReceiptHeader {
   amount: string;
 }
 
+/** Section labels + rows — used for split-group slips with clearer grouping. */
+export interface ReceiptSection {
+  title: string;
+  rows: ReceiptRow[];
+}
+
 export interface TransactionReceiptData {
   referenceId: string;
   printedAt: string;
   header: ReceiptHeader;
   rows: ReceiptRow[];
   paymentLines: ReceiptRow[];
+  /** When non-empty, replaces flat `rows` with titled sections (e.g. split groups). */
+  sections?: ReceiptSection[];
 }
 
 export interface BuildReceiptRowsOptions {
