@@ -9,13 +9,12 @@ import { buildGroupActivity } from '@/features/group-expense/activityFeed';
 import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
 import { isExpenseTappable } from '@/features/group-expense/activityLog';
 import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
-import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
+import { selectGroupBalances, settlementsExistBetweenMembers } from '@/features/group-expense/balanceEngine';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
 import {
   openOwedBalanceSms,
   recentGroupExpenseTitles,
   shareGroupSummary,
-  shareOwedBalanceReceipt,
 } from '@/features/group-expense/groupExpenseActions';
 import { GroupMembersSheet, type GroupMembersSheetHandle } from '@/features/group-expense/GroupMembersSheet';
 import { GroupQuickActions } from '@/features/group-expense/GroupQuickActions';
@@ -28,6 +27,8 @@ import {
 } from '@/features/group-expense/RecordSettlementSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { minorToMajor } from '@/features/debts/money';
+import { notifySuccess } from '@/lib/appToast';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import { CURRENCIES } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
@@ -37,12 +38,11 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useToast } from 'heroui-native';
 import { Camera, ChevronLeft, MoreHorizontal, Printer, Share2, Trash2, UserPlus } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useToast } from 'heroui-native';
-import { notifySuccess } from '@/lib/appToast';
 
 const HERO_CARD_MIN_HEIGHT = 304;
 const HERO_GRADIENT_TOP = 56;
@@ -181,6 +181,10 @@ export function GroupDetailScreen() {
   const activityLog = useGroupExpenseStore((s) => s.activityLog);
   const deleteGroup = useGroupExpenseStore((s) => s.deleteGroup);
   const setGroupImage = useGroupExpenseStore((s) => s.setGroupImage);
+  const recordSettlement = useGroupExpenseStore((s) => s.recordSettlement);
+  const voidRecordedSettlementsWithMember = useGroupExpenseStore(
+    (s) => s.voidRecordedSettlementsWithMember
+  );
 
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
@@ -227,8 +231,12 @@ export function GroupDetailScreen() {
       });
       return;
     }
-    settlementSheetRef.current?.present(group.id);
-  }, [group, summary]);
+    notifySuccess(
+      toast,
+      "You're all settled up",
+      'There is no balance to settle with anyone in this group.'
+    );
+  }, [group, summary, toast]);
 
   const openGroupPhotoOptions = useCallback(() => {
     if (!group) return;
@@ -292,11 +300,13 @@ export function GroupDetailScreen() {
             id: 'print-receipt',
             title: 'Print receipt',
             icon: Printer,
-            onPress: () =>
+            onPress: () => {
+              closeMoreMenu();
               router.push({
                 pathname: '/group-receipt/[id]',
                 params: { id: group.id },
-              }),
+              });
+            },
           },
         ],
       },
@@ -323,28 +333,47 @@ export function GroupDetailScreen() {
         ],
       },
     ];
-  }, [
-    group,
-    expenses,
-    settlements,
-    fmt,
-    currencySymbol,
-    openGroupPhotoOptions,
-    deleteGroup,
-    router,
-  ]);
+  }, [group, expenses, settlements, fmt, currencySymbol, openGroupPhotoOptions, deleteGroup, router, closeMoreMenu]);
 
-  const nonZeroBalances = useMemo(
-    () =>
-      summary && group
-        ? summary.memberBalances.filter((b) => !b.isCurrentUser && b.netMinor !== 0)
-        : [],
-    [summary, group]
+  const currentUserId = useMemo(
+    () => group?.members.find((m) => m.isCurrentUser)?.id,
+    [group]
   );
+
+  const balanceRows = useMemo(() => {
+    if (!summary || !group || !currentUserId) return [];
+    return summary.memberBalances
+      .filter(
+        (b) =>
+          !b.isCurrentUser &&
+          (b.netMinor !== 0 ||
+            settlementsExistBetweenMembers(
+              settlements,
+              group.id,
+              currentUserId,
+              b.memberId
+            ))
+      )
+      .slice()
+      .sort((a, b) => {
+        const za = a.netMinor === 0 ? 1 : 0;
+        const zb = b.netMinor === 0 ? 1 : 0;
+        if (za !== zb) return za - zb;
+        return a.displayName.localeCompare(b.displayName);
+      });
+  }, [summary, group, settlements, currentUserId]);
 
   const balanceShareExpenseTitles = useMemo(
     () => (group ? recentGroupExpenseTitles(group.id, expenses, 8) : []),
-    [group?.id, expenses]
+    [group, expenses]
+  );
+
+  const activityHighlightMemberNames = useMemo(
+    () =>
+      group
+        ? group.members.map((m) => m.displayName).filter((n) => n.trim().length > 0)
+        : [],
+    [group]
   );
 
   if (!group || !summary) {
@@ -511,49 +540,63 @@ export function GroupDetailScreen() {
             <GroupQuickActions
               onAddExpense={() => expenseSheetRef.current?.present(group.id)}
               onSettle={openSettle}
+              settleWithEveryoneClear={summary.isSettled}
             />
 
-            {nonZeroBalances.length > 0 ? (
+            {balanceRows.length > 0 ? (
               <View>
                 <Text style={styles.sectionTitle}>Balances</Text>
                 <GlassCard>
-                  {nonZeroBalances.map((bal, index) => (
+                  {balanceRows.map((bal, index) => {
+                    const hasPair = settlementsExistBetweenMembers(
+                      settlements,
+                      group.id,
+                      currentUserId!,
+                      bal.memberId
+                    );
+                    return (
                     <View key={bal.memberId}>
                       <MemberBalanceRow
                         balance={bal}
-                        creditMenu={
-                          bal.netMinor > 0
-                            ? {
-                                onPrintReceipt: () =>
-                                  router.push({
-                                    pathname: '/group-receipt/[id]',
-                                    params: { id: group.id },
-                                  }),
-                                onShareReceipt: () =>
-                                  void shareOwedBalanceReceipt(
-                                    bal.displayName,
-                                    bal.netMinor,
-                                    group.name,
-                                    fmt,
-                                    balanceShareExpenseTitles
-                                  ),
-                                onSendMessage: () =>
-                                  openOwedBalanceSms(
-                                    bal.displayName,
-                                    bal.netMinor,
-                                    group.name,
-                                    fmt,
-                                    balanceShareExpenseTitles
-                                  ),
-                              }
-                            : undefined
+                        hasRecordedSettlements={hasPair}
+                        onSendMessage={() =>
+                          openOwedBalanceSms(
+                            bal.displayName,
+                            bal.netMinor,
+                            group.name,
+                            fmt,
+                            balanceShareExpenseTitles
+                          )
+                        }
+                        onMarkPaid={() => {
+                          const err = recordSettlement({
+                            groupId: group.id,
+                            fromMemberId:
+                              bal.netMinor > 0 ? bal.memberId : currentUserId!,
+                            toMemberId:
+                              bal.netMinor > 0 ? currentUserId! : bal.memberId,
+                            amount: minorToMajor(Math.abs(bal.netMinor)),
+                          });
+                          if (err) {
+                            Alert.alert('Could not record payment', err);
+                            return;
+                          }
+                          notifySuccess(toast, 'Marked as paid', 'Balances and activity are updated.');
+                        }}
+                        onMarkUnpaid={() =>
+                          voidRecordedSettlementsWithMember(
+                            group.id,
+                            currentUserId!,
+                            bal.memberId
+                          )
                         }
                       />
-                      {index < nonZeroBalances.length - 1 ? (
+                      {index < balanceRows.length - 1 ? (
                         <ListDivider variant="glass" />
                       ) : null}
                     </View>
-                  ))}
+                    );
+                  })}
                 </GlassCard>
               </View>
             ) : null}
@@ -574,6 +617,7 @@ export function GroupDetailScreen() {
                     <View key={item.id}>
                       <ActivityFeedItem
                         item={item}
+                        highlightMemberNames={activityHighlightMemberNames}
                         onPress={
                           isExpenseTappable(item.kind, item.expenseId, expenses)
                             ? () =>

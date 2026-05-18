@@ -6,9 +6,15 @@ import { space, useColors } from '@/lib/platform';
 interface GroupQuickActionsProps {
   onAddExpense: () => void;
   onSettle: () => void;
+  /** You have no pairwise balance with anyone (settle tap shows “all settled” instead of opening the sheet). */
+  settleWithEveryoneClear?: boolean;
 }
 
-export function GroupQuickActions({ onAddExpense, onSettle }: GroupQuickActionsProps) {
+export function GroupQuickActions({
+  onAddExpense,
+  onSettle,
+  settleWithEveryoneClear = false,
+}: GroupQuickActionsProps) {
   useColors();
   const styles = useMemo(
     () =>
@@ -30,7 +36,11 @@ export function GroupQuickActions({ onAddExpense, onSettle }: GroupQuickActionsP
         </GlassButton>
       </View>
       <View style={styles.action}>
-        <GlassButton variant="secondary" onPress={onSettle}>
+        <GlassButton
+          variant="secondary"
+          onPress={onSettle}
+          style={{ opacity: settleWithEveryoneClear ? 0.52 : 1 }}
+        >
           <GlassButton.Label>Settle up</GlassButton.Label>
         </GlassButton>
       </View>

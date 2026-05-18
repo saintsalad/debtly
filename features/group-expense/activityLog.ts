@@ -167,6 +167,29 @@ export function logSettlement(
   });
 }
 
+export function logSettlementsVoidedBetween(
+  group: SplitGroup,
+  actorMemberId: string,
+  otherMemberId: string,
+  removedCount: number,
+  at: string
+): ActivityLogEntry {
+  const actor = actorLabel(group, actorMemberId);
+  const other = memberName(group, otherMemberId);
+  return createLogEntry({
+    groupId: group.id,
+    kind: 'settlements_voided',
+    at,
+    actorMemberId,
+    targetMemberId: otherMemberId,
+    title: `${actor} marked ${other} as unpaid again`,
+    subtitle:
+      removedCount > 1
+        ? `${removedCount} recorded payments between you were removed.`
+        : 'The recorded payment between you was removed.',
+  });
+}
+
 export function logMemberJoined(
   group: SplitGroup,
   memberId: string,

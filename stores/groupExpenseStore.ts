@@ -11,14 +11,19 @@ import {
   logMemberRemoved,
   logMemberRenamed,
   logSettlement,
+  logSettlementsVoidedBetween,
   rebuildActivityLogFromState,
 } from '@/features/group-expense/activityLog';
 import {
   amountToMinor,
   createDefaultShares,
+  getCurrentUserMember,
+  getDirectedOutstandingMinor,
+  selectGroupBalances,
   validateExpenseShares,
 } from '@/features/group-expense/balanceEngine';
 import { migratePersistedState } from '@/features/group-expense/billSplitMigration';
+import { reconcileExpenseSplitsWhenMemberJoins } from '@/features/group-expense/memberJoinExpenseSplit';
 import { AMOUNT_EXCEEDS_MAX_MESSAGE, MAX_INPUT_AMOUNT_MINOR } from '@/features/debts/money';
 import type {
   ActivityLogEntry,
@@ -80,6 +85,14 @@ interface GroupExpenseStore extends GroupExpenseState {
   getGroup: (id: string) => SplitGroup | undefined;
   getGroupExpenses: (groupId: string) => GroupExpense[];
   getGroupSettlements: (groupId: string) => Settlement[];
+  /** Remove every settlement between you and another member; logs activity. */
+  voidRecordedSettlementsWithMember: (
+    groupId: string,
+    viewerMemberId: string,
+    otherMemberId: string
+  ) => void;
+  /** Record one settlement per non-zero pairwise balance vs the current user. */
+  recordAllViewerPairwiseSettlements: (groupId: string) => string | null;
 }
 
 function createCurrentUserMember(name: string): GroupMember {
@@ -193,6 +206,96 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
         get().updateGroup(id, { imageUri });
       },
 
+      voidRecordedSettlementsWithMember: (groupId, viewerMemberId, otherMemberId) => {
+        const group = get().groups.find((g) => g.id === groupId);
+        if (!group) return;
+        const now = new Date().toISOString();
+        const actorId = getActorMemberId(group);
+        const state = get();
+        const removed = state.settlements.filter(
+          (s) =>
+            s.groupId === groupId &&
+            ((s.fromMemberId === viewerMemberId && s.toMemberId === otherMemberId) ||
+              (s.fromMemberId === otherMemberId && s.toMemberId === viewerMemberId))
+        );
+        if (removed.length === 0) return;
+        const removeIds = new Set(removed.map((s) => s.id));
+        const auditEntry = logSettlementsVoidedBetween(
+          group,
+          actorId,
+          otherMemberId,
+          removed.length,
+          now
+        );
+        set((s) => ({
+          settlements: s.settlements.filter((x) => !removeIds.has(x.id)),
+          groups: s.groups.map((g) =>
+            g.id === groupId
+              ? { ...g, updatedAt: now, version: bumpVersion(g.version) }
+              : g
+          ),
+          activityLog: prependActivityLog(s.activityLog, auditEntry),
+        }));
+        const { groups, expenses, settlements } = get();
+        syncLedgerForGroup(groupId, groups, expenses, settlements);
+      },
+
+      recordAllViewerPairwiseSettlements: (groupId) => {
+        const group = get().groups.find((g) => g.id === groupId);
+        if (!group) return 'Group not found.';
+        const expenses = get().expenses;
+        const settlementsBaseline = get().settlements;
+        const snap = selectGroupBalances(group, expenses, settlementsBaseline);
+        const cu = getCurrentUserMember(group.members)?.id;
+        if (!cu) return null;
+
+        const now = new Date().toISOString();
+        const actorId = getActorMemberId(group);
+        const newSettlements: Settlement[] = [];
+        const auditEntries: ActivityLogEntry[] = [];
+        const pendingSettlements: Settlement[] = [...settlementsBaseline];
+
+        for (const b of snap.memberBalances) {
+          if (b.isCurrentUser || b.netMinor === 0) continue;
+          const fromMemberId = b.netMinor > 0 ? b.memberId : cu;
+          const toMemberId = b.netMinor > 0 ? cu : b.memberId;
+          const capMinor = getDirectedOutstandingMinor(
+            expenses,
+            pendingSettlements,
+            groupId,
+            fromMemberId,
+            toMemberId
+          );
+          const amountMinor = Math.min(Math.abs(b.netMinor), capMinor);
+          if (amountMinor <= 0) continue;
+          const settlement: Settlement = {
+            id: generateId(),
+            groupId,
+            fromMemberId,
+            toMemberId,
+            amountMinor,
+            settledAt: now,
+            version: 1,
+          };
+          newSettlements.push(settlement);
+          pendingSettlements.unshift(settlement);
+          auditEntries.push(logSettlement(group, settlement, actorId));
+        }
+
+        if (newSettlements.length === 0) return null;
+
+        set((s) => ({
+          settlements: [...newSettlements, ...s.settlements],
+          groups: s.groups.map((g) =>
+            g.id === groupId ? { ...g, updatedAt: now, version: bumpVersion(g.version) } : g
+          ),
+          activityLog: prependActivityLog(s.activityLog, ...auditEntries),
+        }));
+        const { groups, expenses: ex, settlements: st } = get();
+        syncLedgerForGroup(groupId, groups, ex, st);
+        return null;
+      },
+
       addMember: (groupId, displayName, username) => {
         const trimmed = displayName.trim();
         if (!trimmed) return null;
@@ -231,6 +334,13 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
                 }
               : g
           ),
+          expenses: reconcileExpenseSplitsWhenMemberJoins({
+            expenses: state.expenses,
+            groupId,
+            rosterBeforeIncoming: groupBefore.members,
+            incomingMemberId: memberId,
+            nowIso: now,
+          }),
           activityLog: prependActivityLog(state.activityLog, auditEntry),
         }));
 
@@ -472,6 +582,20 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
           return AMOUNT_EXCEEDS_MAX_MESSAGE;
         }
 
+        const capMinor = getDirectedOutstandingMinor(
+          get().expenses,
+          get().settlements,
+          input.groupId,
+          input.fromMemberId,
+          input.toMemberId
+        );
+        if (capMinor <= 0) {
+          return 'That balance is already settled up for this payer and recipient.';
+        }
+        if (amountMinor > capMinor) {
+          return 'That amount is more than what is still owed for this payer and recipient.';
+        }
+
         const settlement: Settlement = {
           id: generateId(),
           groupId: input.groupId,
@@ -536,16 +660,27 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()(
     }),
     {
       name: 'debtly-group-expenses',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => zustandStorage),
       migrate: (persistedState, version) => {
         if (version < 2) {
           return INITIAL_GROUP_EXPENSE_STATE;
         }
         const profileName = useProfileStore.getState().name || 'You';
-        const migrated = migratePersistedState(persistedState, profileName);
+        let migrated = migratePersistedState(persistedState, profileName);
         if (version < 3 && migrated.activityLog.length === 0 && migrated.groups.length > 0) {
-          return { ...migrated, activityLog: rebuildActivityLogFromState(migrated) };
+          migrated = { ...migrated, activityLog: rebuildActivityLogFromState(migrated) };
+        }
+        if (version < 4) {
+          migrated = {
+            ...migrated,
+            groups: migrated.groups.map((g) => {
+              const { informalBalanceSettled: _removed, ...rest } = g as SplitGroup & {
+                informalBalanceSettled?: Record<string, boolean>;
+              };
+              return rest;
+            }),
+          };
         }
         return migrated;
       },

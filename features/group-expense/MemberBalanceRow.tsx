@@ -1,25 +1,22 @@
 import { Avatar } from '@/components/ui/Avatar';
-import { ContextMenuDropdown, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
+import { ContextMenuDropdown, type ContextMenuItem, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
 import { minorToMajor } from '@/features/debts/money';
 import type { MemberBalance } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
 import * as Haptics from 'expo-haptics';
-import { MessageCircle, Printer, Share2 } from 'lucide-react-native';
+import { CheckCircle, MessageCircle, Undo2 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-export interface MemberBalanceCreditMenu {
-  onPrintReceipt: () => void;
-  onShareReceipt: () => void;
-  onSendMessage: () => void;
-}
-
 interface MemberBalanceRowProps {
   balance: MemberBalance;
-  /** Shown when someone owes you; opens a context menu (share / message). */
-  creditMenu?: MemberBalanceCreditMenu;
+  /** True if any settlement exists between the viewer and this member (either direction). */
+  hasRecordedSettlements: boolean;
+  onSendMessage: () => void;
+  onMarkPaid: () => void;
+  onMarkUnpaid: () => void;
 }
 
 function createStyles(palette: ColorPalette, rowPressedColor: string) {
@@ -43,9 +40,18 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       ...type.footnote,
       color: palette.labelSecondary,
     },
+    subSettled: {
+      ...type.footnote,
+      color: palette.labelTertiary,
+      fontWeight: '500',
+    },
     amount: {
       ...type.callout,
       fontWeight: '600',
+    },
+    amountSettled: {
+      textDecorationLine: 'line-through',
+      opacity: 0.72,
     },
     positive: { color: palette.positive },
     negative: { color: palette.negative },
@@ -53,7 +59,13 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
   });
 }
 
-export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps) {
+export function MemberBalanceRow({
+  balance,
+  hasRecordedSettlements,
+  onSendMessage,
+  onMarkPaid,
+  onMarkUnpaid,
+}: MemberBalanceRowProps) {
   const palette = useColors();
   const rowPressedColor = useGlassSurfacePressed();
   const styles = useMemo(
@@ -64,33 +76,36 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<View>(null);
 
+  const ledgerSquare = balance.netMinor === 0;
+  const showMarkPaid = !ledgerSquare;
+  const showMarkUnpaid = ledgerSquare && hasRecordedSettlements;
+
   const menuSections = useMemo((): ContextMenuSection[] => {
-    if (!creditMenu) return [];
-    return [
+    const items: ContextMenuItem[] = [
       {
-        items: [
-          {
-            id: 'print',
-            title: 'Print receipt',
-            icon: Printer,
-            onPress: creditMenu.onPrintReceipt,
-          },
-          {
-            id: 'share',
-            title: 'Share receipt',
-            icon: Share2,
-            onPress: creditMenu.onShareReceipt,
-          },
-          {
-            id: 'message',
-            title: 'Send message',
-            icon: MessageCircle,
-            onPress: creditMenu.onSendMessage,
-          },
-        ],
+        id: 'message',
+        title: 'Send message',
+        icon: MessageCircle,
+        onPress: onSendMessage,
       },
     ];
-  }, [creditMenu]);
+    if (showMarkUnpaid) {
+      items.push({
+        id: 'unpaid',
+        title: 'Mark as unpaid',
+        icon: Undo2,
+        onPress: onMarkUnpaid,
+      });
+    } else if (showMarkPaid) {
+      items.push({
+        id: 'paid',
+        title: 'Mark as paid',
+        icon: CheckCircle,
+        onPress: onMarkPaid,
+      });
+    }
+    return [{ items }];
+  }, [onSendMessage, onMarkPaid, onMarkUnpaid, showMarkPaid, showMarkUnpaid]);
 
   const openMenu = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -109,7 +124,7 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
     );
   }
 
-  const label =
+  const baseLabel =
     balance.netMinor > 0
       ? `owes you ${fmt(minorToMajor(balance.netMinor))}`
       : balance.netMinor < 0
@@ -118,28 +133,27 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
 
   const rowInner = (
     <>
-      <Avatar
-        name={balance.displayName}
-        seed={balance.memberId}
-        size={40}
-        tone={balance.netMinor > 0 ? 'credit' : balance.netMinor < 0 ? 'debit' : undefined}
-      />
+      <Avatar name={balance.displayName} seed={balance.memberId} size={40} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {balance.displayName}
         </Text>
-        <Text
-          style={[
-            styles.sub,
-            balance.netMinor > 0
-              ? styles.positive
-              : balance.netMinor < 0
-                ? styles.negative
-                : styles.neutral,
-          ]}
-        >
-          {label}
-        </Text>
+        {ledgerSquare ? (
+          <Text style={styles.subSettled}>Settled up</Text>
+        ) : (
+          <Text
+            style={[
+              styles.sub,
+              balance.netMinor > 0
+                ? styles.positive
+                : balance.netMinor < 0
+                  ? styles.negative
+                  : styles.neutral,
+            ]}
+          >
+            {baseLabel}
+          </Text>
+        )}
       </View>
       {balance.netMinor !== 0 ? (
         <Text
@@ -150,32 +164,32 @@ export function MemberBalanceRow({ balance, creditMenu }: MemberBalanceRowProps)
         >
           {fmt(minorToMajor(Math.abs(balance.netMinor)))}
         </Text>
-      ) : null}
+      ) : (
+        <Text style={[styles.amount, styles.neutral, styles.amountSettled]}>
+          {fmt(0)}
+        </Text>
+      )}
     </>
   );
 
-  if (balance.netMinor > 0 && creditMenu) {
-    return (
-      <>
-        <Pressable
-          ref={anchorRef}
-          collapsable={false}
-          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          onPress={openMenu}
-          accessibilityRole="button"
-          accessibilityLabel="Balance options"
-        >
-          {rowInner}
-        </Pressable>
-        <ContextMenuDropdown
-          visible={menuOpen}
-          onClose={() => setMenuOpen(false)}
-          anchorRef={anchorRef}
-          sections={menuSections}
-        />
-      </>
-    );
-  }
-
-  return <View style={styles.row}>{rowInner}</View>;
+  return (
+    <>
+      <Pressable
+        ref={anchorRef}
+        collapsable={false}
+        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+        onPress={openMenu}
+        accessibilityRole="button"
+        accessibilityLabel={`Balance options for ${balance.displayName}`}
+      >
+        {rowInner}
+      </Pressable>
+      <ContextMenuDropdown
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        anchorRef={anchorRef}
+        sections={menuSections}
+      />
+    </>
+  );
 }

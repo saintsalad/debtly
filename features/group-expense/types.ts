@@ -76,6 +76,7 @@ export type ActivityKind =
   | 'expense_edited'
   | 'expense_deleted'
   | 'settlement_recorded'
+  | 'settlements_voided'
   | 'member_joined'
   | 'member_removed'
   | 'member_renamed';

@@ -38,6 +38,8 @@ export function buildGroupSplitReceiptData(
   const expenseCount = groupExpenses.length;
   const totalSpendMinor = groupExpenses.reduce((sum, e) => sum + e.amountMinor, 0);
 
+  const ledgerSquare = isGroupLedgerBalanced(group, expenses, settlements);
+
   const memberNets = selectEveryMemberNet(group, expenses, settlements);
   const sortedMembers = [...memberNets].sort((a, b) =>
     a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
@@ -49,9 +51,7 @@ export function buildGroupSplitReceiptData(
     { label: 'Total spend', value: fm(fmt, totalSpendMinor) },
     {
       label: 'Ledger',
-      value: isGroupLedgerBalanced(group, expenses, settlements)
-        ? 'All entries square'
-        : 'Running balances below',
+      value: ledgerSquare ? 'All entries square' : 'Running balances below',
     },
   ];
 
@@ -71,7 +71,8 @@ export function buildGroupSplitReceiptData(
     header: {
       title: group.name,
       date: formatReceiptHeaderDate(printedAt),
-      amount: fm(fmt, totalSpendMinor),
+      /** Slip footer uses this; zero when everyone's net vs the pool is settled. */
+      amount: fm(fmt, ledgerSquare ? 0 : totalSpendMinor),
     },
     rows: [],
     paymentLines: [],

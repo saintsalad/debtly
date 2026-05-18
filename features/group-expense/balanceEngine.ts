@@ -181,6 +181,22 @@ export function buildGroupEdges(
   return edges;
 }
 
+/**
+ * How much `fromMemberId` still owes `toMemberId` on the directed IOU graph (minor units).
+ * A settlement from → to may not exceed this amount.
+ */
+export function getDirectedOutstandingMinor(
+  expenses: GroupExpense[],
+  settlements: Settlement[],
+  groupId: string,
+  fromMemberId: string,
+  toMemberId: string
+): number {
+  if (fromMemberId === toMemberId) return 0;
+  const edges = buildGroupEdges(expenses, settlements, groupId);
+  return edges.get(edgeKey(fromMemberId, toMemberId)) ?? 0;
+}
+
 /** Net from member A's perspective toward B: positive means B owes A */
 export function netBetween(edges: EdgeMap, memberA: string, memberB: string): number {
   const aOwesB = edges.get(edgeKey(memberA, memberB)) ?? 0;
@@ -465,4 +481,19 @@ export function getMemberSettlementsTotalMinor(
         (s.fromMemberId === memberId || s.toMemberId === memberId)
     )
     .reduce((sum, s) => sum + s.amountMinor, 0);
+}
+
+/** Any recorded settlement between two members (either direction). */
+export function settlementsExistBetweenMembers(
+  settlements: Settlement[],
+  groupId: string,
+  memberA: string,
+  memberB: string
+): boolean {
+  return settlements.some(
+    (s) =>
+      s.groupId === groupId &&
+      ((s.fromMemberId === memberA && s.toMemberId === memberB) ||
+        (s.fromMemberId === memberB && s.toMemberId === memberA))
+  );
 }
