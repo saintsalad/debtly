@@ -151,53 +151,20 @@ function createStyles(palette: ColorPalette) {
     header: {
       paddingHorizontal: space[5],
       paddingTop: space[4],
-      paddingBottom: space[5],
+      paddingBottom: space[3],
     },
     pageTitle: { ...type.title1, color: palette.label },
 
-    identityCard: {
-      marginHorizontal: space[5],
+    identitySection: {
+      alignItems: 'center',
+      paddingTop: space[4],
+      paddingBottom: space[8],
       paddingHorizontal: space[5],
-      paddingVertical: space[6],
-      marginBottom: space[6],
-    },
-    identityRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: space[4],
-    },
-    identityTextColumn: {
-      flex: 1,
-      minWidth: 0,
-      justifyContent: 'center',
-      paddingTop: 2,
-    },
-    identityName: { ...type.title2, color: palette.label },
-    identitySubtitle: {
-      ...type.subheadline,
-      color: palette.labelSecondary,
-      marginTop: space[1],
-      fontVariant: ['tabular-nums'],
-    },
-    nameInput: {
-      ...type.title2,
-      color: palette.label,
-      borderBottomWidth: StyleSheet.hairlineWidth * 2,
-      borderBottomColor: palette.separator,
-      paddingBottom: space[1],
-    },
-    identityActionsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: space[2],
-      marginTop: space[4],
-      alignSelf: 'flex-start',
-      maxWidth: '100%',
     },
     identityAvatarWrap: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
+      width: 88,
+      height: 88,
+      borderRadius: 44,
       overflow: 'hidden',
     },
     identityAvatarWrapMuted: {
@@ -208,6 +175,42 @@ function createStyles(palette: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: 'rgba(0, 0, 0, 0.35)',
+      borderRadius: 44,
+    },
+    identityTextColumn: {
+      alignItems: 'center',
+      marginTop: space[4],
+      gap: space[1],
+    },
+    identityName: {
+      ...type.title2,
+      color: palette.label,
+      textAlign: 'center',
+    },
+    identitySubtitle: {
+      ...type.footnote,
+      color: palette.labelSecondary,
+      textAlign: 'center',
+      fontVariant: ['tabular-nums'],
+    },
+    nameInputContainer: {
+      width: '100%',
+      maxWidth: 240,
+      marginTop: space[4],
+    },
+    nameInput: {
+      ...type.title3,
+      color: palette.label,
+      textAlign: 'center',
+      borderBottomWidth: StyleSheet.hairlineWidth * 2,
+      borderBottomColor: palette.separator,
+      paddingBottom: space[2],
+      paddingHorizontal: space[3],
+    },
+    identityActionsRow: {
+      flexDirection: 'row',
+      gap: space[2],
+      marginTop: space[4],
     },
 
     section: { marginBottom: space[4], paddingHorizontal: space[5] },
@@ -462,68 +465,69 @@ function ProfileScreenImpl({
           <Text style={styles.pageTitle}>Profile</Text>
         </View>
 
-        <GlassCard style={styles.identityCard} borderRadius={radius.card}>
-          <View style={styles.identityRow}>
-            <TouchableOpacity
-              style={[
-                styles.identityAvatarWrap,
-                !canChangeProfilePhoto ? styles.identityAvatarWrapMuted : null,
-              ]}
-              onPress={changeProfilePhoto}
-              disabled={avatarBusy || renamingDisplayName}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={
-                canChangeProfilePhoto ? 'Change profile photo' : 'Profile photo, sign in to change'
-              }
-            >
-              <Avatar name={name} size={72} imageUri={avatarUri} />
-              {avatarBusy ? (
-                <View style={styles.identityAvatarOverlay} pointerEvents="none">
-                  <ActivityIndicator color="#fff" />
-                </View>
-              ) : null}
-            </TouchableOpacity>
-            <View style={styles.identityTextColumn}>
-              {renamingDisplayName ? (
-                <TextInput
-                  style={styles.nameInput}
-                  value={editName}
-                  onChangeText={setEditName}
-                  onSubmitEditing={commitName}
-                  onBlur={commitName}
-                  autoFocus
-                  returnKeyType="done"
-                  selectTextOnFocus
-                  placeholderTextColor={palette.placeholder}
-                  keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
-                />
-              ) : (
-                <>
-                  <Text style={styles.identityName}>{name}</Text>
-                  <Text style={styles.identitySubtitle} numberOfLines={2}>
-                    {identitySubtitle}
-                  </Text>
-                  <View style={styles.identityActionsRow}>
-                    <GlassButton
-                      variant="secondary"
-                      onPress={() => {
-                        setEditName(name);
-                        setRenamingDisplayName(true);
-                      }}>
-                      <GlassButton.Label>Rename</GlassButton.Label>
-                    </GlassButton>
-                    {convexConfigured && needsAccountCreation ? (
-                      <GlassButton variant="primary" onPress={() => router.push('/create-account')}>
-                        <GlassButton.Label>Create account</GlassButton.Label>
-                      </GlassButton>
-                    ) : null}
-                  </View>
-                </>
-              )}
+        <View style={styles.identitySection}>
+          <TouchableOpacity
+            style={[
+              styles.identityAvatarWrap,
+              !canChangeProfilePhoto ? styles.identityAvatarWrapMuted : null,
+            ]}
+            onPress={changeProfilePhoto}
+            disabled={avatarBusy || renamingDisplayName}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={
+              canChangeProfilePhoto ? 'Change profile photo' : 'Profile photo, sign in to change'
+            }
+          >
+            <Avatar name={name} size={88} imageUri={avatarUri} />
+            {avatarBusy ? (
+              <View style={styles.identityAvatarOverlay} pointerEvents="none">
+                <ActivityIndicator color="#fff" />
+              </View>
+            ) : null}
+          </TouchableOpacity>
+
+          {renamingDisplayName ? (
+            <View style={styles.nameInputContainer}>
+              <TextInput
+                style={styles.nameInput}
+                value={editName}
+                onChangeText={setEditName}
+                onSubmitEditing={commitName}
+                onBlur={commitName}
+                autoFocus
+                returnKeyType="done"
+                selectTextOnFocus
+                placeholderTextColor={palette.placeholder}
+                keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
+              />
             </View>
-          </View>
-        </GlassCard>
+          ) : (
+            <>
+              <View style={styles.identityTextColumn}>
+                <Text style={styles.identityName}>{name}</Text>
+                <Text style={styles.identitySubtitle} numberOfLines={1}>
+                  {identitySubtitle}
+                </Text>
+              </View>
+              <View style={styles.identityActionsRow}>
+                <GlassButton
+                  variant="secondary"
+                  onPress={() => {
+                    setEditName(name);
+                    setRenamingDisplayName(true);
+                  }}>
+                  <GlassButton.Label>Edit name</GlassButton.Label>
+                </GlassButton>
+                {convexConfigured && needsAccountCreation ? (
+                  <GlassButton variant="primary" onPress={() => router.push('/create-account')}>
+                    <GlassButton.Label>Create account</GlassButton.Label>
+                  </GlassButton>
+                ) : null}
+              </View>
+            </>
+          )}
+        </View>
 
         <Section title="Preferences" styles={styles}>
           <ToggleRow
