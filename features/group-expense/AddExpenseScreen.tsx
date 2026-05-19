@@ -20,32 +20,53 @@ import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-exp
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { getCurrencyMeta, formatCurrency } from '@/lib/utils';
-import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
-import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
+import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
+import {
+  scrollContentLayerStyle,
+  screenHeaderLayerStyle,
+  StatusBarScrollFadeStrip,
+  useStatusBarScrollFade,
+} from '@/lib/statusBarScrollFade';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
-import { notifySuccess } from '@/lib/appToast';
+import { ExpenseReceiptViewer } from '@/features/group-expense/ExpenseReceiptViewer';
+import { notifyError, notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-  type BottomSheetBackdropProps,
-} from '@gorhom/bottom-sheet';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
-import { ChevronDown } from 'lucide-react-native';
-import React, { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { pickReceiptBackgroundPhotoFromLibrary } from '@/features/debts/receipt/pickReceiptPhoto';
+import { isConvexConfigured } from '@/lib/convex/env';
+import { uploadLocalExpenseReceiptToConvex } from '@/lib/convex/uploadExpenseReceiptToConvex';
+import { compressImageToJpegForUpload } from '@/lib/profile/compressProfileAvatar';
+import { Image } from 'expo-image';
+import { Check, ChevronDown, ImagePlus, X } from 'lucide-react-native';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Animated from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-export interface AddExpenseSheetHandle {
-  present: (groupId: string, expenseId?: string) => void;
-  dismiss: () => void;
+export interface AddExpenseScreenProps {
+  groupId: string;
+  expenseId?: string;
+  onClose: () => void;
 }
 
+const HEADER_ROW_MIN_HEIGHT = 36;
 const SPLIT_OPTIONS = ['Equal', 'Custom', '%', 'Shares', 'Adjust'] as const;
 
 function splitMethodFromIndex(i: number): SplitMethod {
@@ -99,28 +120,38 @@ const SPLIT_METHOD_DESCRIPTIONS: Record<SplitMethod, string> = {
     'Each row starts from an equal share. Type + / − tweaks; overall they must cancel (net zero).',
 };
 
-function createSheetStyles(palette: ColorPalette) {
+function createStyles(palette: ColorPalette) {
   return StyleSheet.create({
-    sheet: {
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      backgroundColor: palette.surface,
+    screen: { flex: 1, backgroundColor: palette.bg },
+    layerStack: {
+      flex: 1,
+      position: 'relative',
     },
-    handle: { width: 40, backgroundColor: palette.opaqueSeparator },
-    header: {
+    scroll: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    headerOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: space[5],
+      paddingBottom: space[3],
+      backgroundColor: 'transparent',
+      ...screenHeaderLayerStyle,
+    },
+    headerRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: space[5],
-      paddingBottom: space[3],
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: palette.opaqueSeparator,
+      minHeight: HEADER_ROW_MIN_HEIGHT,
     },
-    title: { ...type.headline, fontWeight: '600', color: palette.label },
-    form: {
+    title: { flex: 1, ...type.headline, color: palette.label, textAlign: 'center' },
+    formContent: {
+      flexGrow: 1,
       gap: space[4],
-      paddingHorizontal: space[5],
-      paddingTop: space[4],
+      paddingHorizontal: layout.screenPaddingX,
     },
     input: {
       paddingHorizontal: space[4],
@@ -163,7 +194,7 @@ function createSheetStyles(palette: ColorPalette) {
       paddingHorizontal: space[3],
       paddingVertical: space[2],
       borderRadius: 14,
-      backgroundColor: palette.surface,
+      backgroundColor: palette.fill,
       color: palette.label,
       fontSize: 17,
     },
@@ -295,16 +326,90 @@ function createSheetStyles(palette: ColorPalette) {
       color: palette.labelSecondary,
       lineHeight: 18,
     },
+    receiptSection: {
+      gap: space[3],
+    },
+    receiptPreviewShell: {
+      position: 'relative',
+      borderRadius: radius.md,
+      overflow: 'hidden' as const,
+      backgroundColor: palette.fill,
+      aspectRatio: 4 / 3,
+    },
+    receiptPreview: {
+      width: '100%',
+      height: '100%',
+    },
+    receiptAddBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      paddingHorizontal: space[3],
+      paddingVertical: space[2],
+      borderRadius: 14,
+      backgroundColor: palette.fill,
+      alignSelf: 'flex-start',
+    },
+    receiptAddText: {
+      ...type.subheadline,
+      color: palette.label,
+    },
+    receiptImageActions: {
+      position: 'absolute',
+      right: space[3],
+      bottom: space[3],
+      flexDirection: 'row',
+      gap: space[2],
+    },
+    receiptImageActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[1],
+      paddingHorizontal: space[2],
+      paddingVertical: space[1],
+      borderRadius: radius.sm,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+    receiptImageActionText: {
+      ...type.caption2,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    receiptPreviewPressable: {
+      width: '100%',
+      height: '100%',
+    },
+    receiptPreviewOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space[2],
+      backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    receiptPreviewOverlayText: {
+      ...type.footnote,
+      fontWeight: '600',
+      color: '#fff',
+    },
   });
 }
 
-export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExpenseSheet(_, ref) {
+function isLocalReceiptUri(uri: string): boolean {
+  return uri.startsWith('file:') || uri.startsWith('content:');
+}
+
+export function AddExpenseScreen({ groupId, expenseId, onClose }: AddExpenseScreenProps) {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
-  const styles = useMemo(() => createSheetStyles(palette), [palette]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
-  const sheetRef = useRef<BottomSheetModal>(null);
-  const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
+  const isEditing = Boolean(expenseId);
+  const { onScroll: expenseScrollFadeOnScroll } = useStatusBarScrollFade({ overlayHost: 'screen' });
+  const scrollTopInset = useMemo(
+    () => insets.top + space[3] + HEADER_ROW_MIN_HEIGHT + space[3] + space[2],
+    [insets.top]
+  );
   const addExpense = useGroupExpenseStore((s) => s.addExpense);
   const updateExpense = useGroupExpenseStore((s) => s.updateExpense);
   const deleteExpense = useGroupExpenseStore((s) => s.deleteExpense);
@@ -315,12 +420,12 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const convexAddExpense = useMutation(api.splitGroups.addExpense);
   const convexUpdateExpense = useMutation(api.splitGroups.updateExpense);
   const convexDeleteExpense = useMutation(api.splitGroups.deleteExpense);
+  const convexGenReceiptUploadUrl = useMutation(api.splitGroups.generateExpenseReceiptUploadUrl);
+  const convexFinalizeReceiptUpload = useMutation(api.splitGroups.finalizeExpenseReceiptUpload);
 
   const { toast } = useToast();
   const { busy: expenseSaving, runGuarded } = useSubmitGuard();
 
-  const [groupId, setGroupId] = useState<string | null>(null);
-  const [expenseId, setExpenseId] = useState<string | undefined>();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [paidByMemberId, setPaidByMemberId] = useState('');
@@ -328,6 +433,11 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const [splitIndex, setSplitIndex] = useState(0);
   const [shareInputs, setShareInputs] = useState<Record<string, string>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [receiptUri, setReceiptUri] = useState<string | undefined>();
+  const [receiptPicking, setReceiptPicking] = useState(false);
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptViewerOpen, setReceiptViewerOpen] = useState(false);
+  const amountInputRef = useRef<TextInput>(null);
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
   const splitMethod = splitMethodFromIndex(splitIndex);
@@ -350,8 +460,6 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const resetForGroup = useCallback((g: SplitGroup, existing?: GroupExpense) => {
     const current = getCurrentUserMember(g.members);
     const allIds = g.members.map((m) => m.id);
-    setGroupId(g.id);
-    setExpenseId(existing?.id);
     setTitle(existing?.title ?? '');
     setAmount(existing ? String(minorToMajor(existing.amountMinor)) : '');
     setPaidByMemberId(existing?.paidByMemberId ?? current?.id ?? g.members[0]?.id ?? '');
@@ -359,6 +467,9 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     const method = existing?.splitMethod ?? 'equal';
     setSplitIndex(splitIndexFromMethod(method));
     setShowAdvanced(Boolean(existing && existing.splitMethod !== 'equal'));
+    setReceiptUri(existing?.receiptUri);
+    setReceiptUploading(false);
+    setReceiptViewerOpen(false);
     if (existing?.shares && existing.splitMethod !== 'equal') {
       const inputs: Record<string, string> = {};
       const meth = existing.splitMethod;
@@ -386,29 +497,92 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     }
   }, []);
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} pressBehavior="close" />
-    ),
-    []
-  );
+  useEffect(() => {
+    const g = groups.find((x) => x.id === groupId);
+    if (!g) return;
+    const existing = expenseId ? expenses.find((e) => e.id === expenseId) : undefined;
+    resetForGroup(g, existing);
+    // Init form when route params change; read latest store snapshot once per navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId, expenseId]);
 
-  useImperativeHandle(ref, () => ({
-    present: (gid, eid) => {
-      const g = groups.find((x) => x.id === gid);
-      if (!g) return;
-      const existing = eid ? expenses.find((e) => e.id === eid) : undefined;
-      resetForGroup(g, existing);
-      presentSheet(() => sheetRef.current?.present());
-    },
-    dismiss: () => sheetRef.current?.dismiss(),
-  }));
+  useEffect(() => {
+    if (groups.length > 0 && !groups.some((g) => g.id === groupId)) {
+      onClose();
+    }
+  }, [groups, groupId, onClose]);
+
+  const close = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   const toggleMember = useCallback((memberId: string) => {
     setIncludedIds((prev) =>
       prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
     );
   }, []);
+
+  const uploadReceiptIfNeeded = useCallback(
+    async (jpegUri: string, gid: string, cloud: boolean): Promise<string> => {
+      if (!cloud || jpegUri.startsWith('https://') || !isLocalReceiptUri(jpegUri)) {
+        return jpegUri;
+      }
+      if (!isConvexConfigured()) {
+        throw new Error('Receipt upload requires Convex and an internet connection.');
+      }
+      return uploadLocalExpenseReceiptToConvex({
+        localFileUri: jpegUri,
+        groupId: gid as Id<'splitGroups'>,
+        generateExpenseReceiptUploadUrl: (a) => convexGenReceiptUploadUrl(a),
+        finalizeExpenseReceiptUpload: (a) => convexFinalizeReceiptUpload(a),
+      });
+    },
+    [convexFinalizeReceiptUpload, convexGenReceiptUploadUrl]
+  );
+
+  const handlePickReceipt = useCallback(() => {
+    void (async () => {
+      if (receiptPicking || receiptUploading || !group) return;
+
+      const raw = await pickReceiptBackgroundPhotoFromLibrary();
+      if (!raw) return;
+
+      setReceiptPicking(true);
+      try {
+        const jpegUri = await compressImageToJpegForUpload(raw);
+        setReceiptUri(jpegUri);
+
+        const cloud = isCloudSplitGroup(group);
+        if (cloud && isLocalReceiptUri(jpegUri)) {
+          setReceiptUploading(true);
+          try {
+            const url = await uploadReceiptIfNeeded(jpegUri, groupId, cloud);
+            setReceiptUri(url);
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Could not upload receipt.';
+            notifyError(toast, 'Upload failed', msg);
+          } finally {
+            setReceiptUploading(false);
+            amountInputRef.current?.blur();
+            Keyboard.dismiss();
+          }
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not process image.';
+        Alert.alert('Photo failed', msg);
+      } finally {
+        setReceiptPicking(false);
+        amountInputRef.current?.blur();
+        Keyboard.dismiss();
+      }
+    })();
+  }, [group, groupId, receiptPicking, receiptUploading, toast, uploadReceiptIfNeeded]);
+
+  const openReceiptViewer = useCallback(() => {
+    if (receiptUri && !receiptUploading) {
+      setReceiptViewerOpen(true);
+    }
+  }, [receiptUri, receiptUploading]);
 
   const handleSplitIndexChange = useCallback((ni: number) => {
     setSplitIndex((prev) => {
@@ -422,6 +596,10 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const handleSave = () =>
     void runGuarded(async () => {
     if (!groupId || !group) return;
+    if (receiptUploading) {
+      Alert.alert('Receipt uploading', 'Wait for the receipt photo to finish uploading, then save.');
+      return;
+    }
     const parsed = parseFloat(amount.replace(/,/g, ''));
     if (!title.trim() || !Number.isFinite(parsed) || parsed <= 0) {
       Alert.alert('Missing info', 'Add a description and amount.');
@@ -479,6 +657,23 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       }));
     }
 
+    let resolvedReceiptUri = receiptUri;
+    if (
+      receiptUri &&
+      isCloudSplitGroup(group) &&
+      isLocalReceiptUri(receiptUri)
+    ) {
+      try {
+        resolvedReceiptUri = await uploadReceiptIfNeeded(receiptUri, groupId, true);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not upload receipt.';
+        Alert.alert('Receipt upload failed', msg);
+        return;
+      }
+    }
+
+    const receiptForSave = expenseId ? (resolvedReceiptUri ?? '') : resolvedReceiptUri;
+
     const payload = {
       groupId,
       title,
@@ -487,6 +682,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       splitMethod,
       includedMemberIds: includedIds,
       shares,
+      receiptUri: receiptForSave,
     };
 
     if (isCloudSplitGroup(group)) {
@@ -500,6 +696,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             splitMethod: payload.splitMethod,
             includedMemberIds: payload.includedMemberIds,
             shares: payload.shares,
+            receiptUri: payload.receiptUri,
           });
           notifySuccess(toast, 'Expense updated');
         } else {
@@ -512,10 +709,11 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             includedMemberIds: payload.includedMemberIds,
             shares: payload.shares,
             currency: sheetCurrency,
+            receiptUri: payload.receiptUri,
           });
           notifySuccess(toast, 'Expense added');
         }
-        sheetRef.current?.dismiss();
+        onClose();
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Could not save expense.';
         Alert.alert('Could not save', msg);
@@ -533,7 +731,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     } else {
       notifySuccess(toast, 'Expense added');
     }
-    sheetRef.current?.dismiss();
+    onClose();
   });
 
   const splitSummaryLine = useMemo(() => {
@@ -622,47 +820,50 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   if (!group) return null;
 
   return (
-    <BottomSheetModal
-      ref={sheetRef}
-      snapPoints={['88%']}
-      backdropComponent={renderBackdrop}
-      handleIndicatorStyle={styles.handle}
-      backgroundStyle={styles.sheet}
-      containerComponent={containerComponent}
-      keyboardBehavior="interactive"
-    >
+    <View style={styles.screen}>
       <HeroUINativeProvider>
-        <View style={styles.header}>
-          <Text style={styles.title}>{expenseId ? 'Edit expense' : 'Add expense'}</Text>
-          <GlassButton size="sm" variant="ghost" onPress={() => sheetRef.current?.dismiss()}>
-            <GlassButton.Label>Cancel</GlassButton.Label>
-          </GlassButton>
-        </View>
-        <BottomSheetScrollView
-          contentContainerStyle={[styles.form, { paddingBottom: contentBottomPadding }]}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={styles.layerStack} collapsable={false}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={insets.top}
+          >
+            <Animated.ScrollView
+              style={[styles.scroll, scrollContentLayerStyle]}
+              keyboardShouldPersistTaps="always"
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={expenseScrollFadeOnScroll}
+              contentContainerStyle={[
+                styles.formContent,
+                {
+                  paddingTop: scrollTopInset,
+                  paddingBottom: insets.bottom + layout.screenPaddingBottom,
+                },
+              ]}
+            >
           <TextField>
             <Label>What was it for?</Label>
-            <BottomSheetTextInput
+            <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
               placeholder="Dinner, groceries, gas…"
-              placeholderTextColor={palette.labelTertiary}
+              placeholderTextColor={palette.placeholder}
               keyboardAppearance={keyboardAppearance}
             />
           </TextField>
 
           <TextField>
             <Label>Amount</Label>
-            <BottomSheetTextInput
+            <TextInput
+              ref={amountInputRef}
               style={styles.amountHero}
               value={amount}
               onChangeText={(v) => setAmount(sanitizeExpenseMajorInput(v))}
               keyboardType="decimal-pad"
               placeholder={`${symbol}0`}
-              placeholderTextColor={palette.labelTertiary}
+              placeholderTextColor={palette.placeholder}
               keyboardAppearance={keyboardAppearance}
             />
           </TextField>
@@ -688,6 +889,77 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
               <Description>{splitSummaryLine}</Description>
             ) : null}
           </TextField>
+
+          <View style={styles.receiptSection}>
+            <Text style={styles.sectionLabel}>Receipt</Text>
+            {receiptUri ? (
+              <View style={styles.receiptPreviewShell}>
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  delayPressIn={150}
+                  style={styles.receiptPreviewPressable}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel="Receipt photo. Tap to view full screen."
+                  onPress={openReceiptViewer}
+                  disabled={receiptUploading || receiptPicking}
+                >
+                  <Image
+                    source={{ uri: receiptUri }}
+                    style={styles.receiptPreview}
+                    contentFit="cover"
+                    accessibilityLabel="Receipt photo preview"
+                  />
+                  {receiptUploading ? (
+                    <View style={styles.receiptPreviewOverlay} pointerEvents="none">
+                      <ActivityIndicator color="#fff" />
+                      <Text style={styles.receiptPreviewOverlayText}>Uploading…</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+                {!receiptUploading ? (
+                  <View style={styles.receiptImageActions} pointerEvents="box-none">
+                    <Pressable
+                      style={styles.receiptImageActionBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Change receipt photo"
+                      onPress={handlePickReceipt}
+                      disabled={receiptPicking}
+                    >
+                      <ImagePlus size={14} color="#fff" />
+                      <Text style={styles.receiptImageActionText}>Change</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.receiptImageActionBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove receipt photo"
+                      onPress={() => setReceiptUri(undefined)}
+                      disabled={receiptPicking}
+                    >
+                      <X size={14} color="#fff" />
+                      <Text style={styles.receiptImageActionText}>Remove</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <Pressable
+                style={styles.receiptAddBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Add receipt photo"
+                onPress={handlePickReceipt}
+                disabled={receiptPicking || receiptUploading}
+              >
+                {receiptPicking ? (
+                  <ActivityIndicator size="small" color={palette.tint} />
+                ) : (
+                  <ImagePlus size={18} color={palette.label} />
+                )}
+                <Text style={styles.receiptAddText}>
+                  {receiptPicking ? 'Opening photos…' : 'Add photo'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
 
           <Pressable
             style={styles.advancedToggle}
@@ -809,7 +1081,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                             </Pressable>
                             <View style={styles.peopleValueSlot}>
                               {on ? (
-                                <BottomSheetTextInput
+                                <TextInput
                                   accessibilityLabel={`${m.displayName}, ${perPersonAccessibilitySuffix}`}
                                   style={styles.shareInput}
                                   value={shareInputs[m.id] ?? ''}
@@ -828,7 +1100,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                                   }
                                   keyboardType={perPersonKeyboardType}
                                   placeholder={perPersonPlaceholder}
-                                  placeholderTextColor={palette.labelTertiary}
+                                  placeholderTextColor={palette.placeholder}
                                   keyboardAppearance={keyboardAppearance}
                                 />
                               ) : (
@@ -865,12 +1137,6 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             </View>
           ) : null}
 
-          <GlassButton variant="primary" onPress={handleSave} isDisabled={expenseSaving}>
-            <GlassButton.Label>
-              {expenseSaving ? 'Saving…' : expenseId ? 'Save' : 'Add expense'}
-            </GlassButton.Label>
-          </GlassButton>
-
           {expenseId ? (
             <GlassButton
               variant="ghost"
@@ -886,7 +1152,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                           try {
                             await convexDeleteExpense({ expenseId: expenseId as Id<'splitGroupExpenses'> });
                             notifySuccess(toast, 'Expense deleted');
-                            sheetRef.current?.dismiss();
+                            onClose();
                           } catch (e: unknown) {
                             const msg = e instanceof Error ? e.message : 'Could not delete.';
                             Alert.alert('Delete failed', msg);
@@ -895,7 +1161,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                         }
                         deleteExpense(expenseId);
                         notifySuccess(toast, 'Expense deleted');
-                        sheetRef.current?.dismiss();
+                        onClose();
                       })();
                     },
                   },
@@ -905,8 +1171,35 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
               <GlassButton.Label>Delete</GlassButton.Label>
             </GlassButton>
           ) : null}
-        </BottomSheetScrollView>
+            </Animated.ScrollView>
+          </KeyboardAvoidingView>
+
+          <StatusBarScrollFadeStrip />
+
+          <View
+            style={[styles.headerOverlay, { paddingTop: insets.top + space[3] }]}
+            pointerEvents="box-none"
+            collapsable={false}
+          >
+            <View style={styles.headerRow}>
+              <HeaderIconButton icon={X} accessibilityLabel="Cancel" onPress={close} />
+              <Text style={styles.title}>{isEditing ? 'Edit expense' : 'Add expense'}</Text>
+              <HeaderIconButton
+                icon={Check}
+                accessibilityLabel={isEditing ? 'Save changes' : 'Save expense'}
+                onPress={handleSave}
+                variant="tint"
+                disabled={expenseSaving || receiptUploading}
+              />
+            </View>
+          </View>
+        </View>
       </HeroUINativeProvider>
-    </BottomSheetModal>
+      <ExpenseReceiptViewer
+        visible={receiptViewerOpen}
+        uri={receiptUri ?? ''}
+        onClose={() => setReceiptViewerOpen(false)}
+      />
+    </View>
   );
-});
+}

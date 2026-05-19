@@ -1,5 +1,6 @@
 import { api } from '@/convex/_generated/api';
 import { parseInviteCodeFromUrl } from '@/features/group-expense/joinLinkParse';
+import { joinSplitGroupFromInvite } from '@/features/group-expense/joinSplitGroupFlow';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
@@ -14,7 +15,7 @@ import { useEffect, useRef } from 'react';
 async function followInviteDeepLink(opts: {
   url: string;
   joinGroupByCode: (code: string, displayName: string) => string | null;
-  joinConvex?: (code: string) => Promise<{ groupId: string }>;
+  joinConvex: (code: string) => Promise<{ groupId: string }>;
   displayName: string;
   router: ReturnType<typeof useRouter>;
   gated: boolean;
@@ -45,21 +46,17 @@ async function followInviteDeepLink(opts: {
     return;
   }
 
-  if (convexConfigured && authReady && joinConvex) {
-    try {
-      const r = await joinConvex({ code });
-      setPendingCode(null);
-      router.push({ pathname: '/group/[id]', params: { id: r.groupId } });
-      return;
-    } catch {
-      // Fall through to legacy local join (short codes on-device).
-    }
-  }
+  const joined = await joinSplitGroupFromInvite({
+    rawCodeOrLink: code,
+    displayName,
+    preferConvex: convexConfigured && authReady,
+    convexJoin: joinConvex,
+    localJoin: joinGroupByCode,
+  });
 
-  const groupId = joinGroupByCode(code, displayName);
-  if (groupId) {
+  if (joined) {
     setPendingCode(null);
-    router.push({ pathname: '/group/[id]', params: { id: groupId } });
+    router.push({ pathname: '/group/[id]', params: { id: joined.groupId } });
   }
 }
 
@@ -83,7 +80,7 @@ function GroupInviteLinkHandlerCore(props: {
       void followInviteDeepLink({
         url,
         joinGroupByCode,
-        joinConvex: convexConfigured ? (args) => joinConvexRef.current(args) : undefined,
+        joinConvex: (c) => joinConvexRef.current({ code: c }),
         displayName,
         router,
         gated: props.gated,
@@ -97,7 +94,7 @@ function GroupInviteLinkHandlerCore(props: {
       void followInviteDeepLink({
         url,
         joinGroupByCode,
-        joinConvex: convexConfigured ? (args) => joinConvexRef.current(args) : undefined,
+        joinConvex: (c) => joinConvexRef.current({ code: c }),
         displayName,
         router,
         gated: props.gated,

@@ -107,6 +107,19 @@ async function getActiveInviteCode(ctx: any, groupId: Id<'splitGroups'>): Promis
   return active[0].code as string;
 }
 
+/** Legacy groups may lack an invite row; allocate one so shared codes always resolve. */
+async function ensureActiveInviteCode(ctx: any, groupId: Id<'splitGroups'>): Promise<string> {
+  const existing = await getActiveInviteCode(ctx, groupId);
+  if (existing) return existing;
+  const code = await allocateUniqueInviteCode(ctx);
+  await ctx.db.insert('splitGroupInvites', {
+    groupId,
+    code,
+    createdAt: Date.now(),
+  });
+  return code;
+}
+
 async function loadMembers(ctx: any, groupId: Id<'splitGroups'>) {
   return ctx.db
     .query('splitGroupMembers')
@@ -290,7 +303,7 @@ async function buildSplitGroupForViewer(
   const creatorMember = memberRows.find(
     (m: { userId?: Id<'users'> }) => m.userId === groupDoc.createdByUserId
   );
-  const inviteCode = (await getActiveInviteCode(ctx, groupDoc._id)) ?? '';
+  const inviteCode = await ensureActiveInviteCode(ctx, groupDoc._id);
 
   let imageUri: string | undefined;
   if (groupDoc.imageStorageId) {
@@ -523,8 +536,11 @@ export const joinByInviteCode = mutation({
       .withIndex('by_code', (q) => q.eq('code', normalized))
       .first();
 
-    if (!invite || invite.revokedAt != null) {
+    if (!invite) {
       throw new ConvexError('Invalid or expired invite.');
+    }
+    if (invite.revokedAt != null) {
+      throw new ConvexError('This invite was replaced. Ask the host for a new link or code.');
     }
 
     const groupId = invite.groupId as Id<'splitGroups'>;
@@ -780,6 +796,31 @@ export const clearGroupImage = mutation({
     });
 
     return null;
+  },
+});
+
+export const generateExpenseReceiptUploadUrl = mutation({
+  args: { groupId: v.id('splitGroups') },
+  handler: async (ctx, { groupId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const finalizeExpenseReceiptUpload = mutation({
+  args: {
+    groupId: v.id('splitGroups'),
+    storageId: v.id('_storage'),
+  },
+  handler: async (ctx, { groupId, storageId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) {
+      throw new ConvexError('Could not resolve uploaded receipt.');
+    }
+    return url;
   },
 });
 
@@ -1227,7 +1268,7 @@ export const addExpense = mutation({
       shares,
       includedMemberIds: included,
       note: args.note?.trim() || undefined,
-      receiptUri: args.receiptUri,
+      receiptUri: args.receiptUri?.trim() || undefined,
       expenseDate,
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -1316,7 +1357,10 @@ export const updateExpense = mutation({
       shares,
       includedMemberIds: included,
       note: args.note !== undefined ? args.note?.trim() || undefined : existing.note,
-      receiptUri: args.receiptUri !== undefined ? args.receiptUri : existing.receiptUri,
+      receiptUri:
+        args.receiptUri !== undefined
+          ? args.receiptUri.trim() || undefined
+          : existing.receiptUri,
       expenseDate: args.expenseDate ?? existing.expenseDate,
       updatedAt: nowIso,
       version: existing.version + 1,

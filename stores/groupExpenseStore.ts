@@ -498,7 +498,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
           shares,
           includedMemberIds: included,
           note: input.note?.trim() || undefined,
-          receiptUri: input.receiptUri,
+          receiptUri: input.receiptUri?.trim() || undefined,
           expenseDate: input.expenseDate ?? now,
           createdAt: now,
           updatedAt: now,
@@ -555,7 +555,10 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
           shares,
           includedMemberIds: included,
           note: input.note !== undefined ? input.note?.trim() || undefined : existing.note,
-          receiptUri: input.receiptUri !== undefined ? input.receiptUri : existing.receiptUri,
+          receiptUri:
+            input.receiptUri !== undefined
+              ? input.receiptUri.trim() || undefined
+              : existing.receiptUri,
           expenseDate: input.expenseDate ?? existing.expenseDate,
           updatedAt: now,
           version: bumpVersion(existing.version),

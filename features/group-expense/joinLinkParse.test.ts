@@ -49,6 +49,10 @@ describe('joinLinkParse', () => {
     expect(parseInviteCodeFromUrl('debtly://group/other?code=x')).toBeNull();
   });
 
+  it('parses code when expo puts group/join in the path segment', () => {
+    expect(parseInviteCodeFromUrl('debtly://group/join?code=ab12cd')).toBe('AB12CD');
+  });
+
   it('normalizes raw pasted codes', () => {
     expect(parseInviteCodeFromLinkOrRaw('  ab cd  ')).toBe('ABCD');
   });

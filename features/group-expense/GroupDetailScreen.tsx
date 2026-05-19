@@ -8,7 +8,6 @@ import { ListDivider } from '@/components/ui/ListDivider';
 import { buildGroupActivity } from '@/features/group-expense/activityFeed';
 import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
 import { isExpenseTappable, isViewerGroupHost } from '@/features/group-expense/activityLog';
-import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { selectGroupBalances, settlementsExistBetweenMembers } from '@/features/group-expense/balanceEngine';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
 import {
@@ -231,7 +230,6 @@ export function GroupDetailScreen() {
   const convexFinalizeGroupImage = useMutation(api.splitGroups.finalizeGroupImageUpload);
   const convexClearGroupImage = useMutation(api.splitGroups.clearGroupImage);
 
-  const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
   const inviteSheetRef = useRef<InviteMembersSheetHandle>(null);
   const membersSheetRef = useRef<GroupMembersSheetHandle>(null);
@@ -697,7 +695,12 @@ export function GroupDetailScreen() {
             </View>
 
             <GroupQuickActions
-              onAddExpense={() => expenseSheetRef.current?.present(group.id)}
+              onAddExpense={() =>
+                router.push({
+                  pathname: '/add-group-expense',
+                  params: { groupId: group.id },
+                })
+              }
               onSettle={openSettle}
               settleWithEveryoneClear={summary.isSettled}
             />
@@ -820,7 +823,10 @@ export function GroupDetailScreen() {
                         onPress={
                           isExpenseTappable(item.kind, item.expenseId, expenses)
                             ? () =>
-                              expenseSheetRef.current?.present(group.id, item.expenseId)
+                              router.push({
+                                pathname: '/add-group-expense',
+                                params: { groupId: group.id, expenseId: item.expenseId! },
+                              })
                             : undefined
                         }
                       />
@@ -879,7 +885,6 @@ export function GroupDetailScreen() {
         </View>
       </View>
 
-      <AddExpenseSheet ref={expenseSheetRef} />
       <RecordSettlementSheet ref={settlementSheetRef} />
       <InviteMembersSheet ref={inviteSheetRef} />
       <GroupMembersSheet ref={membersSheetRef} />

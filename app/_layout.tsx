@@ -106,6 +106,10 @@ export default function RootLayout() {
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
                     <Stack.Screen
+                      name="add-group-expense"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
                       name="transaction/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
