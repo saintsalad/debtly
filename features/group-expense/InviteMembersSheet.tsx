@@ -8,14 +8,18 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
+import { useRouter } from 'expo-router';
+
 import { GlassButton } from '@/components/ui/GlassButton';
 import { copyInviteLink } from '@/features/group-expense/groupExpenseActions';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
-import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
+import { isConvexConfigured } from '@/lib/convex/env';
+import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useConvexAuth } from 'convex/react';
 
 export interface InviteMembersSheetHandle {
   present: (groupId: string) => void;
@@ -61,7 +65,17 @@ function createSheetStyles(palette: ColorPalette) {
   });
 }
 
-export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function InviteMembersSheet(_, ref) {
+interface InviteMembersSheetInnerProps {
+  router: ReturnType<typeof useRouter>;
+  /** When Convex is enabled, copying/sharing invite requires Convex Auth first. */
+  accountGateConvex: boolean;
+  authReadyForShare: boolean;
+}
+
+const InviteMembersSheetInner = forwardRef<
+  InviteMembersSheetHandle,
+  InviteMembersSheetInnerProps
+>(function InviteMembersSheetInner({ router, accountGateConvex, authReadyForShare }, ref) {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createSheetStyles(palette), [palette]);
@@ -99,10 +113,24 @@ export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function 
       Alert.alert('Name required', 'Enter a name to add.');
       return;
     }
-    addMember(groupId, name);
+    addMember(groupId, name.trim());
     notifySuccess(toast, 'Member added');
     setName('');
     sheetRef.current?.dismiss();
+  };
+
+  const handleShareInvite = () => {
+    if (!group) return;
+    if (accountGateConvex && !authReadyForShare) {
+      router.push({
+        pathname: '/create-account',
+        params: { returnTo: 'invite-sheet' },
+      });
+      sheetRef.current?.dismiss();
+      return;
+    }
+    void copyInviteLink(getInviteLink(group.id));
+    notifySuccess(toast, 'Invite link copied');
   };
 
   if (!group) return null;
@@ -126,10 +154,10 @@ export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function 
         >
           <Text style={styles.code}>{group.inviteCode}</Text>
           <Description>
-            Share your invite link on this device. Multi-device sync is coming soon.
+            Share your invite link so others can open the group from their device when sync is enabled.
           </Description>
-          <GlassButton variant="secondary" onPress={() => void copyInviteLink(getInviteLink(group.id))}>
-            <GlassButton.Label>Share invite link</GlassButton.Label>
+          <GlassButton variant="secondary" onPress={handleShareInvite}>
+            <GlassButton.Label>Copy or share invite link</GlassButton.Label>
           </GlassButton>
           <TextField>
             <Label>Add by name</Label>
@@ -149,4 +177,35 @@ export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function 
       </HeroUINativeProvider>
     </BottomSheetModal>
   );
+});
+
+const InviteMembersWithConvexGate = forwardRef<InviteMembersSheetHandle>((_, ref) => {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  return (
+    <InviteMembersSheetInner
+      ref={ref}
+      router={router}
+      accountGateConvex
+      authReadyForShare={!isLoading && isAuthenticated}
+    />
+  );
+});
+
+export const InviteMembersSheet = forwardRef<InviteMembersSheetHandle>(function InviteMembersSheet(
+  _props,
+  ref
+) {
+  const router = useRouter();
+  if (!isConvexConfigured()) {
+    return (
+      <InviteMembersSheetInner
+        ref={ref}
+        router={router}
+        accountGateConvex={false}
+        authReadyForShare
+      />
+    );
+  }
+  return <InviteMembersWithConvexGate ref={ref} />;
 });

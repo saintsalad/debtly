@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScopedTheme } from 'uniwind';
 import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
 import { DatabaseProvider } from '@/components/DatabaseProvider';
+import { ConvexGate } from '@/lib/convex/ConvexGate';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -80,7 +81,8 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
-      <DatabaseProvider>
+      <ConvexGate>
+        <DatabaseProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <HeroUINativeProvider config={heroUiNativeConfig}>
             <BottomSheetModalProvider>
@@ -122,6 +124,10 @@ export default function RootLayout() {
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
                     <Stack.Screen
+                      name="create-account"
+                      options={{ presentation: 'fullScreenModal', headerShown: false }}
+                    />
+                    <Stack.Screen
                       name="group-receipt/[id]"
                       options={{ presentation: 'fullScreenModal', headerShown: false }}
                     />
@@ -133,7 +139,8 @@ export default function RootLayout() {
           </HeroUINativeProvider>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </ThemeProvider>
-      </DatabaseProvider>
+        </DatabaseProvider>
+      </ConvexGate>
     </GestureHandlerRootView>
   );
 }

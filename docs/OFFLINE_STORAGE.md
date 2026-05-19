@@ -48,7 +48,7 @@ erDiagram
 - **Personal ledger**: `debts`, `debt_payments`
 - **Groups**: `groups`, `group_members`, `group_expenses`, `settlements`, `activity_log`
 - **Legacy bill split tab**: `bill_splits`, `bill_split_participants`
-- **Settings**: `profile_settings` (single row, `id = 1`)
+- **Settings**: `profile_settings` (single row, `id = 1`; includes optional **`username`** for display and client-side bookkeeping—when Convex Auth is configured, the server validates the signup username independently)
 - **Meta**: `app_meta` (e.g. `legacy_import_done`)
 - **Future Convex sync**: `pending_ops` (outbox; empty until cloud sync ships)
 
@@ -95,9 +95,11 @@ All user edits go through Zustand actions as before. Subscribers call `replaceDe
 
 - **Expo CLI**: press `Shift+M` → “Open expo-sqlite” to inspect tables in the browser.
 - **Optional**: [drizzle-studio-expo](https://github.com/drizzle-team/drizzle-studio-expo) for Drizzle Studio against the on-device DB.
-- **Clear data**: Profile → Clear all data (wipes SQLite + resets stores).
+- **Clear data**: Profile → Clear all data (wipes SQLite + resets stores). If you had signed into Convex Auth, complete sign-out from Profile so **SecureStore** session tokens are cleared too.
 
-## Future Convex sync (groups)
+## Convex Auth session (when `EXPO_PUBLIC_CONVEX_URL` is set)
+
+Convex Auth JWT refresh tokens live in **`expo-secure-store`** (see `lib/convex/convexSecureStorage.ts`), wrapped by **`ConvexGate`**. They are **not** written to SQLite—the database stays the ledger for debts, groups, and local profile rows; identity is orthogonal.
 
 Local-first pattern for shared groups:
 

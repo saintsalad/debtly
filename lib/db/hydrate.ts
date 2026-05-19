@@ -22,6 +22,7 @@ export async function hydrateStoresFromDatabase(db: DebtlyDatabase): Promise<voi
 
   useProfileStore.setState({
     name: profile.name,
+    username: profile.username ?? null,
     currency: profile.currency,
     appearance: profile.appearance,
     showSplitBillsInTransactions: profile.showSplitBillsInTransactions,

@@ -1,0 +1,17 @@
+{
+  /* This TSConfig file is only used to help editors like VS Code understand / IntelliSense /
+     typecheck the server's source files under convex/. */
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ES2022", "dom"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["./_generated"]
+}

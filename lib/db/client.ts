@@ -20,6 +20,7 @@ export async function openDatabase(
 ): Promise<DebtlyDatabase> {
   await sqliteDb.execAsync('PRAGMA journal_mode = WAL;');
   await sqliteDb.execAsync('PRAGMA foreign_keys = ON;');
+  await sqliteDb.execAsync('PRAGMA busy_timeout = 5000;');
   dbInstance = drizzle(sqliteDb, { schema });
   return dbInstance;
 }

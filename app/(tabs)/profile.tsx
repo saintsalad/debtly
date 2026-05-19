@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import * as SystemUI from 'expo-system-ui';
+import { useRouter } from 'expo-router';
 import {
   Alert,
   Platform,
-  Pressable,
   StyleSheet,
   Switch,
   Text,
@@ -14,8 +14,12 @@ import {
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { useConvexAuth, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { AppScreen } from '@/components/ui/AppScreen';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { GlassButton } from '@/components/ui/GlassButton';
 import {
   ChevronRight,
   Grid3x3,
@@ -23,6 +27,7 @@ import {
   Moon,
   Receipt,
   Trash2,
+  User,
   Wallet,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -43,6 +48,7 @@ import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
 import { useToast } from 'heroui-native';
+import { isConvexConfigured } from '@/lib/convex/env';
 
 interface RowProps {
   icon: LucideIcon;
@@ -65,7 +71,15 @@ interface ToggleRowProps {
   styles: ReturnType<typeof createStyles>;
 }
 
-function ToggleRow({ icon: Icon, label, value, onValueChange, last, palette, styles }: ToggleRowProps) {
+function ToggleRow({
+  icon: Icon,
+  label,
+  value,
+  onValueChange,
+  last,
+  palette,
+  styles,
+}: ToggleRowProps) {
   return (
     <>
       <View style={styles.row}>
@@ -101,9 +115,7 @@ function Row({ icon: Icon, label, value, onPress, destructive, last, palette, st
         <Text style={[styles.rowLabel, destructive && { color: palette.negative }]}>{label}</Text>
         <View style={styles.rowRight}>
           {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-          {onPress ? (
-            <ChevronRight size={20} color={palette.labelTertiary} />
-          ) : null}
+          {onPress ? <ChevronRight size={20} color={palette.labelTertiary} /> : null}
         </View>
       </TouchableOpacity>
       {!last ? <ListDivider variant="glass" /> : null}
@@ -150,13 +162,44 @@ function createStyles(palette: ColorPalette) {
     },
     identityBody: { flex: 1 },
     identityName: { ...type.title3, color: palette.label },
-    identityHint: { ...type.caption1, color: palette.labelTertiary, marginTop: 2 },
+    identityHandle: {
+      ...type.subheadline,
+      color: palette.labelSecondary,
+      marginTop: 4,
+      fontVariant: ['tabular-nums'],
+    },
+    identityHint: { ...type.caption1, color: palette.labelTertiary, marginTop: 4 },
     nameInput: {
       ...type.title3,
       color: palette.label,
       borderBottomWidth: 1.5,
       borderBottomColor: palette.tint,
       paddingBottom: 1,
+    },
+    identityActionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: space[2],
+      marginTop: space[3],
+      alignSelf: 'flex-start',
+      maxWidth: '100%',
+    },
+    convexTag: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: space[2] + 2,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+      backgroundColor: palette.fillSecondary,
+      marginLeft: space[3],
+      flexShrink: 0,
+    },
+    convexTagLabel: {
+      ...type.caption2,
+      color: palette.labelSecondary,
+      fontWeight: '500',
+      fontFamily: sansForWeight('500'),
     },
     offlineTag: {
       flexDirection: 'row',
@@ -168,7 +211,12 @@ function createStyles(palette: ColorPalette) {
       backgroundColor: palette.positiveSoft,
     },
     offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.positive },
-    offlineLabel: { ...type.caption2, color: palette.positive, fontWeight: '500', fontFamily: sansForWeight('500') },
+    offlineLabel: {
+      ...type.caption2,
+      color: palette.positive,
+      fontWeight: '500',
+      fontFamily: sansForWeight('500'),
+    },
 
     section: { marginBottom: space[4], paddingHorizontal: space[5] },
     sectionTitle: {
@@ -192,12 +240,29 @@ function createStyles(palette: ColorPalette) {
   });
 }
 
-export default function ProfileScreen() {
+interface ProfileScreenImplProps {
+  convexConfigured: boolean;
+  convexAuthenticated: boolean;
+  convexAuthLoading: boolean;
+  convexSignOut?: () => Promise<void>;
+  convexDeleteAccount?: () => Promise<void>;
+  showDevDeleteAccount?: boolean;
+}
+
+function ProfileScreenImpl({
+  convexConfigured,
+  convexAuthenticated,
+  convexAuthLoading,
+  convexSignOut,
+  convexDeleteAccount,
+  showDevDeleteAccount = false,
+}: ProfileScreenImplProps) {
   const colorScheme = useAppColorScheme();
   const palette = useColors();
   const styles = useMemo(() => createStyles(palette), [palette]);
 
   const name = useProfileStore((s) => s.name);
+  const username = useProfileStore((s) => s.username);
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
   const setAppearance = useProfileStore((s) => s.setAppearance);
@@ -205,18 +270,19 @@ export default function ProfileScreen() {
   const setReceiptThermalLook = useProfileStore((s) => s.setReceiptThermalLook);
   const showSplitBillsInTransactions = useProfileStore((s) => s.showSplitBillsInTransactions);
   const setShowSplitBillsInTransactions = useProfileStore((s) => s.setShowSplitBillsInTransactions);
+  const router = useRouter();
   const { currency } = useCurrency();
   const { toast } = useToast();
   const currencyPickerRef = useRef<CurrencyPickerSheetHandle>(null);
   const currencyMeta = useMemo(() => getCurrencyMeta(currency), [currency]);
 
-  const [editing, setEditing] = useState(false);
+  const [renamingDisplayName, setRenamingDisplayName] = useState(false);
   const [editName, setEditName] = useState(name);
 
   const commitName = () => {
     const t = editName.trim();
     if (t) setName(t);
-    setEditing(false);
+    setRenamingDisplayName(false);
   };
 
   const pickCurrency = () => {
@@ -228,6 +294,9 @@ export default function ProfileScreen() {
     notifySuccess(toast, 'Currency updated');
   };
 
+  const needsAccountCreation =
+    convexConfigured && !convexAuthLoading && !convexAuthenticated;
+
   const confirmClearAll = () => {
     Alert.alert(
       'Clear all data?',
@@ -238,9 +307,41 @@ export default function ProfileScreen() {
           text: 'Delete all',
           style: 'destructive',
           onPress: () => {
-            void clearAllData(getDb()).then(() => {
+            void (async () => {
+              try {
+                await convexSignOut?.();
+              } catch (e) {
+                console.warn('[profile] Convex sign-out during clear failed', e);
+              }
+              await clearAllData(getDb());
               notifySuccess(toast, 'All data cleared');
-            });
+            })();
+          },
+        },
+      ]
+    );
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'Permanently removes your Convex login (username + PIN) from the dev deployment. Local debts and groups on this device are cleared too.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              if (!convexDeleteAccount) return;
+              try {
+                await convexDeleteAccount();
+                notifySuccess(toast, 'Account deleted');
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : 'Could not delete account';
+                Alert.alert('Delete failed', msg);
+              }
+            })();
           },
         },
       ]
@@ -274,7 +375,7 @@ export default function ProfileScreen() {
         <GlassCard style={styles.identityCard} borderRadius={radius.card}>
           <Avatar name={name} size={60} />
           <View style={styles.identityBody}>
-            {editing ? (
+            {renamingDisplayName ? (
               <TextInput
                 style={styles.nameInput}
                 value={editName}
@@ -288,15 +389,57 @@ export default function ProfileScreen() {
                 keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
               />
             ) : (
-              <Pressable onPress={() => { setEditName(name); setEditing(true); }} hitSlop={4}>
+              <>
                 <Text style={styles.identityName}>{name}</Text>
-                <Text style={styles.identityHint}>Tap to rename</Text>
-              </Pressable>
+                {convexConfigured ? (
+                  <Text style={styles.identityHandle}>
+                    {username ? `@${username}` : convexAuthLoading ? 'Checking account…' : 'No account'}
+                  </Text>
+                ) : null}
+                <Text style={styles.identityHint}>Display name appears in splits and receipts.</Text>
+                <View style={styles.identityActionsRow}>
+                  <GlassButton
+                    variant="secondary"
+                    onPress={() => {
+                      setEditName(name);
+                      setRenamingDisplayName(true);
+                    }}>
+                    <GlassButton.Label>Rename</GlassButton.Label>
+                  </GlassButton>
+                  {convexConfigured && needsAccountCreation ? (
+                    <GlassButton variant="primary" onPress={() => router.push('/create-account')}>
+                      <GlassButton.Label>Create account</GlassButton.Label>
+                    </GlassButton>
+                  ) : null}
+                </View>
+              </>
             )}
           </View>
-          <View style={styles.offlineTag}>
-            <View style={styles.offlineDot} />
-            <Text style={styles.offlineLabel}>Offline</Text>
+
+          <View style={{ alignItems: 'flex-end', gap: space[3] }}>
+            {convexConfigured ? (
+              <View style={[styles.identityActionsRow, { marginLeft: 0 }]}>
+                {convexAuthLoading ? (
+                  <View style={styles.convexTag}>
+                    <Text style={styles.convexTagLabel}>Checking…</Text>
+                  </View>
+                ) : convexAuthenticated ? (
+                  <View style={styles.convexTag}>
+                    <User size={12} color={palette.labelSecondary} />
+                    <Text style={styles.convexTagLabel}>Signed in</Text>
+                  </View>
+                ) : (
+                  <View style={styles.convexTag}>
+                    <User size={12} color={palette.labelSecondary} />
+                    <Text style={styles.convexTagLabel}>Not signed in</Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
+            <View style={styles.offlineTag}>
+              <View style={styles.offlineDot} />
+              <Text style={styles.offlineLabel}>Offline-first</Text>
+            </View>
           </View>
         </GlassCard>
 
@@ -352,8 +495,19 @@ export default function ProfileScreen() {
             destructive
             palette={palette}
             styles={styles}
-            last
+            last={!showDevDeleteAccount}
           />
+          {showDevDeleteAccount ? (
+            <Row
+              icon={Trash2}
+              label="Delete account (dev)"
+              onPress={confirmDeleteAccount}
+              destructive
+              palette={palette}
+              styles={styles}
+              last
+            />
+          ) : null}
         </Section>
       </Animated.ScrollView>
 
@@ -363,5 +517,48 @@ export default function ProfileScreen() {
         onSelect={handleCurrencySelect}
       />
     </AppScreen>
+  );
+}
+
+export default function ProfileScreen() {
+  return isConvexConfigured() ? (
+    <ProfileScreenWithConvex />
+  ) : (
+    <ProfileScreenImpl
+      convexConfigured={false}
+      convexAuthenticated={false}
+      convexAuthLoading={false}
+      convexSignOut={undefined}
+    />
+  );
+}
+
+function ProfileScreenWithConvex() {
+  const { signOut } = useAuthActions();
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const deleteMyAccount = useMutation(api.account.deleteMyAccount);
+
+  const handleDeleteAccount = useCallback(async () => {
+    await deleteMyAccount();
+    try {
+      await signOut();
+    } catch (e) {
+      console.warn('[profile] Convex sign-out after account delete failed', e);
+    }
+    await clearAllData(getDb());
+  }, [deleteMyAccount, signOut]);
+
+  const showDevDeleteAccount =
+    __DEV__ && isAuthenticated && !isLoading;
+
+  return (
+    <ProfileScreenImpl
+      convexConfigured
+      convexAuthenticated={isAuthenticated}
+      convexAuthLoading={isLoading}
+      convexSignOut={signOut}
+      convexDeleteAccount={handleDeleteAccount}
+      showDevDeleteAccount={showDevDeleteAccount}
+    />
   );
 }

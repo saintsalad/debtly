@@ -40,9 +40,10 @@ Group balances can optionally sync into your personal transaction list so you ha
 
 ### Profile
 
-- Display name, currency, light/dark appearance.
-- Clear all local data.
-- Offline-first indicator (data stays on device).
+- Display name, optional **Convex username** (mirrored locally for UI), currency, light/dark appearance.
+- **Create account** (when `EXPO_PUBLIC_CONVEX_URL` is set): Convex Auth sign-up — display name, username slug, and 6‑digit PIN; synthetic email `{username}@debtly-account.local` backs the Convex Password provider without collecting email addresses.
+- Clear all local data (also clears Convex tokens when Convex is configured).
+- Offline-first indicator (SQLite remains the ledger of record on device).
 
 ## Tech stack
 
@@ -51,6 +52,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 | Framework | [Expo](https://expo.dev) ~54, [Expo Router](https://docs.expo.dev/router/introduction/) |
 | UI | React Native, [HeroUI Native](https://github.com/heroui-inc/heroui-native), [Uniwind](https://uniwind.dev) (Tailwind v4) |
 | State | [Zustand](https://github.com/pmndrs/zustand) + on-device [SQLite](docs/OFFLINE_STORAGE.md) ([expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/), [Drizzle ORM](https://orm.drizzle.team/)) |
+| Cloud (optional) | [Convex](https://www.convex.dev) + [Convex Auth](https://labs.convex.dev/auth) (username + PIN, used for invite/account gating when configured) |
 | Motion | react-native-reanimated, gesture-handler |
 | Tests | Vitest (`pnpm test`) |
 
@@ -64,6 +66,7 @@ features/insights/       # Insights screen analytics (streaks, aggregates)
 features/group-expense/ # Groups, balance engine, settlements, activity log
 stores/                 # Zustand stores (debts, groups, profile)
 lib/                    # Platform tokens, storage, mocks for first launch
+convex/                 # Convex backend: schema, Convex Auth, HTTP routes
 ```
 
 ## Get started
@@ -84,6 +87,8 @@ pnpm lint
 pnpm test
 ```
 
+Cloud auth / Convex (optional): create a Convex deployment in the dashboard, run `pnpm convex:dev` from the repo root once linked, set `EXPO_PUBLIC_CONVEX_URL` from `.env.example`, then configure Convex Auth JWT keys (`JWT_PRIVATE_KEY` / `JWKS` / site URL) per [Convex Auth manual setup](https://labs.convex.dev/auth/setup/manual).
+
 ## Current progress
 
 ### Shipped
@@ -97,13 +102,14 @@ pnpm test
 - [x] **Thermal receipts** — share or print styled slips for a single debt or a whole group (themes, aspect ratios, optional photo background)
 - [x] **Insights** — streaks, yearly activity chart, totals for paid / people / payments, group spending when you use splits
 - [x] **Offline-first** — everything saved on your device in SQLite ([storage guide](docs/OFFLINE_STORAGE.md))
+- [x] **Optional Convex signup** — when you configure Convex (`EXPO_PUBLIC_CONVEX_URL`), you can create a username + PIN (Convex Auth); joining others’ group invites and sharing invite codes from the app expects that login
 - [x] **In-app feedback** — toasts when actions succeed
 
 ### Planned
 
 - [x] **SQLite** — on-device database for debts, groups, profile, and bill splits ([guide](docs/OFFLINE_STORAGE.md))
 - [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
-- [ ] **Accounts & cloud sync** — sign in and keep groups in sync across phones
+- [ ] **Cloud group sync** — move group expense state to Convex so balances match across phones (SQLite stays the offline cache)
 - [ ] **Backup & export** — move or restore your data between devices
 - [ ] **Receipt photos** — attach images to group expenses
 - [ ] **Onboarding** — guided first launch and clearer empty states
@@ -111,7 +117,7 @@ pnpm test
 
 ## Data & privacy
 
-All data is stored **on device** in SQLite. Legacy installs are migrated once from AsyncStorage. There is no cloud account in the current build. Use **Clear all data** in Profile to reset debts, groups, bill splits, and preferences.
+All ledger data stays **on device** in SQLite. Legacy installs are migrated once from AsyncStorage. Convex is **optional**: if configured, Convex Auth tokens are stored in the OS secure keychain (**expo-secure-store**); they never go into SQLite. Use **Clear all data** (and sign out when prompted) to reset local data and Convex session artifacts for testing.
 
 ## License
 

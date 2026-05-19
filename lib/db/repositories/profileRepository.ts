@@ -21,6 +21,7 @@ export async function replaceProfile(db: DebtlyDatabase, data: ProfileData): Pro
       target: profileSettings.id,
       set: {
         name: data.name,
+        username: data.username ?? null,
         currency: data.currency,
         appearance: data.appearance,
         showSplitBillsInTransactions: data.showSplitBillsInTransactions,

@@ -58,6 +58,7 @@ export function parseLegacyStoragePayloads(
 
   const profile: ProfileData = {
     name: profileEnv.state?.name ?? DEFAULT_PROFILE.name,
+    username: DEFAULT_PROFILE.username,
     currency: profileEnv.state?.currency ?? DEFAULT_PROFILE.currency,
     appearance:
       (profileEnv.state?.appearance as ProfileData['appearance']) ?? DEFAULT_PROFILE.appearance,

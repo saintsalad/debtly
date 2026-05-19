@@ -13,6 +13,7 @@ export function attachStorePersistence(db: DebtlyDatabase): () => void {
   const unsubProfile = subscribeStore(useProfileStore, (state) =>
     replaceProfile(db, {
       name: state.name,
+      username: state.username,
       currency: state.currency,
       appearance: state.appearance,
       showSplitBillsInTransactions: state.showSplitBillsInTransactions,

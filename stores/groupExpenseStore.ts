@@ -77,6 +77,8 @@ interface GroupExpenseStore extends GroupExpenseState {
   deleteExpense: (id: string) => void;
   recordSettlement: (input: RecordSettlementInput) => string | null;
   joinGroupByCode: (code: string, displayName: string) => string | null;
+  /** Propagate Convex/local username onto every `isCurrentUser` row (for receipts / invites). */
+  syncViewerUsernameInGroups: (username: string | null) => void;
   getInviteLink: (groupId: string) => string;
   getGroup: (id: string) => SplitGroup | undefined;
   getGroupExpenses: (groupId: string) => GroupExpense[];
@@ -637,6 +639,24 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
 
         get().addMember(group.id, trimmed);
         return group.id;
+      },
+
+      syncViewerUsernameInGroups: (username) => {
+        const trimmed = username?.trim();
+        const now = new Date().toISOString();
+        const nextUsername = trimmed || undefined;
+        set((state) => ({
+          groups: state.groups.map((g) => ({
+            ...g,
+            members: g.members.map((m) =>
+              m.isCurrentUser
+                ? { ...m, username: nextUsername }
+                : m
+            ),
+            updatedAt: now,
+            version: bumpVersion(g.version),
+          })),
+        }));
       },
 
       getInviteLink: (groupId) => {

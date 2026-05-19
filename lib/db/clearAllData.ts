@@ -6,6 +6,7 @@ import { replaceProfile } from '@/lib/db/repositories/profileRepository';
 import { DEFAULT_PROFILE } from '@/lib/db/mappers/profile';
 import { INITIAL_GROUP_EXPENSE_STATE } from '@/lib/mocks/initialGroupExpenses';
 import { useBillSplitStore } from '@/stores/billSplitStore';
+import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useDebtStore } from '@/stores/debtStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -19,18 +20,13 @@ export async function clearAllData(db: DebtlyDatabase): Promise<void> {
   useDebtStore.setState({ debts: [] });
   useGroupExpenseStore.setState(INITIAL_GROUP_EXPENSE_STATE);
   useBillSplitStore.setState({ splits: [] });
+  useAccountInviteStore.getState().setPendingInviteCode(null);
   useProfileStore.setState({
     name: DEFAULT_PROFILE.name,
+    username: DEFAULT_PROFILE.username,
     currency: DEFAULT_PROFILE.currency,
     appearance: DEFAULT_PROFILE.appearance,
     showSplitBillsInTransactions: DEFAULT_PROFILE.showSplitBillsInTransactions,
     receiptThermalLook: DEFAULT_PROFILE.receiptThermalLook,
   });
-}
-
-export async function saveProfileToDb(
-  db: DebtlyDatabase,
-  data: ProfileData
-): Promise<void> {
-  await replaceProfile(db, data);
 }

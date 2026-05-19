@@ -8,6 +8,8 @@ export const appMeta = sqliteTable('app_meta', {
 export const profileSettings = sqliteTable('profile_settings', {
   id: integer('id').primaryKey(),
   name: text('name').notNull(),
+  /** Local normalized handle; mirrored from Convex signup for offline UI. */
+  username: text('username'),
   currency: text('currency').notNull(),
   appearance: text('appearance').notNull(),
   showSplitBillsInTransactions: integer('show_split_bills_in_transactions', {
