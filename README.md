@@ -42,6 +42,7 @@ Group balances can optionally sync into your personal transaction list so you ha
 
 - Display name, optional **Convex username** (mirrored locally for UI), currency, light/dark appearance.
 - **Create account** (when `EXPO_PUBLIC_CONVEX_URL` is set): Convex Auth sign-up — display name, username slug, and 6‑digit PIN; synthetic email `{username}@debtly-account.local` backs the Convex Password provider without collecting email addresses.
+- **Export / import data** — encrypted JSON backup (debts, groups, bill splits, profile settings); share via the system sheet or restore from a file (replaces local data on import).
 - Clear all local data (also clears Convex tokens when Convex is configured).
 - Offline-first indicator (SQLite remains the ledger of record on device).
 
@@ -65,7 +66,8 @@ features/debts/         # Personal debt ledger, interest, payments, transaction 
 features/insights/       # Insights screen analytics (streaks, aggregates)
 features/group-expense/ # Groups, balance engine, settlements, activity log
 stores/                 # Zustand stores (debts, groups, profile)
-lib/                    # Platform tokens, storage, DB helpers
+lib/db/                 # SQLite, export/import backups (exportImport, backupEncryption)
+lib/                    # Platform tokens, storage, other helpers
 convex/                 # Convex backend: schema, Convex Auth, HTTP routes
 ```
 
@@ -104,13 +106,13 @@ Cloud auth / Convex (optional): create a Convex deployment in the dashboard, run
 - [x] **Offline-first** — everything saved on your device in SQLite ([storage guide](docs/OFFLINE_STORAGE.md))
 - [x] **Optional Convex signup** — when you configure Convex (`EXPO_PUBLIC_CONVEX_URL`), you can create a username + PIN (Convex Auth); joining others’ group invites and sharing invite codes from the app expects that login
 - [x] **In-app feedback** — toasts when actions succeed
+- [x] **Backup & export** — Profile → export/import encrypted JSON backups (move data between devices; see [Backup format](#backup-format) below)
 
 ### Planned
 
 - [x] **SQLite** — on-device database for debts, groups, profile, and bill splits ([guide](docs/OFFLINE_STORAGE.md))
 - [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
 - [x] **Cloud group sync** — move group expense state to Convex so balances match across phones (SQLite stays the offline cache)
-- [ ] **Backup & export** — move or restore your data between devices
 - [ ] **Receipt photos** — attach images to group expenses
 - [ ] **Onboarding** — guided first launch and clearer empty states
 - [ ] **Reminders** — due-date and group activity notifications
@@ -118,6 +120,20 @@ Cloud auth / Convex (optional): create a Convex deployment in the dashboard, run
 ## Data & privacy
 
 All ledger data stays **on device** in SQLite. Legacy installs are migrated once from AsyncStorage. Convex is **optional**: if configured, Convex Auth tokens are stored in the OS secure keychain (**expo-secure-store**); they never go into SQLite. Use **Clear all data** (and sign out when prompted) to reset local data and Convex session artifacts for testing.
+
+### Backup format
+
+Export produces a `.json` file you can save or send (AirDrop, Files, email, etc.). Import reads the same format and **replaces** all local debts, groups, bill splits, and profile settings.
+
+| Layer | What it does |
+|-------|----------------|
+| **Payload** | Profile, debts (with payments), groups (members, expenses, settlements, activity), bill splits |
+| **Integrity** | HMAC-SHA256 over canonical JSON so edited files are rejected |
+| **Encryption** | AES-256-GCM with an app-managed key (`lib/db/backupAppKey.ts`) — ciphertext is opaque to other apps; only Debtly can decrypt |
+
+Implementation: `lib/db/exportImport.ts`, `lib/db/backupIntegrity.ts`, `lib/db/backupEncryption.ts`. Convex auth tokens are **not** included in backups.
+
+**Limits:** Backups protect privacy from casual viewing and tampering, not from someone who reverse-engineers the app. Older unsigned or password-based export formats are not supported; re-export from Profile if import fails.
 
 ## License
 

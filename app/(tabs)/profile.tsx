@@ -25,11 +25,13 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { GlassButton } from '@/components/ui/GlassButton';
 import {
   ChevronRight,
+  Download,
   Grid3x3,
   Info,
   Moon,
   Receipt,
   Trash2,
+  Upload,
   Wallet,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -37,6 +39,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { getDb } from '@/lib/db/client';
 import { clearAllData } from '@/lib/db/clearAllData';
+import { importFromFile, shareExportedData } from '@/lib/db/exportImport';
 import {
   CurrencyPickerSheet,
   type CurrencyPickerSheetHandle,
@@ -390,6 +393,60 @@ function ProfileScreenImpl({
     toast,
   ]);
 
+  const [exportBusy, setExportBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+
+  const handleExportData = useCallback(() => {
+    if (exportBusy) return;
+    setExportBusy(true);
+    void (async () => {
+      try {
+        await shareExportedData(getDb());
+        notifySuccess(toast, 'Backup ready to share');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not export data';
+        Alert.alert('Export failed', msg);
+      } finally {
+        setExportBusy(false);
+      }
+    })();
+  }, [exportBusy, toast]);
+
+  const handleImportData = useCallback(() => {
+    if (importBusy) return;
+    Alert.alert(
+      'Import data?',
+      'This will replace all your current data with the imported backup. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Choose file',
+          onPress: () => {
+            setImportBusy(true);
+            void (async () => {
+              try {
+                const result = await importFromFile(getDb());
+                if (result) {
+                  notifySuccess(
+                    toast,
+                    `Imported ${result.stats.debtsCount} debts, ${result.stats.groupsCount} groups`
+                  );
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : 'Could not import data';
+                Alert.alert('Import failed', msg);
+              } finally {
+                setImportBusy(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
+  }, [importBusy, toast]);
+
   const confirmClearAll = () => {
     Alert.alert(
       'Clear all data?',
@@ -575,6 +632,20 @@ function ProfileScreenImpl({
 
         <Section title="Data" styles={styles}>
           <Row
+            icon={Upload}
+            label={exportBusy ? 'Exporting…' : 'Export data'}
+            onPress={exportBusy ? undefined : handleExportData}
+            palette={palette}
+            styles={styles}
+          />
+          <Row
+            icon={Download}
+            label={importBusy ? 'Importing…' : 'Import data'}
+            onPress={importBusy ? undefined : handleImportData}
+            palette={palette}
+            styles={styles}
+          />
+          <Row
             icon={Trash2}
             label="Clear all data"
             onPress={confirmClearAll}
@@ -602,6 +673,7 @@ function ProfileScreenImpl({
         selectedCode={currency}
         onSelect={handleCurrencySelect}
       />
+
     </AppScreen>
   );
 }

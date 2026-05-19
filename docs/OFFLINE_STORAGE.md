@@ -96,6 +96,7 @@ All user edits go through Zustand actions as before. Subscribers call `replaceDe
 - **Expo CLI**: press `Shift+M` → “Open expo-sqlite” to inspect tables in the browser.
 - **Optional**: [drizzle-studio-expo](https://github.com/drizzle-team/drizzle-studio-expo) for Drizzle Studio against the on-device DB.
 - **Clear data**: Profile → Clear all data (wipes SQLite + resets stores). If you had signed into Convex Auth, complete sign-out from Profile so **SecureStore** session tokens are cleared too.
+- **Backup / restore**: Profile → Export data or Import data. Encrypted JSON includes profile, debts, groups, and bill splits (`lib/db/exportImport.ts`). Import replaces all local rows in those tables.
 
 ## Convex Auth session (when `EXPO_PUBLIC_CONVEX_URL` is set)
 

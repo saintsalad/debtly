@@ -60,7 +60,10 @@
           "cameraPermission": "Allow Debtly to scan QR codes for split bill invites."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
