@@ -109,7 +109,7 @@ Cloud auth / Convex (optional): create a Convex deployment in the dashboard, run
 
 - [x] **SQLite** — on-device database for debts, groups, profile, and bill splits ([guide](docs/OFFLINE_STORAGE.md))
 - [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
-- [ ] **Cloud group sync** — move group expense state to Convex so balances match across phones (SQLite stays the offline cache)
+- [x] **Cloud group sync** — move group expense state to Convex so balances match across phones (SQLite stays the offline cache)
 - [ ] **Backup & export** — move or restore your data between devices
 - [ ] **Receipt photos** — attach images to group expenses
 - [ ] **Onboarding** — guided first launch and clearer empty states
