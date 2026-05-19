@@ -113,6 +113,8 @@ Cloud auth / Convex (optional): create a Convex deployment in the dashboard, run
 - [x] **SQLite** — on-device database for debts, groups, profile, and bill splits ([guide](docs/OFFLINE_STORAGE.md))
 - [ ] **Debtly Pro** — subscription for advanced debts, analytics, premium receipts, and pro split tools ([roadmap](docs/PRO_ROADMAP.md))
 - [x] **Cloud group sync** — move group expense state to Convex so balances match across phones (SQLite stays the offline cache)
+- [ ] **Over-the-air updates** — ship JS and asset fixes via [EAS Update](https://docs.expo.dev/eas-update/introduction/) without a full store release
+- [ ] **Convex security hardening** — implement the [security & cost-abuse audit](docs/SECURITY_AUDIT.md): rate limits on mutations, orphan storage cleanup, server-side input caps, paginated group sync, chunked `deleteGroup`, tighter expense/invite authorization
 - [ ] **Receipt photos** — attach images to group expenses
 - [ ] **Onboarding** — guided first launch and clearer empty states
 - [ ] **Reminders** — due-date and group activity notifications
