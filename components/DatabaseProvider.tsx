@@ -63,7 +63,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       onInit={handleInit}
       onError={(error) => {
         console.error('[DatabaseProvider] init failed', error);
-        setInitError(error instanceof Error ? error : new Error(String(error)));
+        const err = error instanceof Error ? error : new Error(String(error));
+        // Defer so we never call setState on DatabaseProvider during SQLiteProvider render.
+        queueMicrotask(() => setInitError(err));
       }}>
       <DatabaseReadyContext.Provider value={true}>
         <DatabasePersistenceGate>{children}</DatabasePersistenceGate>

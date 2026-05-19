@@ -33,7 +33,7 @@ import type {
   Settlement,
   SplitGroup,
 } from '@/features/group-expense/types';
-import { INITIAL_GROUP_EXPENSE_STATE } from '@/lib/mocks/initialGroupExpenses';
+import { EMPTY_GROUP_EXPENSE_STATE } from '@/features/group-expense/emptyGroupExpenseState';
 import { generateId } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -104,7 +104,7 @@ function createCurrentUserMember(name: string): GroupMember {
 }
 
 export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
-      ...INITIAL_GROUP_EXPENSE_STATE,
+      ...EMPTY_GROUP_EXPENSE_STATE,
 
       createGroup: ({ name, memberNames = [], imageUri }) => {
         const trimmed = name.trim();

@@ -1,4 +1,5 @@
 import { Alert, Linking, Platform, Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { minorToMajor } from '@/features/debts/money';
 import { selectGroupBalances } from '@/features/group-expense/balanceEngine';
 import { formatBalanceLine } from '@/features/group-expense/groupDebtSync';
@@ -131,10 +132,25 @@ export function openOwedBalanceSms(
   }
 }
 
-export async function copyInviteLink(link: string) {
+export async function copyStringToClipboard(text: string): Promise<boolean> {
+  try {
+    await Clipboard.setStringAsync(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Opens the system share sheet with the join URL/message. */
+export async function shareInviteLinkMessage(link: string): Promise<void> {
   try {
     await Share.share({ message: link, title: 'Join my Debtly group' });
   } catch {
     Alert.alert('Could not share link', 'Try again in a moment.');
   }
+}
+
+/** @deprecated Misnamed — use {@link shareInviteLinkMessage}. */
+export async function copyInviteLink(link: string): Promise<void> {
+  return shareInviteLinkMessage(link);
 }

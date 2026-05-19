@@ -19,6 +19,8 @@ export interface ExpenseShare {
   adjustmentMinor?: number;
 }
 
+export type GroupSyncMode = 'local' | 'convex';
+
 export interface SplitGroup {
   id: string;
   name: string;
@@ -30,6 +32,8 @@ export interface SplitGroup {
   createdAt: string;
   updatedAt: string;
   version: number;
+  /** `convex` groups mirror Convex `splitGroups`; writes go through mutations when authenticated. */
+  syncMode?: GroupSyncMode;
 }
 
 export interface GroupExpense {

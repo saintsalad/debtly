@@ -52,8 +52,6 @@ import {
   Search,
   SearchX,
   SlidersHorizontal,
-  StickyNote,
-  User,
   X,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -83,10 +81,6 @@ const TX_SCROLL_HEADER_SHOW_HIDE = {
   duration: 300,
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
 } as const;
-
-/** iOS Journal–style suggested row: fixed icon column + full-width divider. */
-const SUGGESTED_ICON_SIZE = 18;
-const SUGGESTED_ICON_TRACK = 24;
 
 /** When chrome height animates ~0 during scroll/search collapse; keep clipping on. */
 const TX_CHROME_EXPANDED_CLIP_THRESHOLD = 4;
@@ -277,44 +271,6 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       minWidth: 0,
     },
     sectionCard: {},
-    /** iOS Journal search — flat list, no grouped card. */
-    suggestedSection: {
-      marginBottom: space[6],
-      backgroundColor: 'transparent',
-    },
-    suggestedHeader: {
-      ...type.title1,
-      color: palette.label,
-      letterSpacing: type.title1.letterSpacing,
-      marginBottom: space[3],
-      paddingTop: space[1],
-    },
-    suggestionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[3],
-      paddingVertical: space[3] + 1,
-      minHeight: 48,
-      backgroundColor: 'transparent',
-    },
-    suggestionIconTrack: {
-      width: SUGGESTED_ICON_TRACK,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    suggestionLabel: {
-      ...type.body,
-      fontWeight: '400',
-      fontFamily: sansForWeight('400'),
-      color: palette.label,
-      flex: 1,
-    },
-    suggestionDivider: {
-      height: StyleSheet.hairlineWidth,
-      width: '100%',
-      alignSelf: 'stretch',
-      backgroundColor: glassSeparator,
-    },
   });
 }
 
@@ -404,8 +360,6 @@ export default function TransactionsScreen() {
   }, [debts, showSplitBillsInTransactions, segmentIndex, search, filters, txSort]);
 
   const sections = useMemo(() => buildTransactionSections(filtered), [filtered]);
-
-  const showSearchSuggestions = searchFieldFocused && !search.trim();
 
   const handleSelect = useCallback(
     (debt: Debt) => {
@@ -838,7 +792,7 @@ export default function TransactionsScreen() {
 
   const listScrollBottomPadding = Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
 
-  const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
+  const listContentShouldGrow = filtered.length === 0;
 
   const segmentedTrackStyle = useMemo(
     () => ({
@@ -878,26 +832,7 @@ export default function TransactionsScreen() {
                 ]}
               >
                 <Animated.View style={[styles.scrollTopSpacer, scrollHeaderDockSpacerStyle]} />
-                {showSearchSuggestions ? (
-                  <View style={styles.suggestedSection}>
-                    <Text style={styles.suggestedHeader} accessibilityRole="header">
-                      Suggested
-                    </Text>
-                    <View style={styles.suggestionRow}>
-                      <View style={styles.suggestionIconTrack}>
-                        <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                      </View>
-                      <Text style={styles.suggestionLabel}>Name</Text>
-                    </View>
-                    <View style={styles.suggestionDivider} />
-                    <View style={styles.suggestionRow}>
-                      <View style={styles.suggestionIconTrack}>
-                        <StickyNote size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                      </View>
-                      <Text style={styles.suggestionLabel}>Note</Text>
-                    </View>
-                  </View>
-                ) : filtered.length === 0 ? (
+                {filtered.length === 0 ? (
                   <EmptyState
                     title={search || hasActiveFilters ? 'No results' : 'No transactions'}
                     subtitle={emptySubtitle}

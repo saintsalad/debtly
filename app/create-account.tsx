@@ -30,6 +30,8 @@ import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useProfileStore } from '@/stores/profileStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { api } from '@/convex/_generated/api';
+import { useMutation } from 'convex/react';
 
 const PIN_LEN = 6;
 
@@ -116,6 +118,7 @@ export default function CreateAccountScreen() {
   const setUsername = useProfileStore((s) => s.setUsername);
   const joinGroupByCode = useGroupExpenseStore((s) => s.joinGroupByCode);
   const syncViewerUsernameInGroups = useGroupExpenseStore((s) => s.syncViewerUsernameInGroups);
+  const joinConvexGroup = useMutation(api.splitGroups.joinByInviteCode);
 
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [displayName, setDisplayName] = useState(presetName === 'Friend' ? '' : presetName);
@@ -142,7 +145,7 @@ export default function CreateAccountScreen() {
     else router.replace('/(tabs)/profile');
   };
 
-  const onSubmitSuccessNavigation = () => {
+  const onSubmitSuccessNavigation = async () => {
     const pending =
       params.returnTo === 'pending-invite'
         ? useAccountInviteStore.getState().pendingInviteCode
@@ -151,6 +154,15 @@ export default function CreateAccountScreen() {
 
     if (pending) {
       useAccountInviteStore.getState().setPendingInviteCode(null);
+      if (isConvexConfigured()) {
+        try {
+          const r = await joinConvexGroup({ code: pending });
+          router.replace({ pathname: '/group/[id]', params: { id: r.groupId } });
+          return;
+        } catch {
+          // Legacy local invite fallback
+        }
+      }
       const gid = joinGroupByCode(pending, nameForJoin);
       if (gid) {
         router.replace({ pathname: '/group/[id]', params: { id: gid } });
@@ -186,7 +198,7 @@ export default function CreateAccountScreen() {
       notifySuccess(toast, 'Account ready');
       await new Promise((r) => setTimeout(r, 120));
 
-      onSubmitSuccessNavigation();
+      await onSubmitSuccessNavigation();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Could not create account';
       Alert.alert('Sign up failed', msg);

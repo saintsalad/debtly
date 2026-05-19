@@ -22,6 +22,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScopedTheme } from 'uniwind';
 import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
+import { ConvexSplitGroupSync } from '@/features/group-expense/ConvexSplitGroupSync';
 import { DatabaseProvider } from '@/components/DatabaseProvider';
 import { ConvexGate } from '@/lib/convex/ConvexGate';
 
@@ -90,6 +91,7 @@ export default function RootLayout() {
                 <TransactionDetailProvider>
                   <StatusBarScrollFadeProvider>
                     <GroupInviteLinkHandler />
+                    <ConvexSplitGroupSync />
                     <Stack>
                     <Stack.Screen
                       name="(tabs)"

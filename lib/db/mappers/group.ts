@@ -33,6 +33,7 @@ export function groupToRow(group: SplitGroup): GroupRow {
     createdAt: group.createdAt,
     updatedAt: group.updatedAt,
     version: group.version,
+    syncMode: group.syncMode ?? 'local',
   };
 }
 
@@ -110,6 +111,7 @@ export function pendingOpToRow(op: PendingOp): PendingOpRow {
 }
 
 export function rowToGroup(row: GroupRow, members: GroupMember[]): SplitGroup {
+  const mode = row.syncMode;
   return {
     id: row.id,
     name: row.name,
@@ -120,6 +122,7 @@ export function rowToGroup(row: GroupRow, members: GroupMember[]): SplitGroup {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     version: row.version,
+    syncMode: mode === 'convex' ? 'convex' : 'local',
   };
 }
 

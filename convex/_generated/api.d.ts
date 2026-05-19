@@ -10,8 +10,13 @@
 
 import type * as account from "../account.js";
 import type * as auth from "../auth.js";
+import type * as balanceEngine from "../balanceEngine.js";
+import type * as groupDomain from "../groupDomain.js";
 import type * as http from "../http.js";
+import type * as memberJoinExpenseSplit from "../memberJoinExpenseSplit.js";
+import type * as moneyConvex from "../moneyConvex.js";
 import type * as profile from "../profile.js";
+import type * as splitGroups from "../splitGroups.js";
 
 import type {
   ApiFromModules,
@@ -22,8 +27,13 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   auth: typeof auth;
+  balanceEngine: typeof balanceEngine;
+  groupDomain: typeof groupDomain;
   http: typeof http;
+  memberJoinExpenseSplit: typeof memberJoinExpenseSplit;
+  moneyConvex: typeof moneyConvex;
   profile: typeof profile;
+  splitGroups: typeof splitGroups;
 }>;
 
 /**

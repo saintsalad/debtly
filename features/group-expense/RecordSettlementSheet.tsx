@@ -26,6 +26,7 @@ import type {
   Settlement,
   SplitGroup,
 } from '@/features/group-expense/types';
+import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -33,6 +34,9 @@ import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 export interface SettlementPreset {
   fromMemberId?: string;
@@ -156,6 +160,9 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
     const groups = useGroupExpenseStore((s) => s.groups);
     const expenses = useGroupExpenseStore((s) => s.expenses);
     const settlements = useGroupExpenseStore((s) => s.settlements);
+
+    const convexRecordSettlement = useMutation(api.splitGroups.recordSettlement);
+    const convexVoidSettlements = useMutation(api.splitGroups.voidRecordedSettlementsWithMember);
 
     const { toast } = useToast();
 
@@ -359,8 +366,8 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
       setToMemberId((prev) => (nextRecipients.some((r) => r.id === prev) ? prev : nextRecipients[0]?.id ?? ''));
     };
 
-    const handleSaveSettlement = () => {
-      if (!groupId || !showRecordFlow) return;
+    const handleSaveSettlement = async () => {
+      if (!groupId || !showRecordFlow || !group) return;
       const parsed = parseFloat(amount.replace(/,/g, ''));
       if (!Number.isFinite(parsed) || parsed <= 0) {
         Alert.alert('Amount required', 'Enter how much was paid.');
@@ -370,6 +377,25 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
         Alert.alert('Amount too large', AMOUNT_EXCEEDS_MAX_MESSAGE);
         return;
       }
+
+      if (isCloudSplitGroup(group)) {
+        try {
+          await convexRecordSettlement({
+            groupId: groupId as Id<'splitGroups'>,
+            fromMemberId,
+            toMemberId,
+            amount: parsed,
+            note: note.trim() || undefined,
+          });
+          notifySuccess(toast, 'Settlement recorded');
+          sheetRef.current?.dismiss();
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Could not record settlement.';
+          Alert.alert('Could not record', msg);
+        }
+        return;
+      }
+
       const error = recordSettlement({
         groupId,
         fromMemberId,
@@ -386,7 +412,7 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
     };
 
     const handleMarkUnpaid = () => {
-      if (!groupId || !viewerMember || !showVoidFlow) return;
+      if (!groupId || !viewerMember || !showVoidFlow || !group) return;
       const otherId = fromMemberId === viewerMember.id ? toMemberId : fromMemberId;
 
       Alert.alert(
@@ -398,9 +424,30 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
             text: 'Mark as unpaid',
             style: 'destructive',
             onPress: () => {
-              voidRecordedSettlementsWithMember(groupId, viewerMember!.id, otherId);
-              notifySuccess(toast, 'Marked as unpaid', 'Recorded payments between you two were undone.');
-              sheetRef.current?.dismiss();
+              void (async () => {
+                if (isCloudSplitGroup(group)) {
+                  try {
+                    await convexVoidSettlements({
+                      groupId: groupId as Id<'splitGroups'>,
+                      viewerMemberId: viewerMember!.id,
+                      otherMemberId: otherId,
+                    });
+                    notifySuccess(
+                      toast,
+                      'Marked as unpaid',
+                      'Recorded payments between you two were undone.'
+                    );
+                    sheetRef.current?.dismiss();
+                  } catch (e: unknown) {
+                    const msg = e instanceof Error ? e.message : 'Could not update.';
+                    Alert.alert('Could not update', msg);
+                  }
+                  return;
+                }
+                voidRecordedSettlementsWithMember(groupId, viewerMember!.id, otherId);
+                notifySuccess(toast, 'Marked as unpaid', 'Recorded payments between you two were undone.');
+                sheetRef.current?.dismiss();
+              })();
             },
           },
         ]

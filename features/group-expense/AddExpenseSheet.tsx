@@ -15,12 +15,14 @@ import {
   createDefaultShares,
   getCurrentUserMember,
 } from '@/features/group-expense/balanceEngine';
+import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-expense/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
 import {
@@ -33,6 +35,9 @@ import {
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { ChevronDown } from 'lucide-react-native';
 import React, { forwardRef, Fragment, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 export interface AddExpenseSheetHandle {
@@ -305,6 +310,11 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const deleteExpense = useGroupExpenseStore((s) => s.deleteExpense);
   const groups = useGroupExpenseStore((s) => s.groups);
   const expenses = useGroupExpenseStore((s) => s.expenses);
+  const currencyProfile = useProfileStore((s) => s.currency);
+
+  const convexAddExpense = useMutation(api.splitGroups.addExpense);
+  const convexUpdateExpense = useMutation(api.splitGroups.updateExpense);
+  const convexDeleteExpense = useMutation(api.splitGroups.deleteExpense);
 
   const { toast } = useToast();
 
@@ -393,7 +403,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     });
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!groupId || !group) return;
     const parsed = parseFloat(amount.replace(/,/g, ''));
     if (!title.trim() || !Number.isFinite(parsed) || parsed <= 0) {
@@ -461,6 +471,40 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       includedMemberIds: includedIds,
       shares,
     };
+
+    if (isCloudSplitGroup(group)) {
+      try {
+        if (expenseId) {
+          await convexUpdateExpense({
+            expenseId: expenseId as Id<'splitGroupExpenses'>,
+            title: payload.title,
+            amount: payload.amount,
+            paidByMemberId: payload.paidByMemberId,
+            splitMethod: payload.splitMethod,
+            includedMemberIds: payload.includedMemberIds,
+            shares: payload.shares,
+          });
+          notifySuccess(toast, 'Expense updated');
+        } else {
+          await convexAddExpense({
+            groupId: groupId as Id<'splitGroups'>,
+            title: payload.title,
+            amount: payload.amount,
+            paidByMemberId: payload.paidByMemberId,
+            splitMethod: payload.splitMethod,
+            includedMemberIds: payload.includedMemberIds,
+            shares: payload.shares,
+            currency: currencyProfile,
+          });
+          notifySuccess(toast, 'Expense added');
+        }
+        sheetRef.current?.dismiss();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not save expense.';
+        Alert.alert('Could not save', msg);
+      }
+      return;
+    }
 
     const error = expenseId ? updateExpense(expenseId, payload) : addExpense(payload);
     if (error) {
@@ -818,9 +862,22 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
                     text: 'Delete',
                     style: 'destructive',
                     onPress: () => {
-                      deleteExpense(expenseId);
-                      notifySuccess(toast, 'Expense deleted');
-                      sheetRef.current?.dismiss();
+                      void (async () => {
+                        if (group && isCloudSplitGroup(group)) {
+                          try {
+                            await convexDeleteExpense({ expenseId: expenseId as Id<'splitGroupExpenses'> });
+                            notifySuccess(toast, 'Expense deleted');
+                            sheetRef.current?.dismiss();
+                          } catch (e: unknown) {
+                            const msg = e instanceof Error ? e.message : 'Could not delete.';
+                            Alert.alert('Delete failed', msg);
+                          }
+                          return;
+                        }
+                        deleteExpense(expenseId);
+                        notifySuccess(toast, 'Expense deleted');
+                        sheetRef.current?.dismiss();
+                      })();
                     },
                   },
                 ]);

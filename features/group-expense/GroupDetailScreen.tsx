@@ -25,6 +25,7 @@ import {
   RecordSettlementSheet,
   type RecordSettlementSheetHandle,
 } from '@/features/group-expense/RecordSettlementSheet';
+import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
@@ -41,6 +42,9 @@ import { getCurrencyMeta } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 import * as Haptics from 'expo-haptics';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -210,6 +214,10 @@ export function GroupDetailScreen() {
     (s) => s.voidRecordedSettlementsWithMember
   );
 
+  const convexDeleteGroup = useMutation(api.splitGroups.deleteGroup);
+  const convexRecordSettlement = useMutation(api.splitGroups.recordSettlement);
+  const convexVoidSettlements = useMutation(api.splitGroups.voidRecordedSettlementsWithMember);
+
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
   const inviteSheetRef = useRef<InviteMembersSheetHandle>(null);
@@ -267,6 +275,13 @@ export function GroupDetailScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const choosePhoto = async () => {
+      if (isCloudSplitGroup(group)) {
+        Alert.alert(
+          'Cloud group',
+          'Changing the group photo on synced groups is not supported yet.'
+        );
+        return;
+      }
       const uri = await pickGroupPhotoFromLibrary();
       if (uri) {
         setGroupImage(group.id, uri);
@@ -355,8 +370,20 @@ export function GroupDetailScreen() {
                   text: 'Delete',
                   style: 'destructive',
                   onPress: () => {
-                    deleteGroup(group.id);
-                    router.back();
+                    void (async () => {
+                      if (isCloudSplitGroup(group)) {
+                        try {
+                          await convexDeleteGroup({ groupId: group.id as Id<'splitGroups'> });
+                          router.back();
+                        } catch (e: unknown) {
+                          const msg = e instanceof Error ? e.message : 'Could not delete group.';
+                          Alert.alert('Could not delete', msg);
+                        }
+                        return;
+                      }
+                      deleteGroup(group.id);
+                      router.back();
+                    })();
                   },
                 },
               ]),
@@ -599,27 +626,66 @@ export function GroupDetailScreen() {
                           )
                         }
                         onMarkPaid={() => {
-                          const err = recordSettlement({
-                            groupId: group.id,
-                            fromMemberId:
-                              bal.netMinor > 0 ? bal.memberId : currentUserId!,
-                            toMemberId:
-                              bal.netMinor > 0 ? currentUserId! : bal.memberId,
-                            amount: minorToMajor(Math.abs(bal.netMinor)),
-                          });
-                          if (err) {
-                            Alert.alert('Could not record payment', err);
-                            return;
-                          }
-                          notifySuccess(toast, 'Marked as paid', 'Balances and activity are updated.');
+                          void (async () => {
+                            const amt = minorToMajor(Math.abs(bal.netMinor));
+                            const fromMemberId =
+                              bal.netMinor > 0 ? bal.memberId : currentUserId!;
+                            const toMemberId =
+                              bal.netMinor > 0 ? currentUserId! : bal.memberId;
+                            if (isCloudSplitGroup(group)) {
+                              try {
+                                await convexRecordSettlement({
+                                  groupId: group.id as Id<'splitGroups'>,
+                                  fromMemberId,
+                                  toMemberId,
+                                  amount: amt,
+                                });
+                                notifySuccess(
+                                  toast,
+                                  'Marked as paid',
+                                  'Balances and activity are updated.'
+                                );
+                              } catch (e: unknown) {
+                                const msg = e instanceof Error ? e.message : 'Could not record payment.';
+                                Alert.alert('Could not record payment', msg);
+                              }
+                              return;
+                            }
+                            const err = recordSettlement({
+                              groupId: group.id,
+                              fromMemberId,
+                              toMemberId,
+                              amount: amt,
+                            });
+                            if (err) {
+                              Alert.alert('Could not record payment', err);
+                              return;
+                            }
+                            notifySuccess(toast, 'Marked as paid', 'Balances and activity are updated.');
+                          })();
                         }}
-                        onMarkUnpaid={() =>
-                          voidRecordedSettlementsWithMember(
-                            group.id,
-                            currentUserId!,
-                            bal.memberId
-                          )
-                        }
+                        onMarkUnpaid={() => {
+                          void (async () => {
+                            if (isCloudSplitGroup(group)) {
+                              try {
+                                await convexVoidSettlements({
+                                  groupId: group.id as Id<'splitGroups'>,
+                                  viewerMemberId: currentUserId!,
+                                  otherMemberId: bal.memberId,
+                                });
+                              } catch (e: unknown) {
+                                const msg = e instanceof Error ? e.message : 'Could not update.';
+                                Alert.alert('Could not update', msg);
+                              }
+                              return;
+                            }
+                            voidRecordedSettlementsWithMember(
+                              group.id,
+                              currentUserId!,
+                              bal.memberId
+                            );
+                          })();
+                        }}
                       />
                       {index < balanceRows.length - 1 ? (
                         <ListDivider variant="glass" />

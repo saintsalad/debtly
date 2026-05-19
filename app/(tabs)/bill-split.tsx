@@ -4,6 +4,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { CreateGroupSheet, type CreateGroupSheetHandle } from '@/features/group-expense/CreateGroupSheet';
+import { JoinGroupSheet, type JoinGroupSheetHandle } from '@/features/group-expense/JoinGroupSheet';
 import { GroupCard } from '@/features/group-expense/GroupCard';
 import { buildGroupSections, filterGroups } from '@/features/group-expense/groupSections';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
@@ -23,10 +24,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { SearchField } from 'heroui-native';
 import {
-  Receipt,
   Search,
   SearchX,
-  User,
   Users,
   X,
 } from 'lucide-react-native';
@@ -55,10 +54,6 @@ const BS_SCROLL_HEADER_SHOW_HIDE = {
   duration: 300,
   easing: Easing.bezier(0.25, 0.1, 0.25, 1),
 } as const;
-
-/** iOS Journal–style suggested row: fixed icon column + full-width divider. */
-const SUGGESTED_ICON_SIZE = 18;
-const SUGGESTED_ICON_TRACK = 24;
 
 function createStyles(palette: ColorPalette, glassSeparator: string) {
   return StyleSheet.create({
@@ -224,43 +219,6 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       marginBottom: space[2],
     },
     sectionCard: {},
-    suggestedSection: {
-      marginBottom: space[6],
-      backgroundColor: 'transparent',
-    },
-    suggestedHeader: {
-      ...type.title1,
-      color: palette.label,
-      letterSpacing: type.title1.letterSpacing,
-      marginBottom: space[3],
-      paddingTop: space[1],
-    },
-    suggestionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[3],
-      paddingVertical: space[3] + 1,
-      minHeight: 48,
-      backgroundColor: 'transparent',
-    },
-    suggestionIconTrack: {
-      width: SUGGESTED_ICON_TRACK,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    suggestionLabel: {
-      ...type.body,
-      fontWeight: '400',
-      fontFamily: sansForWeight('400'),
-      color: palette.label,
-      flex: 1,
-    },
-    suggestionDivider: {
-      height: StyleSheet.hairlineWidth,
-      width: '100%',
-      alignSelf: 'stretch',
-      backgroundColor: glassSeparator,
-    },
   });
 }
 
@@ -275,6 +233,7 @@ export default function BillSplitScreen() {
   const expenses = useGroupExpenseStore((s) => s.expenses);
   const settlements = useGroupExpenseStore((s) => s.settlements);
   const sheetRef = useRef<CreateGroupSheetHandle>(null);
+  const joinSheetRef = useRef<JoinGroupSheetHandle>(null);
   const searchInputRef = useRef<TextInput>(null);
   const searchFocusedRef = useRef(false);
   const [search, setSearch] = useState('');
@@ -301,7 +260,6 @@ export default function BillSplitScreen() {
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
   const sections = useMemo(() => buildGroupSections(filtered, expenses, settlements), [filtered, expenses, settlements]);
-  const showSearchSuggestions = searchFieldFocused && !search.trim();
   const hasSearchQuery = search.trim().length > 0;
 
   const endBsScrollClipAnimation = useCallback(() => {
@@ -601,7 +559,7 @@ export default function BillSplitScreen() {
   }, [search]);
 
   const listScrollBottomPadding = Platform.OS === 'ios' ? layout.screenPaddingBottom : 0;
-  const listContentShouldGrow = !showSearchSuggestions && filtered.length === 0;
+  const listContentShouldGrow = filtered.length === 0;
 
   return (
     <AppScreen reserveTabBarInset={false}>
@@ -628,26 +586,7 @@ export default function BillSplitScreen() {
                 ]}
               >
                 <Animated.View style={[styles.scrollTopSpacer, scrollTopSpacerStyle]} />
-                {showSearchSuggestions ? (
-                  <View style={styles.suggestedSection}>
-                    <Text style={styles.suggestedHeader} accessibilityRole="header">
-                      Suggested
-                    </Text>
-                    <View style={styles.suggestionRow}>
-                      <View style={styles.suggestionIconTrack}>
-                        <Receipt size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                      </View>
-                      <Text style={styles.suggestionLabel}>Title</Text>
-                    </View>
-                    <View style={styles.suggestionDivider} />
-                    <View style={styles.suggestionRow}>
-                      <View style={styles.suggestionIconTrack}>
-                        <User size={SUGGESTED_ICON_SIZE} color={palette.labelSecondary} />
-                      </View>
-                      <Text style={styles.suggestionLabel}>Participant</Text>
-                    </View>
-                  </View>
-                ) : filtered.length === 0 ? (
+                {filtered.length === 0 ? (
                   <EmptyState
                     title={emptyTitle}
                     subtitle={emptySubtitle}
@@ -721,6 +660,13 @@ export default function BillSplitScreen() {
                         </View>
                         <GlassButton
                           size="sm"
+                          variant="secondary"
+                          onPress={() => joinSheetRef.current?.present()}
+                        >
+                          <GlassButton.Label>Join</GlassButton.Label>
+                        </GlassButton>
+                        <GlassButton
+                          size="sm"
                           variant="primary"
                           onPress={() => sheetRef.current?.present()}
                         >
@@ -783,6 +729,7 @@ export default function BillSplitScreen() {
             </View>
 
             <CreateGroupSheet ref={sheetRef} />
+            <JoinGroupSheet ref={joinSheetRef} />
           </View>
         </View>
       </View>

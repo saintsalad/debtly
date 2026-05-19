@@ -15,6 +15,10 @@ import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
 import { useRouter } from 'expo-router';
+import { useConvexAuth } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { isConvexConfigured } from '@/lib/convex/env';
 
 export interface CreateGroupSheetHandle {
   present: () => void;
@@ -68,6 +72,11 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
   const [name, setName] = useState('');
   const { toast } = useToast();
 
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const convexCreateGroup = useMutation(api.splitGroups.createGroup);
+  const convexReady =
+    isConvexConfigured() && !isLoading && isAuthenticated;
+
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} pressBehavior="close" />
@@ -83,7 +92,27 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      Alert.alert('Name required', 'Give your group a name to continue.');
+      return;
+    }
+
+    if (convexReady) {
+      try {
+        const r = await convexCreateGroup({ name: trimmed, memberNames: [] });
+        notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
+        sheetRef.current?.dismiss();
+        router.push({ pathname: '/group/[id]', params: { id: r.groupId } });
+        return;
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not create group.';
+        Alert.alert('Could not create group', msg);
+        return;
+      }
+    }
+
     const id = createGroup({ name });
     if (!id) {
       Alert.alert('Name required', 'Give your group a name to continue.');

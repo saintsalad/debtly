@@ -62,7 +62,7 @@ erDiagram
 6. `syncGroupDebtsToLedger` runs for each group.
 7. `attachStorePersistence()` debounces store changes back to SQLite (~300ms).
 
-Until step 7 completes, the root layout shows a loading indicator (no flash of mock seed data).
+Until step 7 completes, the root layout shows a loading indicator (no flash before hydrated data).
 
 ## Legacy AsyncStorage import
 

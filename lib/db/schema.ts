@@ -85,6 +85,8 @@ export const groups = sqliteTable('groups', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
   version: integer('version').notNull(),
+  /** `local` (default) vs Convex-backed `splitGroups` sync. */
+  syncMode: text('sync_mode').notNull().default('local'),
 });
 
 export const groupMembers = sqliteTable('group_members', {

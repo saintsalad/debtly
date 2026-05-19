@@ -54,6 +54,12 @@
           "savePhotosPermission": "Allow Debtly to save receipt images to your photo library."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Debtly to scan QR codes for split bill invites."
+        }
+      ],
       "expo-sqlite"
     ],
     "experiments": {

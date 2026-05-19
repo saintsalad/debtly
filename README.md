@@ -65,7 +65,7 @@ features/debts/         # Personal debt ledger, interest, payments, transaction 
 features/insights/       # Insights screen analytics (streaks, aggregates)
 features/group-expense/ # Groups, balance engine, settlements, activity log
 stores/                 # Zustand stores (debts, groups, profile)
-lib/                    # Platform tokens, storage, mocks for first launch
+lib/                    # Platform tokens, storage, DB helpers
 convex/                 # Convex backend: schema, Convex Auth, HTTP routes
 ```
 

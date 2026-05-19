@@ -1,41 +1,39 @@
-import { useEffect } from 'react';
-import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-
+import { api } from '@/convex/_generated/api';
+import { parseInviteCodeFromUrl } from '@/features/group-expense/joinLinkParse';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useConvexAuth } from 'convex/react';
-
-function parseInviteCode(url: string): string | null {
-  const parsed = Linking.parse(url);
-  const isJoin =
-    parsed.path === 'join' ||
-    parsed.hostname === 'join' ||
-    (typeof parsed.path === 'string' && parsed.path.includes('join'));
-
-  if (!isJoin) return null;
-
-  const code = parsed.queryParams?.code;
-  if (typeof code !== 'string' || !code.trim()) return null;
-  return code.trim().toUpperCase();
-}
+import { useMutation } from 'convex/react';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 /** Join when allowed; stash invite + open signup when Convex requires an authenticated account. */
-function followInviteDeepLink(opts: {
+async function followInviteDeepLink(opts: {
   url: string;
   joinGroupByCode: (code: string, displayName: string) => string | null;
+  joinConvex?: (code: string) => Promise<{ groupId: string }>;
   displayName: string;
   router: ReturnType<typeof useRouter>;
-  /** When true, deferred until user finishes Convex signup. */
   gated: boolean;
-  /** Convex session ready (ignored when gated is false). */
   authReady: boolean;
   setPendingCode: (code: string | null) => void;
+  convexConfigured: boolean;
 }) {
-  const { url, joinGroupByCode, displayName, router, gated, authReady, setPendingCode } = opts;
-  const code = parseInviteCode(url);
+  const {
+    url,
+    joinGroupByCode,
+    joinConvex,
+    displayName,
+    router,
+    gated,
+    authReady,
+    setPendingCode,
+    convexConfigured,
+  } = opts;
+  const code = parseInviteCodeFromUrl(url);
   if (!code) return;
 
   if (gated && !authReady) {
@@ -45,6 +43,17 @@ function followInviteDeepLink(opts: {
       params: { returnTo: 'pending-invite' },
     });
     return;
+  }
+
+  if (convexConfigured && authReady && joinConvex) {
+    try {
+      const r = await joinConvex({ code });
+      setPendingCode(null);
+      router.push({ pathname: '/group/[id]', params: { id: r.groupId } });
+      return;
+    } catch {
+      // Fall through to legacy local join (short codes on-device).
+    }
   }
 
   const groupId = joinGroupByCode(code, displayName);
@@ -62,30 +71,39 @@ function GroupInviteLinkHandlerCore(props: {
   const joinGroupByCode = useGroupExpenseStore((s) => s.joinGroupByCode);
   const displayName = useProfileStore((s) => s.name) || 'You';
   const setPendingCode = useAccountInviteStore((s) => s.setPendingInviteCode);
+  const joinConvex = useMutation(api.splitGroups.joinByInviteCode);
+  const convexConfigured = isConvexConfigured();
+
+  const joinConvexRef = useRef(joinConvex);
+  joinConvexRef.current = joinConvex;
 
   useEffect(() => {
     void Linking.getInitialURL().then((url) => {
       if (!url) return;
-      followInviteDeepLink({
+      void followInviteDeepLink({
         url,
         joinGroupByCode,
+        joinConvex: convexConfigured ? (args) => joinConvexRef.current(args) : undefined,
         displayName,
         router,
         gated: props.gated,
         authReady: props.authReady,
         setPendingCode,
+        convexConfigured,
       });
     });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
-      followInviteDeepLink({
+      void followInviteDeepLink({
         url,
         joinGroupByCode,
+        joinConvex: convexConfigured ? (args) => joinConvexRef.current(args) : undefined,
         displayName,
         router,
         gated: props.gated,
         authReady: props.authReady,
         setPendingCode,
+        convexConfigured,
       });
     });
 
@@ -93,6 +111,7 @@ function GroupInviteLinkHandlerCore(props: {
   }, [
     props.authReady,
     props.gated,
+    convexConfigured,
     displayName,
     joinGroupByCode,
     router,

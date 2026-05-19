@@ -15,6 +15,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ListDivider } from '@/components/ui/ListDivider';
 import type { GroupMember } from '@/features/group-expense/types';
+import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
@@ -27,6 +28,9 @@ import {
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
 
 const AnimatedBottomSheetScrollView = Animated.createAnimatedComponent(BottomSheetScrollView);
 
@@ -241,6 +245,9 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
   const renameMember = useGroupExpenseStore((s) => s.renameMember);
   const removeMember = useGroupExpenseStore((s) => s.removeMember);
 
+  const convexRenameMember = useMutation(api.splitGroups.renameMember);
+  const convexRemoveMember = useMutation(api.splitGroups.removeMember);
+
   const { toast } = useToast();
 
   const { scrollY, onScroll, resetScrollY } = useSheetSurfaceScrollFade();
@@ -295,13 +302,33 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            removeMember(groupId, member.id);
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            notifySuccess(toast, 'Member removed');
-            if (renamingId === member.id) {
-              setRenamingId(null);
-              setRenameDraft('');
-            }
+            void (async () => {
+              if (group && isCloudSplitGroup(group)) {
+                try {
+                  await convexRemoveMember({
+                    groupId: groupId as Id<'splitGroups'>,
+                    memberId: member.id,
+                  });
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  notifySuccess(toast, 'Member removed');
+                  if (renamingId === member.id) {
+                    setRenamingId(null);
+                    setRenameDraft('');
+                  }
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Could not remove member.';
+                  Alert.alert('Could not remove', msg);
+                }
+                return;
+              }
+              removeMember(groupId, member.id);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              notifySuccess(toast, 'Member removed');
+              if (renamingId === member.id) {
+                setRenamingId(null);
+                setRenameDraft('');
+              }
+            })();
           },
         },
       ]
@@ -314,16 +341,35 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
   };
 
   const saveRename = () => {
-    if (!groupId || !renamingId) return;
-    const err = renameMember(groupId, renamingId, renameDraft);
-    if (err) {
-      Alert.alert('Could not rename', err);
-      return;
-    }
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    notifySuccess(toast, 'Name updated');
-    setRenamingId(null);
-    setRenameDraft('');
+    if (!groupId || !renamingId || !group) return;
+    void (async () => {
+      if (isCloudSplitGroup(group)) {
+        try {
+          await convexRenameMember({
+            groupId: groupId as Id<'splitGroups'>,
+            memberId: renamingId,
+            displayName: renameDraft,
+          });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Name updated');
+          setRenamingId(null);
+          setRenameDraft('');
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Could not rename.';
+          Alert.alert('Could not rename', msg);
+        }
+        return;
+      }
+      const err = renameMember(groupId, renamingId, renameDraft);
+      if (err) {
+        Alert.alert('Could not rename', err);
+        return;
+      }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notifySuccess(toast, 'Name updated');
+      setRenamingId(null);
+      setRenameDraft('');
+    })();
   };
 
   if (!group) return null;

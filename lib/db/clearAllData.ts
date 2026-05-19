@@ -5,7 +5,7 @@ import { replaceGroupState } from '@/lib/db/repositories/groupRepository';
 import { replaceProfile } from '@/lib/db/repositories/profileRepository';
 import { deleteProfileAvatarFile } from '@/lib/profile/compressProfileAvatar';
 import { DEFAULT_PROFILE } from '@/lib/db/mappers/profile';
-import { INITIAL_GROUP_EXPENSE_STATE } from '@/lib/mocks/initialGroupExpenses';
+import { EMPTY_GROUP_EXPENSE_STATE } from '@/features/group-expense/emptyGroupExpenseState';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useDebtStore } from '@/stores/debtStore';
@@ -15,12 +15,12 @@ import { useProfileStore } from '@/stores/profileStore';
 export async function clearAllData(db: DebtlyDatabase): Promise<void> {
   await deleteProfileAvatarFile();
   await replaceDebts(db, []);
-  await replaceGroupState(db, INITIAL_GROUP_EXPENSE_STATE);
+  await replaceGroupState(db, EMPTY_GROUP_EXPENSE_STATE);
   await replaceBillSplits(db, []);
   await replaceProfile(db, DEFAULT_PROFILE);
 
   useDebtStore.setState({ debts: [] });
-  useGroupExpenseStore.setState(INITIAL_GROUP_EXPENSE_STATE);
+  useGroupExpenseStore.setState(EMPTY_GROUP_EXPENSE_STATE);
   useBillSplitStore.setState({ splits: [] });
   useAccountInviteStore.getState().setPendingInviteCode(null);
   useProfileStore.setState({

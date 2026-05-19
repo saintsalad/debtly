@@ -8,10 +8,16 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
+import type { Id } from 'convex/values';
+import QRCode from 'react-native-qrcode-svg';
+import { useMutation } from 'convex/react';
 import { useRouter } from 'expo-router';
 
 import { GlassButton } from '@/components/ui/GlassButton';
-import { copyInviteLink } from '@/features/group-expense/groupExpenseActions';
+import {
+  copyStringToClipboard,
+  shareInviteLinkMessage,
+} from '@/features/group-expense/groupExpenseActions';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
@@ -20,6 +26,7 @@ import { sansForWeight } from '@/lib/appFonts';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useConvexAuth } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 export interface InviteMembersSheetHandle {
   present: (groupId: string) => void;
@@ -58,16 +65,32 @@ function createSheetStyles(palette: ColorPalette) {
       ...type.title2,
       fontWeight: '700',
       fontFamily: sansForWeight('700'),
-      letterSpacing: 3,
       color: palette.label,
       textAlign: 'center',
+      flexWrap: 'wrap',
+    },
+    codeWideSpacing: {
+      letterSpacing: 3,
+    },
+    codeCompactSpacing: {
+      letterSpacing: 1,
+    },
+    qrWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: space[2],
+      backgroundColor: palette.fill,
+      borderRadius: 16,
+    },
+    actionsRow: {
+      gap: space[2],
     },
   });
 }
 
 interface InviteMembersSheetInnerProps {
   router: ReturnType<typeof useRouter>;
-  /** When Convex is enabled, copying/sharing invite requires Convex Auth first. */
+  /** When Convex is enabled, invite actions that hit the server require Convex Auth first. */
   accountGateConvex: boolean;
   authReadyForShare: boolean;
 }
@@ -86,11 +109,18 @@ const InviteMembersSheetInner = forwardRef<
   const getInviteLink = useGroupExpenseStore((s) => s.getInviteLink);
   const groups = useGroupExpenseStore((s) => s.groups);
 
+  const addPlaceholderConvex = useMutation(api.splitGroups.addPlaceholderMember);
+  const regenerateInvite = useMutation(api.splitGroups.regenerateInvite);
+
   const [groupId, setGroupId] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [regenerateBusy, setRegenerateBusy] = useState(false);
   const { toast } = useToast();
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
+  const isCloud = group?.syncMode === 'convex';
+  const inviteLink = group ? getInviteLink(group.id) : '';
+  const codeStyleWide = group && group.inviteCode.length <= 12;
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -108,29 +138,80 @@ const InviteMembersSheetInner = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleAdd = () => {
+  const requireAuthForCloudActions = () => {
+    if (!accountGateConvex || authReadyForShare) return false;
+    router.push({
+      pathname: '/create-account',
+      params: { returnTo: 'invite-sheet' },
+    });
+    sheetRef.current?.dismiss();
+    return true;
+  };
+
+  const handleCopyCode = async () => {
+    if (!group) return;
+    if (isCloud && requireAuthForCloudActions()) return;
+    const ok = await copyStringToClipboard(group.inviteCode);
+    if (ok) notifySuccess(toast, 'Invite code copied');
+    else Alert.alert('Clipboard', 'Could not copy the code.');
+  };
+
+  const handleCopyLink = async () => {
+    if (!group) return;
+    if (isCloud && requireAuthForCloudActions()) return;
+    const ok = await copyStringToClipboard(inviteLink);
+    if (ok) notifySuccess(toast, 'Invite link copied');
+    else Alert.alert('Clipboard', 'Could not copy the link.');
+  };
+
+  const handleShareLink = () => {
+    if (!group) return;
+    if (isCloud && requireAuthForCloudActions()) return;
+    void shareInviteLinkMessage(inviteLink);
+  };
+
+  const handleRegenerateInvite = async () => {
+    if (!group || !isCloud) return;
+    if (requireAuthForCloudActions()) return;
+    setRegenerateBusy(true);
+    try {
+      await regenerateInvite({ groupId: group.id as Id<'splitGroups'> });
+      notifySuccess(toast, 'New invite code active', 'Share the updated QR or link with new guests.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not refresh invite.';
+      Alert.alert('Invite', msg);
+    } finally {
+      setRegenerateBusy(false);
+    }
+  };
+
+  const handleAdd = async () => {
     if (!groupId || !name.trim()) {
       Alert.alert('Name required', 'Enter a name to add.');
       return;
     }
+
+    if (group?.syncMode === 'convex') {
+      if (requireAuthForCloudActions()) return;
+      try {
+        await addPlaceholderConvex({
+          groupId: groupId as Id<'splitGroups'>,
+          displayName: name.trim(),
+        });
+        notifySuccess(toast, 'Member added');
+        setName('');
+        sheetRef.current?.dismiss();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not add member.';
+        Alert.alert('Add member', msg);
+      }
+      return;
+    }
+
     addMember(groupId, name.trim());
     notifySuccess(toast, 'Member added');
     setName('');
     sheetRef.current?.dismiss();
-  };
-
-  const handleShareInvite = () => {
-    if (!group) return;
-    if (accountGateConvex && !authReadyForShare) {
-      router.push({
-        pathname: '/create-account',
-        params: { returnTo: 'invite-sheet' },
-      });
-      sheetRef.current?.dismiss();
-      return;
-    }
-    void copyInviteLink(getInviteLink(group.id));
-    notifySuccess(toast, 'Invite link copied');
   };
 
   if (!group) return null;
@@ -152,15 +233,55 @@ const InviteMembersSheetInner = forwardRef<
           contentContainerStyle={[styles.form, { paddingBottom: contentBottomPadding }]}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.code}>{group.inviteCode}</Text>
+          <Text
+            style={[
+              styles.code,
+              codeStyleWide ? styles.codeWideSpacing : styles.codeCompactSpacing,
+            ]}
+            selectable
+          >
+            {group.inviteCode}
+          </Text>
+
+          <View style={styles.qrWrap}>
+            <QRCode
+              value={inviteLink}
+              size={180}
+              color={palette.label}
+              backgroundColor={palette.fill}
+            />
+          </View>
+
           <Description>
-            Share your invite link so others can open the group from their device when sync is enabled.
+            Others can scan the QR or open the link on their phone. Cloud groups sync through your
+            Debtly account—guests need to sign in when sync is enabled.
           </Description>
-          <GlassButton variant="secondary" onPress={handleShareInvite}>
-            <GlassButton.Label>Copy or share invite link</GlassButton.Label>
+
+          <View style={styles.actionsRow}>
+            <GlassButton variant="secondary" onPress={() => void handleCopyCode()}>
+              <GlassButton.Label>Copy code</GlassButton.Label>
+            </GlassButton>
+            <GlassButton variant="secondary" onPress={() => void handleCopyLink()}>
+              <GlassButton.Label>Copy link</GlassButton.Label>
+            </GlassButton>
+          </View>
+
+          <GlassButton variant="secondary" onPress={handleShareLink}>
+            <GlassButton.Label>Share link</GlassButton.Label>
           </GlassButton>
+
+          {isCloud ? (
+            <GlassButton
+              variant="secondary"
+              onPress={() => void handleRegenerateInvite()}
+              disabled={regenerateBusy}
+            >
+              <GlassButton.Label>{regenerateBusy ? 'Refreshing…' : 'New invite code'}</GlassButton.Label>
+            </GlassButton>
+          ) : null}
+
           <TextField>
-            <Label>Add by name</Label>
+            <Label>Add placeholder by name</Label>
             <BottomSheetTextInput
               style={styles.input}
               value={name}
@@ -170,7 +291,7 @@ const InviteMembersSheetInner = forwardRef<
               keyboardAppearance={keyboardAppearance}
             />
           </TextField>
-          <GlassButton variant="primary" onPress={handleAdd}>
+          <GlassButton variant="primary" onPress={() => void handleAdd()}>
             <GlassButton.Label>Add member</GlassButton.Label>
           </GlassButton>
         </BottomSheetScrollView>

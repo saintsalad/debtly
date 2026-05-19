@@ -73,7 +73,8 @@ CREATE TABLE `groups` (
 	`created_by_member_id` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
-	`version` integer NOT NULL
+	`version` integer NOT NULL,
+	`sync_mode` text DEFAULT 'local' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `group_members` (

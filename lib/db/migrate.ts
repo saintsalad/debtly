@@ -50,6 +50,17 @@ async function ensureProfileAvatarUriColumn(sqliteDb: SQLiteDatabase): Promise<v
   }
 }
 
+async function ensureGroupsSyncModeColumn(sqliteDb: SQLiteDatabase): Promise<void> {
+  const cols = await sqliteDb.getAllAsync<{ name: string }>(
+    "PRAGMA table_info('groups')"
+  );
+  if (!cols.some((c) => c.name === 'sync_mode')) {
+    await sqliteDb.execAsync(
+      "ALTER TABLE `groups` ADD COLUMN `sync_mode` text NOT NULL DEFAULT 'local';"
+    );
+  }
+}
+
 async function hasCoreSchema(sqliteDb: SQLiteDatabase): Promise<boolean> {
   const row = await sqliteDb.getFirstAsync<{ cnt: number }>(
     "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name='debts'"
@@ -71,4 +82,5 @@ export async function runMigrations(
 
   await ensureProfileUsernameColumn(sqliteDb);
   await ensureProfileAvatarUriColumn(sqliteDb);
+  await ensureGroupsSyncModeColumn(sqliteDb);
 }
