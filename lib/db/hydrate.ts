@@ -27,6 +27,7 @@ export async function hydrateStoresFromDatabase(db: DebtlyDatabase): Promise<voi
     appearance: profile.appearance,
     showSplitBillsInTransactions: profile.showSplitBillsInTransactions,
     receiptThermalLook: profile.receiptThermalLook,
+    avatarUri: profile.avatarUri ?? null,
   });
 
   useGroupExpenseStore.setState(groupState);

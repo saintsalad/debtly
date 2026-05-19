@@ -18,6 +18,8 @@ export const profileSettings = sqliteTable('profile_settings', {
     .notNull()
     .default(false),
   receiptThermalLook: integer('receipt_thermal_look', { mode: 'boolean' }).notNull().default(true),
+  /** Local `file://` path or remote `https://` profile photo (compressed on device before upload). */
+  avatarUri: text('avatar_uri'),
 });
 
 export const debts = sqliteTable('debts', {

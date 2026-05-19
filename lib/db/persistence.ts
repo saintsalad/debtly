@@ -18,6 +18,7 @@ export function attachStorePersistence(db: DebtlyDatabase): () => void {
       appearance: state.appearance,
       showSplitBillsInTransactions: state.showSplitBillsInTransactions,
       receiptThermalLook: state.receiptThermalLook,
+      avatarUri: state.avatarUri ?? null,
     })
   );
 

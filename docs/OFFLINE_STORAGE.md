@@ -48,7 +48,7 @@ erDiagram
 - **Personal ledger**: `debts`, `debt_payments`
 - **Groups**: `groups`, `group_members`, `group_expenses`, `settlements`, `activity_log`
 - **Legacy bill split tab**: `bill_splits`, `bill_split_participants`
-- **Settings**: `profile_settings` (single row, `id = 1`; includes optional **`username`** for display and client-side bookkeeping—when Convex Auth is configured, the server validates the signup username independently)
+- **Settings**: `profile_settings` (single row, `id = 1`; optional **`username`**, optional **`avatar_uri`** — local `file://` path or remote `https://` URL after Convex sync; picked photos are JPEG-compressed before save/upload)
 - **Meta**: `app_meta` (e.g. `legacy_import_done`)
 - **Future Convex sync**: `pending_ops` (outbox; empty until cloud sync ships)
 

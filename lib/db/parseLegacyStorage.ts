@@ -65,6 +65,7 @@ export function parseLegacyStoragePayloads(
     showSplitBillsInTransactions:
       profileEnv.state?.showSplitBillsInTransactions ?? DEFAULT_PROFILE.showSplitBillsInTransactions,
     receiptThermalLook: profileEnv.state?.receiptThermalLook ?? DEFAULT_PROFILE.receiptThermalLook,
+    avatarUri: DEFAULT_PROFILE.avatarUri,
   };
 
   const debtEnv = parseEnvelope<{ debts?: Debt[] }>(raw.debts ?? null);

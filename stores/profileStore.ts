@@ -12,12 +12,15 @@ interface ProfileState {
   showSplitBillsInTransactions: boolean;
   /** When true, receipt attachment photos use the thermal / bitmap-processed look. */
   receiptThermalLook: boolean;
+  /** Local file path or remote URL for profile photo. */
+  avatarUri: string | null;
   setUsername: (username: string | null) => void;
   setName: (name: string) => void;
   setCurrency: (currency: string) => void;
   setAppearance: (appearance: AppearancePreference) => void;
   setShowSplitBillsInTransactions: (enabled: boolean) => void;
   setReceiptThermalLook: (enabled: boolean) => void;
+  setAvatarUri: (uri: string | null) => void;
 }
 
 export const useProfileStore = create<ProfileState>()((set) => ({
@@ -27,6 +30,7 @@ export const useProfileStore = create<ProfileState>()((set) => ({
   appearance: 'system',
   showSplitBillsInTransactions: false,
   receiptThermalLook: true,
+  avatarUri: null,
   setName: (name) => set({ name }),
   setUsername: (username) => set({ username }),
   setCurrency: (currency) => set({ currency }),
@@ -34,4 +38,5 @@ export const useProfileStore = create<ProfileState>()((set) => ({
   setShowSplitBillsInTransactions: (showSplitBillsInTransactions) =>
     set({ showSplitBillsInTransactions }),
   setReceiptThermalLook: (receiptThermalLook) => set({ receiptThermalLook }),
+  setAvatarUri: (avatarUri) => set({ avatarUri }),
 }));

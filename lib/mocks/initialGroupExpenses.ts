@@ -23,7 +23,16 @@ const NOW = new Date();
  * | Coffee club        | Host, settled  | All settled up                 |
  */
 
-const YOU_ID = 'ge-you';
+/** Member row IDs must be unique across all groups (SQLite PK on `group_members.id`). */
+function mid(groupId: string, slug: string): string {
+  return `${groupId}:${slug}`;
+}
+
+const G_HOST_OWED = 'ge-scenario-host-owed';
+const G_GUEST_OWES = 'ge-scenario-guest-owes';
+const G_HOST_PARTIAL = 'ge-scenario-host-partial';
+const G_MIXED = 'ge-scenario-mixed';
+const G_SETTLED = 'ge-scenario-settled';
 
 function member(
   id: string,
@@ -59,30 +68,25 @@ function expense(
 }
 
 export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
-  const youJoined = subWeeks(NOW, 8);
-
-  const alex = 'ge-m-alex';
-  const mia = 'ge-m-mia';
-  const jordan = 'ge-m-jordan';
-  const sam = 'ge-m-sam';
-  const casey = 'ge-m-casey';
-  const riley = 'ge-m-riley';
-
   // ─── Scenario 1: You are the host (you paid) — others owe you ───
   const s1Created = subDays(NOW, 3);
+  const s1You = mid(G_HOST_OWED, 'you');
+  const s1Alex = mid(G_HOST_OWED, 'alex');
+  const s1Mia = mid(G_HOST_OWED, 'mia');
+  const s1Jordan = mid(G_HOST_OWED, 'jordan');
   const s1Members = [
-    member(YOU_ID, 'You', true, s1Created),
-    member(alex, 'Alex', false, s1Created),
-    member(mia, 'Mia', false, s1Created),
-    member(jordan, 'Jordan', false, s1Created),
+    member(s1You, 'You', true, s1Created),
+    member(s1Alex, 'Alex', false, s1Created),
+    member(s1Mia, 'Mia', false, s1Created),
+    member(s1Jordan, 'Jordan', false, s1Created),
   ];
   const s1Ids = s1Members.map((m) => m.id);
   const scenarioHostOwed: SplitGroup = {
-    id: 'ge-scenario-host-owed',
+    id: G_HOST_OWED,
     name: 'Friday dinner',
     inviteCode: 'HOST01',
     members: s1Members,
-    createdByMemberId: YOU_ID,
+    createdByMemberId: s1You,
     createdAt: s1Created.toISOString(),
     updatedAt: s1Created.toISOString(),
     version: 1,
@@ -90,19 +94,23 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
 
   // ─── Scenario 2: You are NOT the host — Mia paid, you owe ───
   const s2Created = subDays(NOW, 6);
+  const s2You = mid(G_GUEST_OWES, 'you');
+  const s2Mia = mid(G_GUEST_OWES, 'mia');
+  const s2Sam = mid(G_GUEST_OWES, 'sam');
+  const s2Casey = mid(G_GUEST_OWES, 'casey');
   const s2Members = [
-    member(YOU_ID, 'You', true, s2Created),
-    member(mia, 'Mia', false, s2Created),
-    member(sam, 'Sam', false, s2Created),
-    member(casey, 'Casey', false, s2Created),
+    member(s2You, 'You', true, s2Created),
+    member(s2Mia, 'Mia', false, s2Created),
+    member(s2Sam, 'Sam', false, s2Created),
+    member(s2Casey, 'Casey', false, s2Created),
   ];
   const s2Ids = s2Members.map((m) => m.id);
   const scenarioGuestOwes: SplitGroup = {
-    id: 'ge-scenario-guest-owes',
+    id: G_GUEST_OWES,
     name: 'Bali trip',
     inviteCode: 'GUEST2',
     members: s2Members,
-    createdByMemberId: YOU_ID,
+    createdByMemberId: s2You,
     createdAt: s2Created.toISOString(),
     updatedAt: s2Created.toISOString(),
     version: 1,
@@ -110,19 +118,23 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
 
   // ─── Scenario 3: You are host — partial settlements recorded ───
   const s3Created = subDays(NOW, 10);
+  const s3You = mid(G_HOST_PARTIAL, 'you');
+  const s3Alex = mid(G_HOST_PARTIAL, 'alex');
+  const s3Sam = mid(G_HOST_PARTIAL, 'sam');
+  const s3Riley = mid(G_HOST_PARTIAL, 'riley');
   const s3Members = [
-    member(YOU_ID, 'You', true, s3Created),
-    member(alex, 'Alex', false, s3Created),
-    member(sam, 'Sam', false, s3Created),
-    member(riley, 'Riley', false, s3Created),
+    member(s3You, 'You', true, s3Created),
+    member(s3Alex, 'Alex', false, s3Created),
+    member(s3Sam, 'Sam', false, s3Created),
+    member(s3Riley, 'Riley', false, s3Created),
   ];
   const s3Ids = s3Members.map((m) => m.id);
   const scenarioHostPartial: SplitGroup = {
-    id: 'ge-scenario-host-partial',
+    id: G_HOST_PARTIAL,
     name: 'Roommates',
     inviteCode: 'ROOM03',
     members: s3Members,
-    createdByMemberId: YOU_ID,
+    createdByMemberId: s3You,
     createdAt: s3Created.toISOString(),
     updatedAt: subDays(NOW, 2).toISOString(),
     version: 1,
@@ -130,19 +142,23 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
 
   // ─── Scenario 4: Mixed — Jordan paid main bill, you paid snacks ───
   const s4Created = subDays(NOW, 14);
+  const s4You = mid(G_MIXED, 'you');
+  const s4Jordan = mid(G_MIXED, 'jordan');
+  const s4Mia = mid(G_MIXED, 'mia');
+  const s4Casey = mid(G_MIXED, 'casey');
   const s4Members = [
-    member(YOU_ID, 'You', true, s4Created),
-    member(jordan, 'Jordan', false, s4Created),
-    member(mia, 'Mia', false, s4Created),
-    member(casey, 'Casey', false, s4Created),
+    member(s4You, 'You', true, s4Created),
+    member(s4Jordan, 'Jordan', false, s4Created),
+    member(s4Mia, 'Mia', false, s4Created),
+    member(s4Casey, 'Casey', false, s4Created),
   ];
   const s4Ids = s4Members.map((m) => m.id);
   const scenarioMixed: SplitGroup = {
-    id: 'ge-scenario-mixed',
+    id: G_MIXED,
     name: 'Concert night',
     inviteCode: 'MIXD04',
     members: s4Members,
-    createdByMemberId: YOU_ID,
+    createdByMemberId: s4You,
     createdAt: s4Created.toISOString(),
     updatedAt: s4Created.toISOString(),
     version: 1,
@@ -150,19 +166,23 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
 
   // ─── Scenario 5: You were host — everyone settled up ───
   const s5Created = subWeeks(NOW, 3);
+  const s5You = mid(G_SETTLED, 'you');
+  const s5Alex = mid(G_SETTLED, 'alex');
+  const s5Mia = mid(G_SETTLED, 'mia');
+  const s5Sam = mid(G_SETTLED, 'sam');
   const s5Members = [
-    member(YOU_ID, 'You', true, s5Created),
-    member(alex, 'Alex', false, s5Created),
-    member(mia, 'Mia', false, s5Created),
-    member(sam, 'Sam', false, s5Created),
+    member(s5You, 'You', true, s5Created),
+    member(s5Alex, 'Alex', false, s5Created),
+    member(s5Mia, 'Mia', false, s5Created),
+    member(s5Sam, 'Sam', false, s5Created),
   ];
   const s5Ids = s5Members.map((m) => m.id);
   const scenarioSettled: SplitGroup = {
-    id: 'ge-scenario-settled',
+    id: G_SETTLED,
     name: 'Coffee club',
     inviteCode: 'DONE05',
     members: s5Members,
-    createdByMemberId: YOU_ID,
+    createdByMemberId: s5You,
     createdAt: s5Created.toISOString(),
     updatedAt: subDays(NOW, 1).toISOString(),
     version: 1,
@@ -175,7 +195,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioHostOwed.id,
       title: 'Dinner at Lola',
       amountMinor: 240_000,
-      paidByMemberId: YOU_ID,
+      paidByMemberId: s1You,
       memberIds: s1Ids,
       expenseDate: s1Created.toISOString(),
       createdAt: s1Created.toISOString(),
@@ -186,7 +206,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioHostOwed.id,
       title: 'After-dinner drinks',
       amountMinor: 120_000,
-      paidByMemberId: YOU_ID,
+      paidByMemberId: s1You,
       memberIds: s1Ids,
       expenseDate: subDays(NOW, 2).toISOString(),
       createdAt: subDays(NOW, 2).toISOString(),
@@ -199,7 +219,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioGuestOwes.id,
       title: 'Hotel (3 nights)',
       amountMinor: 1_000_000,
-      paidByMemberId: mia,
+      paidByMemberId: s2Mia,
       memberIds: s2Ids,
       expenseDate: s2Created.toISOString(),
       createdAt: s2Created.toISOString(),
@@ -210,7 +230,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioGuestOwes.id,
       title: 'Airport transfers',
       amountMinor: 280_000,
-      paidByMemberId: mia,
+      paidByMemberId: s2Mia,
       memberIds: s2Ids,
       expenseDate: subDays(NOW, 5).toISOString(),
       createdAt: subDays(NOW, 5).toISOString(),
@@ -223,7 +243,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioHostPartial.id,
       title: 'Weekly groceries',
       amountMinor: 200_000,
-      paidByMemberId: YOU_ID,
+      paidByMemberId: s3You,
       memberIds: s3Ids,
       expenseDate: s3Created.toISOString(),
       createdAt: s3Created.toISOString(),
@@ -236,7 +256,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioMixed.id,
       title: 'Concert tickets',
       amountMinor: 480_000,
-      paidByMemberId: jordan,
+      paidByMemberId: s4Jordan,
       memberIds: s4Ids,
       expenseDate: s4Created.toISOString(),
       createdAt: s4Created.toISOString(),
@@ -247,7 +267,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioMixed.id,
       title: 'Merch & snacks',
       amountMinor: 60_000,
-      paidByMemberId: YOU_ID,
+      paidByMemberId: s4You,
       memberIds: s4Ids,
       expenseDate: subDays(NOW, 13).toISOString(),
       createdAt: subDays(NOW, 13).toISOString(),
@@ -260,7 +280,7 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
       groupId: scenarioSettled.id,
       title: 'Saturday coffee run',
       amountMinor: 80_000,
-      paidByMemberId: YOU_ID,
+      paidByMemberId: s5You,
       memberIds: s5Ids,
       expenseDate: s5Created.toISOString(),
       createdAt: s5Created.toISOString(),
@@ -272,8 +292,8 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     {
       id: 'ge-set-s3-alex',
       groupId: scenarioHostPartial.id,
-      fromMemberId: alex,
-      toMemberId: YOU_ID,
+      fromMemberId: s3Alex,
+      toMemberId: s3You,
       amountMinor: 50_000,
       note: 'GCash',
       settledAt: subDays(NOW, 4).toISOString(),
@@ -282,8 +302,8 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     {
       id: 'ge-set-s5-alex',
       groupId: scenarioSettled.id,
-      fromMemberId: alex,
-      toMemberId: YOU_ID,
+      fromMemberId: s5Alex,
+      toMemberId: s5You,
       amountMinor: 20_000,
       settledAt: subDays(NOW, 2).toISOString(),
       version: 1,
@@ -291,8 +311,8 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     {
       id: 'ge-set-s5-mia',
       groupId: scenarioSettled.id,
-      fromMemberId: mia,
-      toMemberId: YOU_ID,
+      fromMemberId: s5Mia,
+      toMemberId: s5You,
       amountMinor: 20_000,
       settledAt: subDays(NOW, 2).toISOString(),
       version: 1,
@@ -300,8 +320,8 @@ export const INITIAL_GROUP_EXPENSE_STATE: GroupExpenseState = (() => {
     {
       id: 'ge-set-s5-sam',
       groupId: scenarioSettled.id,
-      fromMemberId: sam,
-      toMemberId: YOU_ID,
+      fromMemberId: s5Sam,
+      toMemberId: s5You,
       amountMinor: 20_000,
       settledAt: subDays(NOW, 1).toISOString(),
       version: 1,

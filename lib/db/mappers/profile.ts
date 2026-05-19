@@ -10,6 +10,8 @@ export interface ProfileData {
   appearance: AppearancePreference;
   showSplitBillsInTransactions: boolean;
   receiptThermalLook: boolean;
+  /** Local `file://` or synced `https://` avatar — never stored on Convex directly except via `users.image` URL. */
+  avatarUri: string | null;
 }
 
 export const DEFAULT_PROFILE: ProfileData = {
@@ -19,6 +21,7 @@ export const DEFAULT_PROFILE: ProfileData = {
   appearance: 'system',
   showSplitBillsInTransactions: false,
   receiptThermalLook: true,
+  avatarUri: null,
 };
 
 export function profileToRow(data: ProfileData): ProfileRow {
@@ -30,6 +33,7 @@ export function profileToRow(data: ProfileData): ProfileRow {
     appearance: data.appearance,
     showSplitBillsInTransactions: data.showSplitBillsInTransactions,
     receiptThermalLook: data.receiptThermalLook,
+    avatarUri: data.avatarUri ?? null,
   };
 }
 
@@ -42,5 +46,6 @@ export function rowToProfile(row: ProfileRow | undefined): ProfileData {
     appearance: row.appearance as AppearancePreference,
     showSplitBillsInTransactions: row.showSplitBillsInTransactions,
     receiptThermalLook: row.receiptThermalLook,
+    avatarUri: row.avatarUri ?? null,
   };
 }

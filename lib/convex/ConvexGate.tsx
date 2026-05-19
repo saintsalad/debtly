@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { router, type Href } from 'expo-router';
 
+import { ConvexProfileAvatarSync } from '@/components/profile/ConvexProfileAvatarSync';
 import { convexSecureTokenStorage } from '@/lib/convex/convexSecureStorage';
 import { getExpoConvexUrl, isConvexConfigured } from '@/lib/convex/env';
 
@@ -36,6 +37,7 @@ export function ConvexGate({ children }: { children: ReactNode }) {
       replaceURL={(relativeUrl: string) => {
         router.replace(relativeUrl as Href);
       }}>
+      <ConvexProfileAvatarSync />
       {children}
     </ConvexAuthProvider>
   );

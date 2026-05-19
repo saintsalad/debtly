@@ -44,7 +44,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Debtly to choose a photo for your group."
+          "photosPermission": "Allow Debtly to choose photos for your profile and groups."
         }
       ],
       [

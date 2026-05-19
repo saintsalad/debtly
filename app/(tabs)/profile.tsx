@@ -1,8 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import * as SystemUI from 'expo-system-ui';
 import { useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   StyleSheet,
@@ -27,7 +30,6 @@ import {
   Moon,
   Receipt,
   Trash2,
-  User,
   Wallet,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -46,7 +48,8 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { notifySuccess } from '@/lib/appToast';
-import { sansForWeight } from '@/lib/appFonts';
+import { uploadLocalAvatarToConvex } from '@/lib/convex/uploadProfileAvatar';
+import { compressProfileAvatarToDocument } from '@/lib/profile/compressProfileAvatar';
 import { useToast } from 'heroui-native';
 import { isConvexConfigured } from '@/lib/convex/env';
 
@@ -153,69 +156,58 @@ function createStyles(palette: ColorPalette) {
     pageTitle: { ...type.title1, color: palette.label },
 
     identityCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[4],
       marginHorizontal: space[5],
-      padding: space[4],
-      marginBottom: space[3],
+      paddingHorizontal: space[5],
+      paddingVertical: space[6],
+      marginBottom: space[6],
     },
-    identityBody: { flex: 1 },
-    identityName: { ...type.title3, color: palette.label },
-    identityHandle: {
+    identityRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: space[4],
+    },
+    identityTextColumn: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: 'center',
+      paddingTop: 2,
+    },
+    identityName: { ...type.title2, color: palette.label },
+    identitySubtitle: {
       ...type.subheadline,
       color: palette.labelSecondary,
-      marginTop: 4,
+      marginTop: space[1],
       fontVariant: ['tabular-nums'],
     },
-    identityHint: { ...type.caption1, color: palette.labelTertiary, marginTop: 4 },
     nameInput: {
-      ...type.title3,
+      ...type.title2,
       color: palette.label,
-      borderBottomWidth: 1.5,
-      borderBottomColor: palette.tint,
-      paddingBottom: 1,
+      borderBottomWidth: StyleSheet.hairlineWidth * 2,
+      borderBottomColor: palette.separator,
+      paddingBottom: space[1],
     },
     identityActionsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: space[2],
-      marginTop: space[3],
+      marginTop: space[4],
       alignSelf: 'flex-start',
       maxWidth: '100%',
     },
-    convexTag: {
-      flexDirection: 'row',
+    identityAvatarWrap: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      overflow: 'hidden',
+    },
+    identityAvatarWrapMuted: {
+      opacity: 0.72,
+    },
+    identityAvatarOverlay: {
+      ...StyleSheet.absoluteFillObject,
       alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: space[2] + 2,
-      paddingVertical: 4,
-      borderRadius: radius.pill,
-      backgroundColor: palette.fillSecondary,
-      marginLeft: space[3],
-      flexShrink: 0,
-    },
-    convexTagLabel: {
-      ...type.caption2,
-      color: palette.labelSecondary,
-      fontWeight: '500',
-      fontFamily: sansForWeight('500'),
-    },
-    offlineTag: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: space[2] + 2,
-      paddingVertical: 4,
-      borderRadius: radius.pill,
-      backgroundColor: palette.positiveSoft,
-    },
-    offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.positive },
-    offlineLabel: {
-      ...type.caption2,
-      color: palette.positive,
-      fontWeight: '500',
-      fontFamily: sansForWeight('500'),
+      justifyContent: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.35)',
     },
 
     section: { marginBottom: space[4], paddingHorizontal: space[5] },
@@ -247,6 +239,8 @@ interface ProfileScreenImplProps {
   convexSignOut?: () => Promise<void>;
   convexDeleteAccount?: () => Promise<void>;
   showDevDeleteAccount?: boolean;
+  /** When set (signed-in + Convex), uploads compressed JPEG and patches `users.image`. */
+  syncAvatarToConvex?: (localFileUri: string) => Promise<string>;
 }
 
 function ProfileScreenImpl({
@@ -256,6 +250,7 @@ function ProfileScreenImpl({
   convexSignOut,
   convexDeleteAccount,
   showDevDeleteAccount = false,
+  syncAvatarToConvex,
 }: ProfileScreenImplProps) {
   const colorScheme = useAppColorScheme();
   const palette = useColors();
@@ -263,6 +258,8 @@ function ProfileScreenImpl({
 
   const name = useProfileStore((s) => s.name);
   const username = useProfileStore((s) => s.username);
+  const avatarUri = useProfileStore((s) => s.avatarUri);
+  const setAvatarUri = useProfileStore((s) => s.setAvatarUri);
   const setName = useProfileStore((s) => s.setName);
   const setCurrency = useProfileStore((s) => s.setCurrency);
   const setAppearance = useProfileStore((s) => s.setAppearance);
@@ -278,6 +275,7 @@ function ProfileScreenImpl({
 
   const [renamingDisplayName, setRenamingDisplayName] = useState(false);
   const [editName, setEditName] = useState(name);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const commitName = () => {
     const t = editName.trim();
@@ -294,8 +292,100 @@ function ProfileScreenImpl({
     notifySuccess(toast, 'Currency updated');
   };
 
+  const identitySubtitle = useMemo(() => {
+    if (convexConfigured) {
+      if (convexAuthLoading) return 'Checking account…';
+      if (username) return `@${username}`;
+      if (convexAuthenticated) return 'Signed in';
+      return 'Not signed in';
+    }
+    return 'Offline-first';
+  }, [convexAuthLoading, convexAuthenticated, convexConfigured, username]);
+
   const needsAccountCreation =
     convexConfigured && !convexAuthLoading && !convexAuthenticated;
+
+  /** Offline installs: local photo OK. With Convex URL: must be signed in to pick/upload. */
+  const canChangeProfilePhoto =
+    !convexConfigured || (convexAuthenticated && !convexAuthLoading);
+
+  const changeProfilePhoto = useCallback(() => {
+    if (renamingDisplayName || avatarBusy) return;
+
+    if (convexConfigured && (!convexAuthenticated || convexAuthLoading)) {
+      if (convexAuthLoading) return;
+      Alert.alert(
+        'Sign in to add a photo',
+        'Profile photos are saved to your account. Sign in first.',
+        [
+          { text: 'OK', style: 'cancel' },
+          ...(needsAccountCreation
+            ? [
+                {
+                  text: 'Create account',
+                  onPress: () => router.push('/create-account'),
+                },
+              ]
+            : []),
+        ]
+      );
+      return;
+    }
+
+    void (async () => {
+      try {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert('Photos', 'Allow photo library access to set your profile picture.');
+          return;
+        }
+        const picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+        if (picked.canceled || !picked.assets[0]?.uri) return;
+
+        setAvatarBusy(true);
+        const compressedUri = await compressProfileAvatarToDocument(picked.assets[0].uri);
+        setAvatarUri(compressedUri);
+
+        if (syncAvatarToConvex) {
+          try {
+            const url = await syncAvatarToConvex(compressedUri);
+            setAvatarUri(url);
+            notifySuccess(toast, 'Profile photo synced');
+          } catch (e) {
+            console.warn('[profile] Convex avatar upload failed', e);
+            Alert.alert(
+              'Saved on device',
+              'Your photo is saved here but could not sync. Try again when online.'
+            );
+          }
+        } else {
+          notifySuccess(toast, 'Profile photo updated');
+        }
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Could not update photo';
+        Alert.alert('Photo', msg);
+      } finally {
+        setAvatarBusy(false);
+      }
+    })();
+  }, [
+    avatarBusy,
+    convexAuthLoading,
+    convexAuthenticated,
+    convexConfigured,
+    needsAccountCreation,
+    renamingDisplayName,
+    router,
+    setAvatarUri,
+    syncAvatarToConvex,
+    toast,
+  ]);
 
   const confirmClearAll = () => {
     Alert.alert(
@@ -373,72 +463,64 @@ function ProfileScreenImpl({
         </View>
 
         <GlassCard style={styles.identityCard} borderRadius={radius.card}>
-          <Avatar name={name} size={60} />
-          <View style={styles.identityBody}>
-            {renamingDisplayName ? (
-              <TextInput
-                style={styles.nameInput}
-                value={editName}
-                onChangeText={setEditName}
-                onSubmitEditing={commitName}
-                onBlur={commitName}
-                autoFocus
-                returnKeyType="done"
-                selectTextOnFocus
-                placeholderTextColor={palette.placeholder}
-                keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
-              />
-            ) : (
-              <>
-                <Text style={styles.identityName}>{name}</Text>
-                {convexConfigured ? (
-                  <Text style={styles.identityHandle}>
-                    {username ? `@${username}` : convexAuthLoading ? 'Checking account…' : 'No account'}
-                  </Text>
-                ) : null}
-                <Text style={styles.identityHint}>Display name appears in splits and receipts.</Text>
-                <View style={styles.identityActionsRow}>
-                  <GlassButton
-                    variant="secondary"
-                    onPress={() => {
-                      setEditName(name);
-                      setRenamingDisplayName(true);
-                    }}>
-                    <GlassButton.Label>Rename</GlassButton.Label>
-                  </GlassButton>
-                  {convexConfigured && needsAccountCreation ? (
-                    <GlassButton variant="primary" onPress={() => router.push('/create-account')}>
-                      <GlassButton.Label>Create account</GlassButton.Label>
-                    </GlassButton>
-                  ) : null}
+          <View style={styles.identityRow}>
+            <TouchableOpacity
+              style={[
+                styles.identityAvatarWrap,
+                !canChangeProfilePhoto ? styles.identityAvatarWrapMuted : null,
+              ]}
+              onPress={changeProfilePhoto}
+              disabled={avatarBusy || renamingDisplayName}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={
+                canChangeProfilePhoto ? 'Change profile photo' : 'Profile photo, sign in to change'
+              }
+            >
+              <Avatar name={name} size={72} imageUri={avatarUri} />
+              {avatarBusy ? (
+                <View style={styles.identityAvatarOverlay} pointerEvents="none">
+                  <ActivityIndicator color="#fff" />
                 </View>
-              </>
-            )}
-          </View>
-
-          <View style={{ alignItems: 'flex-end', gap: space[3] }}>
-            {convexConfigured ? (
-              <View style={[styles.identityActionsRow, { marginLeft: 0 }]}>
-                {convexAuthLoading ? (
-                  <View style={styles.convexTag}>
-                    <Text style={styles.convexTagLabel}>Checking…</Text>
+              ) : null}
+            </TouchableOpacity>
+            <View style={styles.identityTextColumn}>
+              {renamingDisplayName ? (
+                <TextInput
+                  style={styles.nameInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  onSubmitEditing={commitName}
+                  onBlur={commitName}
+                  autoFocus
+                  returnKeyType="done"
+                  selectTextOnFocus
+                  placeholderTextColor={palette.placeholder}
+                  keyboardAppearance={colorScheme === 'dark' ? 'dark' : 'light'}
+                />
+              ) : (
+                <>
+                  <Text style={styles.identityName}>{name}</Text>
+                  <Text style={styles.identitySubtitle} numberOfLines={2}>
+                    {identitySubtitle}
+                  </Text>
+                  <View style={styles.identityActionsRow}>
+                    <GlassButton
+                      variant="secondary"
+                      onPress={() => {
+                        setEditName(name);
+                        setRenamingDisplayName(true);
+                      }}>
+                      <GlassButton.Label>Rename</GlassButton.Label>
+                    </GlassButton>
+                    {convexConfigured && needsAccountCreation ? (
+                      <GlassButton variant="primary" onPress={() => router.push('/create-account')}>
+                        <GlassButton.Label>Create account</GlassButton.Label>
+                      </GlassButton>
+                    ) : null}
                   </View>
-                ) : convexAuthenticated ? (
-                  <View style={styles.convexTag}>
-                    <User size={12} color={palette.labelSecondary} />
-                    <Text style={styles.convexTagLabel}>Signed in</Text>
-                  </View>
-                ) : (
-                  <View style={styles.convexTag}>
-                    <User size={12} color={palette.labelSecondary} />
-                    <Text style={styles.convexTagLabel}>Not signed in</Text>
-                  </View>
-                )}
-              </View>
-            ) : null}
-            <View style={styles.offlineTag}>
-              <View style={styles.offlineDot} />
-              <Text style={styles.offlineLabel}>Offline-first</Text>
+                </>
+              )}
             </View>
           </View>
         </GlassCard>
@@ -537,6 +619,18 @@ function ProfileScreenWithConvex() {
   const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const deleteMyAccount = useMutation(api.account.deleteMyAccount);
+  const generateAvatarUploadUrl = useMutation(api.profile.generateAvatarUploadUrl);
+  const finalizeProfileAvatar = useMutation(api.profile.finalizeProfileAvatar);
+
+  const syncAvatarToConvex = useCallback(
+    async (localFileUri: string) =>
+      uploadLocalAvatarToConvex({
+        localFileUri,
+        generateUploadUrl: () => generateAvatarUploadUrl(),
+        finalizeProfileAvatar: (args) => finalizeProfileAvatar(args),
+      }),
+    [finalizeProfileAvatar, generateAvatarUploadUrl]
+  );
 
   const handleDeleteAccount = useCallback(async () => {
     await deleteMyAccount();
@@ -559,6 +653,9 @@ function ProfileScreenWithConvex() {
       convexSignOut={signOut}
       convexDeleteAccount={handleDeleteAccount}
       showDevDeleteAccount={showDevDeleteAccount}
+      syncAvatarToConvex={
+        isAuthenticated && !isLoading ? syncAvatarToConvex : undefined
+      }
     />
   );
 }

@@ -26,6 +26,7 @@ export async function replaceProfile(db: DebtlyDatabase, data: ProfileData): Pro
         appearance: data.appearance,
         showSplitBillsInTransactions: data.showSplitBillsInTransactions,
         receiptThermalLook: data.receiptThermalLook,
+        avatarUri: data.avatarUri ?? null,
       },
     });
 }

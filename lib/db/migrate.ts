@@ -39,6 +39,17 @@ async function ensureProfileUsernameColumn(sqliteDb: SQLiteDatabase): Promise<vo
   }
 }
 
+async function ensureProfileAvatarUriColumn(sqliteDb: SQLiteDatabase): Promise<void> {
+  const cols = await sqliteDb.getAllAsync<{ name: string }>(
+    "PRAGMA table_info('profile_settings')"
+  );
+  if (!cols.some((c) => c.name === 'avatar_uri')) {
+    await sqliteDb.execAsync(
+      'ALTER TABLE `profile_settings` ADD COLUMN `avatar_uri` text;'
+    );
+  }
+}
+
 async function hasCoreSchema(sqliteDb: SQLiteDatabase): Promise<boolean> {
   const row = await sqliteDb.getFirstAsync<{ cnt: number }>(
     "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name='debts'"
@@ -59,4 +70,5 @@ export async function runMigrations(
   }
 
   await ensureProfileUsernameColumn(sqliteDb);
+  await ensureProfileAvatarUriColumn(sqliteDb);
 }

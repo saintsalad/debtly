@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { Image } from 'expo-image';
 import { BanknoteArrowDown, BanknoteArrowUp } from 'lucide-react-native';
 import { getDiceBearSvg } from '@/lib/dicebearAvatar';
 import { sansForWeight } from '@/lib/appFonts';
@@ -11,6 +12,8 @@ export type AvatarTone = 'credit' | 'debit';
 
 interface AvatarProps {
   name: string;
+  /** When set (https or local file), shown instead of DiceBear / initials. Ignored when `tone` is set. */
+  imageUri?: string | null;
   /** DiceBear only for individuals; use `initials` for groups / entities. */
   variant?: 'person' | 'initials';
   /** Stable DiceBear seed (e.g. member / debt id). Defaults to `name`. Ignored when `variant` is `initials`. */
@@ -23,6 +26,7 @@ interface AvatarProps {
 
 export function Avatar({
   name,
+  imageUri,
   variant = 'person',
   seed,
   size = 44,
@@ -51,6 +55,32 @@ export function Avatar({
         ) : (
           <BanknoteArrowUp size={iconSize} color={iconColor} strokeWidth={2.25} />
         )}
+      </View>
+    );
+  }
+
+  if (imageUri) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            overflow: 'hidden',
+            backgroundColor: palette.fill,
+          },
+        ]}
+        accessibilityRole="image"
+        accessibilityLabel={name}
+      >
+        <Image
+          source={{ uri: imageUri }}
+          style={{ width: size, height: size }}
+          contentFit="cover"
+          transition={160}
+        />
       </View>
     );
   }
