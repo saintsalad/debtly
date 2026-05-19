@@ -13,6 +13,7 @@ import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { notifySuccess } from '@/lib/appToast';
 import { useRouter } from 'expo-router';
 import { useConvexAuth } from 'convex/react';
@@ -68,6 +69,7 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
   const sheetRef = useRef<BottomSheetModal>(null);
   const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
   const createGroup = useGroupExpenseStore((s) => s.createGroup);
+  const profileCurrency = useProfileStore((s) => s.currency);
   const router = useRouter();
   const [name, setName] = useState('');
   const { toast } = useToast();
@@ -101,7 +103,11 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
 
     if (convexReady) {
       try {
-        const r = await convexCreateGroup({ name: trimmed, memberNames: [] });
+        const r = await convexCreateGroup({
+          name: trimmed,
+          memberNames: [],
+          currency: profileCurrency,
+        });
         notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
         sheetRef.current?.dismiss();
         router.push({ pathname: '/group/[id]', params: { id: r.groupId } });

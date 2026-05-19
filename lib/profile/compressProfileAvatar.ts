@@ -8,8 +8,11 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 
 import { PROFILE_AVATAR_FILENAME } from '@/lib/profile/profileAvatarConstants';
 
-const MAX_EDGE_PX = 512;
-const JPEG_QUALITY = 0.82;
+export const PROFILE_AVATAR_MAX_EDGE_PX = 512;
+export const PROFILE_AVATAR_JPEG_QUALITY = 0.82;
+
+const MAX_EDGE_PX = PROFILE_AVATAR_MAX_EDGE_PX;
+const JPEG_QUALITY = PROFILE_AVATAR_JPEG_QUALITY;
 
 /**
  * Resize + JPEG-compress a picked image for use as a profile avatar.
@@ -39,6 +42,23 @@ export async function compressProfileAvatarToDocument(sourceUri: string): Promis
   await copyAsync({ from: manipulated.uri, to: dest });
 
   return dest;
+}
+
+/**
+ * Same resize / JPEG quality as {@link compressProfileAvatarToDocument}, but returns the
+ * manipulator output URI directly (fine for uploads; avoids clobbering the profile file path).
+ */
+export async function compressImageToJpegForUpload(sourceUri: string): Promise<string> {
+  const manipulated = await manipulateAsync(
+    sourceUri,
+    [{ resize: { width: MAX_EDGE_PX } }],
+    { compress: JPEG_QUALITY, format: SaveFormat.JPEG }
+  );
+  const info = await getInfoAsync(manipulated.uri);
+  if (!info.exists) {
+    throw new Error('Could not read compressed image.');
+  }
+  return manipulated.uri;
 }
 
 export async function deleteProfileAvatarFile(): Promise<void> {

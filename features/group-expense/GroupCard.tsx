@@ -12,7 +12,8 @@ import {
   selectGroupBalances,
 } from '@/features/group-expense/balanceEngine';
 import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expense/types';
-import { useCurrency } from '@/hooks/useCurrency';
+import { formatCurrency } from '@/lib/utils';
+import { useProfileStore } from '@/stores/profileStore';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { minorToMajor } from '@/features/debts/money';
 import { sansForWeight } from '@/lib/appFonts';
@@ -99,7 +100,16 @@ export function GroupCard({
     () => createStyles(palette, rowPressedColor),
     [palette, rowPressedColor]
   );
-  const { fmt } = useCurrency();
+  const profileCurrency = useProfileStore((s) => s.currency);
+  const displayCurrency =
+    typeof group.currency === 'string' && group.currency.trim().length >= 3
+      ? group.currency.trim().toUpperCase().slice(0, 3)
+      : profileCurrency;
+
+  const fmt = useMemo(
+    () => (amount: number) => formatCurrency(amount, displayCurrency),
+    [displayCurrency]
+  );
 
   const summary = useMemo(
     () => selectGroupBalances(group, expenses, settlements),

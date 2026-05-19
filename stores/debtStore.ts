@@ -45,6 +45,8 @@ interface DebtState {
     settlements: Settlement[]
   ) => void;
   removeGroupSyncedDebtsForGroup: (groupId: string) => void;
+  /** Drop ledger rows tied to split groups that no longer exist (e.g. after Convex logout). */
+  pruneGroupSyncedDebts: (validGroupIds: Set<string>) => void;
 }
 
 function settleDebtWithLifecycle(debts: Debt[], debt: Debt, settledAt: string): Debt[] {
@@ -332,6 +334,17 @@ export const useDebtStore = create<DebtState>()((set, get) => ({
       removeGroupSyncedDebtsForGroup: (groupId) =>
         set((state) => ({
           debts: withSyncedDebts(state.debts.filter((d) => !isGroupSyncedDebt(d, groupId))),
+        })),
+      pruneGroupSyncedDebts: (validGroupIds) =>
+        set((state) => ({
+          debts: withSyncedDebts(
+            state.debts.filter(
+              (d) =>
+                d.sourceType !== 'group' ||
+                !d.sourceGroupId ||
+                validGroupIds.has(d.sourceGroupId)
+            )
+          ),
         })),
 }));
 

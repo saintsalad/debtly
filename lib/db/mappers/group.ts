@@ -27,6 +27,7 @@ export function groupToRow(group: SplitGroup): GroupRow {
   return {
     id: group.id,
     name: group.name,
+    currency: group.currency ?? null,
     imageUri: group.imageUri ?? null,
     inviteCode: group.inviteCode,
     createdByMemberId: group.createdByMemberId ?? null,
@@ -44,6 +45,7 @@ export function memberToRow(member: GroupMember, groupId: string): GroupMemberRo
     displayName: member.displayName,
     isCurrentUser: member.isCurrentUser,
     username: member.username ?? null,
+    avatarUri: member.avatarUri ?? null,
     color: member.color ?? null,
     joinedAt: member.joinedAt,
   };
@@ -116,6 +118,7 @@ export function rowToGroup(row: GroupRow, members: GroupMember[]): SplitGroup {
     id: row.id,
     name: row.name,
     imageUri: row.imageUri ?? undefined,
+    currency: row.currency ?? undefined,
     inviteCode: row.inviteCode,
     members,
     createdByMemberId: row.createdByMemberId ?? undefined,
@@ -132,6 +135,7 @@ export function rowToMember(row: GroupMemberRow): GroupMember {
     displayName: row.displayName,
     isCurrentUser: row.isCurrentUser,
     username: row.username ?? undefined,
+    avatarUri: row.avatarUri ?? undefined,
     color: row.color ?? undefined,
     joinedAt: row.joinedAt,
   };

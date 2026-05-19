@@ -50,6 +50,8 @@ export default defineSchema({
 
   splitGroups: defineTable({
     name: v.string(),
+    /** ISO 4217 code; defaults to USD for legacy docs without this field. */
+    currency: v.optional(v.string()),
     imageStorageId: v.optional(v.id('_storage')),
     createdByUserId: v.id('users'),
     createdAt: v.number(),

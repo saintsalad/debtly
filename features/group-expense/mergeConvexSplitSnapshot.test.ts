@@ -129,4 +129,62 @@ describe('mergeConvexSplitSnapshot', () => {
     expect(merged.groups).toHaveLength(1);
     expect(merged.groups[0].syncMode).toBe('convex');
   });
+
+  it('drops mirrored convex expenses when snapshot is empty (logout / offline)', () => {
+    const convexGroup = { ...baseLocalGroup('g_cloud', 'INV', 'convex'), name: 'Synced' };
+    const prev: GroupExpenseState = {
+      groups: [convexGroup],
+      expenses: [
+        {
+          id: 'orphan_exp',
+          groupId: 'g_cloud',
+          title: 'Stale',
+          amountMinor: 50,
+          currency: 'USD',
+          paidByMemberId: 'm1',
+          splitMethod: 'equal',
+          shares: [{ memberId: 'm1' }],
+          includedMemberIds: ['m1'],
+          expenseDate: '2026-01-02',
+          createdAt: joinedAt,
+          updatedAt: joinedAt,
+          version: 1,
+        },
+      ],
+      settlements: [
+        {
+          id: 'orphan_set',
+          groupId: 'g_cloud',
+          fromMemberId: 'm1',
+          toMemberId: 'm2',
+          amountMinor: 10,
+          settledAt: joinedAt,
+          version: 1,
+        },
+      ],
+      activityLog: [
+        {
+          id: 'orphan_act',
+          groupId: 'g_cloud',
+          kind: 'expense_added',
+          at: joinedAt,
+          actorMemberId: 'm1',
+          title: 'x',
+        },
+      ],
+      pendingOps: [],
+    };
+
+    const merged = mergeConvexSplitSnapshot(prev, {
+      groups: [],
+      expenses: [],
+      settlements: [],
+      activityLog: [],
+    });
+
+    expect(merged.groups).toHaveLength(0);
+    expect(merged.expenses).toHaveLength(0);
+    expect(merged.settlements).toHaveLength(0);
+    expect(merged.activityLog).toHaveLength(0);
+  });
 });

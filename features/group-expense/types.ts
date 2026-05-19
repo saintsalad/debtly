@@ -5,6 +5,8 @@ export interface GroupMember {
   displayName: string;
   isCurrentUser: boolean;
   username?: string;
+  /** Profile photo URL (e.g. from Convex auth user) when available */
+  avatarUri?: string;
   color?: string;
   joinedAt: string;
 }
@@ -24,6 +26,8 @@ export type GroupSyncMode = 'local' | 'convex';
 export interface SplitGroup {
   id: string;
   name: string;
+  /** ISO 4217; set when the group is created (Convex mirrors server; local mirrors profile). */
+  currency?: string;
   imageUri?: string;
   inviteCode: string;
   members: GroupMember[];
@@ -108,6 +112,7 @@ export interface MemberBalance {
   memberId: string;
   displayName: string;
   isCurrentUser: boolean;
+  avatarUri?: string;
   /** Positive = member owes current user; negative = current user owes member */
   netMinor: number;
 }

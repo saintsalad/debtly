@@ -79,6 +79,7 @@ export const debtPayments = sqliteTable('debt_payments', {
 export const groups = sqliteTable('groups', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  currency: text('currency'),
   imageUri: text('image_uri'),
   inviteCode: text('invite_code').notNull(),
   createdByMemberId: text('created_by_member_id'),
@@ -97,6 +98,7 @@ export const groupMembers = sqliteTable('group_members', {
   displayName: text('display_name').notNull(),
   isCurrentUser: integer('is_current_user', { mode: 'boolean' }).notNull(),
   username: text('username'),
+  avatarUri: text('avatar_uri'),
   color: text('color'),
   joinedAt: text('joined_at').notNull(),
 });

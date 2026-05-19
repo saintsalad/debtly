@@ -61,6 +61,24 @@ async function ensureGroupsSyncModeColumn(sqliteDb: SQLiteDatabase): Promise<voi
   }
 }
 
+async function ensureGroupCurrencyColumn(sqliteDb: SQLiteDatabase): Promise<void> {
+  const cols = await sqliteDb.getAllAsync<{ name: string }>(
+    "PRAGMA table_info('groups')"
+  );
+  if (!cols.some((c) => c.name === 'currency')) {
+    await sqliteDb.execAsync('ALTER TABLE `groups` ADD COLUMN `currency` text;');
+  }
+}
+
+async function ensureGroupMemberAvatarUriColumn(sqliteDb: SQLiteDatabase): Promise<void> {
+  const cols = await sqliteDb.getAllAsync<{ name: string }>(
+    "PRAGMA table_info('group_members')"
+  );
+  if (!cols.some((c) => c.name === 'avatar_uri')) {
+    await sqliteDb.execAsync('ALTER TABLE `group_members` ADD COLUMN `avatar_uri` text;');
+  }
+}
+
 async function hasCoreSchema(sqliteDb: SQLiteDatabase): Promise<boolean> {
   const row = await sqliteDb.getFirstAsync<{ cnt: number }>(
     "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name='debts'"
@@ -83,4 +101,6 @@ export async function runMigrations(
   await ensureProfileUsernameColumn(sqliteDb);
   await ensureProfileAvatarUriColumn(sqliteDb);
   await ensureGroupsSyncModeColumn(sqliteDb);
+  await ensureGroupCurrencyColumn(sqliteDb);
+  await ensureGroupMemberAvatarUriColumn(sqliteDb);
 }

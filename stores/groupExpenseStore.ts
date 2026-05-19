@@ -111,6 +111,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         if (!trimmed) return null;
 
         const profileName = useProfileStore.getState().name || 'You';
+        const profileCurrency = useProfileStore.getState().currency;
         const now = new Date().toISOString();
         const currentUser = createCurrentUserMember(profileName);
 
@@ -127,6 +128,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         const group: SplitGroup = {
           id: generateId(),
           name: trimmed,
+          currency: profileCurrency,
           imageUri,
           inviteCode: generateInviteCode(),
           members: [currentUser, ...extraMembers],
@@ -434,7 +436,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         if (!group) return 'Group not found.';
 
         const amountMinor = amountToMinor(input.amount);
-        const currency = useProfileStore.getState().currency;
+        const currency = group.currency ?? useProfileStore.getState().currency;
         const included = input.includedMemberIds.length
           ? input.includedMemberIds
           : group.members.map((m) => m.id);

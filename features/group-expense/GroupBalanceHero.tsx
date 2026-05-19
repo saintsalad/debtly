@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { getMemberSettlementsTotalMinor } from '@/features/group-expense/balanceEngine';
 import type { GroupBalanceSummary, Settlement } from '@/features/group-expense/types';
-import { useCurrency } from '@/hooks/useCurrency';
+import { useProfileStore } from '@/stores/profileStore';
+import { formatCurrency } from '@/lib/utils';
 import { minorToMajor } from '@/features/debts/money';
 import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
@@ -11,6 +12,8 @@ interface GroupBalanceHeroProps {
   summary: GroupBalanceSummary;
   totalSpendMinor: number;
   groupId: string;
+  /** ISO 4217; defaults to profile currency. */
+  currencyCode?: string;
   currentUserId?: string;
   settlements: Settlement[];
   compact?: boolean;
@@ -101,6 +104,7 @@ export function GroupBalanceHero({
   summary,
   totalSpendMinor,
   groupId,
+  currencyCode,
   currentUserId,
   settlements,
   compact,
@@ -111,7 +115,9 @@ export function GroupBalanceHero({
     () => createStyles(palette, Boolean(compact), Boolean(overlay)),
     [palette, compact, overlay]
   );
-  const { fmt } = useCurrency();
+  const profileCurrency = useProfileStore((s) => s.currency);
+  const code = currencyCode ?? profileCurrency;
+  const fmt = useMemo(() => (amount: number) => formatCurrency(amount, code), [code]);
 
   const net = summary.youAreOwedMinor - summary.youOweMinor;
   const settledAmountMinor = getMemberSettlementsTotalMinor(

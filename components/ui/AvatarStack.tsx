@@ -9,10 +9,16 @@ const RING_WIDTH = 2;
 export interface AvatarStackMember {
   id: string;
   name: string;
+  imageUri?: string;
 }
 
 export function sortMembersForStack(
-  members: { id: string; displayName: string; isCurrentUser: boolean }[]
+  members: {
+    id: string;
+    displayName: string;
+    isCurrentUser: boolean;
+    avatarUri?: string;
+  }[]
 ): AvatarStackMember[] {
   return [...members]
     .sort((a, b) => {
@@ -20,7 +26,11 @@ export function sortMembersForStack(
       if (b.isCurrentUser) return 1;
       return a.displayName.localeCompare(b.displayName);
     })
-    .map((m) => ({ id: m.id, name: m.displayName }));
+    .map((m) => ({
+      id: m.id,
+      name: m.displayName,
+      imageUri: m.avatarUri,
+    }));
 }
 
 interface AvatarStackProps {
@@ -134,7 +144,7 @@ export function AvatarStack({ members, size = 36, maxVisible = 4, overlay }: Ava
           slotStyle={styles.slot}
           clipStyle={styles.clip}
         >
-          <Avatar name={member.name} seed={member.id} size={size} />
+          <Avatar name={member.name} seed={member.id} size={size} imageUri={member.imageUri} />
         </StackSlot>
       ))}
       {overflow > 0 ? (

@@ -68,6 +68,7 @@ CREATE TABLE `debt_payments` (
 CREATE TABLE `groups` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
+	`currency` text,
 	`image_uri` text,
 	`invite_code` text NOT NULL,
 	`created_by_member_id` text,
@@ -83,6 +84,7 @@ CREATE TABLE `group_members` (
 	`display_name` text NOT NULL,
 	`is_current_user` integer NOT NULL,
 	`username` text,
+	`avatar_uri` text,
 	`color` text,
 	`joined_at` text NOT NULL,
 	FOREIGN KEY (`group_id`) REFERENCES `groups`(`id`) ON UPDATE no action ON DELETE cascade

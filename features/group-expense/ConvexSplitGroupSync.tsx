@@ -2,9 +2,19 @@ import { api } from '@/convex/_generated/api';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { mergeConvexSplitSnapshot } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
+import { useDebtStore } from '@/stores/debtStore';
 import { useConvexAuth } from 'convex/react';
 import { useQuery } from 'convex/react';
 import { useEffect } from 'react';
+
+function reconcileSplitDebtsWithStores(): void {
+  const snap = useGroupExpenseStore.getState();
+  const validGroupIds = new Set(snap.groups.map((g) => g.id));
+  useDebtStore.getState().pruneGroupSyncedDebts(validGroupIds);
+  for (const g of snap.groups) {
+    useDebtStore.getState().syncGroupDebtsToLedger(g, snap.expenses, snap.settlements);
+  }
+}
 
 function ConvexSplitGroupSyncInner() {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -22,6 +32,7 @@ function ConvexSplitGroupSyncInner() {
           activityLog: [],
         })
       );
+      reconcileSplitDebtsWithStores();
       return;
     }
     if (snapshot === undefined) return;
@@ -35,10 +46,12 @@ function ConvexSplitGroupSyncInner() {
           activityLog: [],
         })
       );
+      reconcileSplitDebtsWithStores();
       return;
     }
 
     useGroupExpenseStore.setState((prev) => mergeConvexSplitSnapshot(prev, snapshot));
+    reconcileSplitDebtsWithStores();
   }, [authReady, snapshot]);
 
   return null;

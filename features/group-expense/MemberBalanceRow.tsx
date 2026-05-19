@@ -2,7 +2,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ContextMenuDropdown, type ContextMenuItem, type ContextMenuSection } from '@/components/ui/ContextMenuDropdown';
 import { minorToMajor } from '@/features/debts/money';
 import type { MemberBalance } from '@/features/group-expense/types';
-import { useCurrency } from '@/hooks/useCurrency';
+import { useProfileStore } from '@/stores/profileStore';
+import { formatCurrency } from '@/lib/utils';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { sansForWeight } from '@/lib/appFonts';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
@@ -13,6 +14,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface MemberBalanceRowProps {
   balance: MemberBalance;
+  /** ISO 4217 for row amounts; falls back to profile currency. */
+  currencyCode?: string;
   /** True if any settlement exists between the viewer and this member (either direction). */
   hasRecordedSettlements: boolean;
   onSendMessage: () => void;
@@ -65,6 +68,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
 
 export function MemberBalanceRow({
   balance,
+  currencyCode,
   hasRecordedSettlements,
   onSendMessage,
   onMarkPaid,
@@ -76,7 +80,10 @@ export function MemberBalanceRow({
     () => createStyles(palette, rowPressedColor),
     [palette, rowPressedColor]
   );
-  const { fmt } = useCurrency();
+  const profileCurrency = useProfileStore((s) => s.currency);
+  const code = currencyCode ?? profileCurrency;
+  const fmt = useMemo(() => (amount: number) => formatCurrency(amount, code), [code]);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const anchorRef = useRef<View>(null);
 
@@ -119,7 +126,12 @@ export function MemberBalanceRow({
   if (balance.isCurrentUser) {
     return (
       <View style={styles.row}>
-        <Avatar name={balance.displayName} seed={balance.memberId} size={40} />
+        <Avatar
+          name={balance.displayName}
+          seed={balance.memberId}
+          size={40}
+          imageUri={balance.avatarUri}
+        />
         <View style={styles.body}>
           <Text style={styles.name}>{balance.displayName}</Text>
           <Text style={styles.sub}>You</Text>
@@ -137,7 +149,12 @@ export function MemberBalanceRow({
 
   const rowInner = (
     <>
-      <Avatar name={balance.displayName} seed={balance.memberId} size={40} />
+      <Avatar
+        name={balance.displayName}
+        seed={balance.memberId}
+        size={40}
+        imageUri={balance.avatarUri}
+      />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {balance.displayName}

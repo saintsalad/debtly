@@ -7,6 +7,8 @@ export interface GroupMember {
   displayName: string;
   isCurrentUser: boolean;
   username?: string;
+  /** Convex profile photo URL when the member is a linked auth user */
+  avatarUri?: string;
   color?: string;
   joinedAt: string;
 }
@@ -22,6 +24,8 @@ export interface ExpenseShare {
 export interface SplitGroup {
   id: string;
   name: string;
+  /** ISO 4217; echoed to every client so expenses default consistently */
+  currency: string;
   imageUri?: string;
   inviteCode: string;
   members: GroupMember[];

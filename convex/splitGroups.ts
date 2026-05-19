@@ -80,15 +80,24 @@ async function viewerMemberId(ctx: any, groupId: Id<'splitGroups'>, userId: Id<'
 function mapMemberToClient(
   row: { _id: Id<'splitGroupMembers'>; userId?: Id<'users'>; displayName: string; joinedAt: number },
   viewerUserId: Id<'users'>,
-  usernameByUserId: Map<string, string | undefined>
+  usernameByUserId: Map<string, string | undefined>,
+  avatarUriByUserId: Map<string, string | undefined>
 ): GroupMember {
+  const uid = row.userId ? (row.userId as string) : undefined;
   return {
     id: row._id as string,
     displayName: row.displayName,
     isCurrentUser: row.userId === viewerUserId,
-    username: row.userId ? usernameByUserId.get(row.userId as string) : undefined,
+    username: uid ? usernameByUserId.get(uid) : undefined,
+    avatarUri: uid ? avatarUriByUserId.get(uid) : undefined,
     joinedAt: isoFromMs(row.joinedAt),
   };
+}
+
+function normalizedGroupCurrency(raw: string | undefined): string {
+  const t = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+  if (t.length >= 3) return t.slice(0, 3);
+  return 'USD';
 }
 
 async function buildSplitGroupForViewer(
@@ -96,6 +105,7 @@ async function buildSplitGroupForViewer(
   groupDoc: {
     _id: Id<'splitGroups'>;
     name: string;
+    currency?: string;
     imageStorageId?: Id<'_storage'>;
     createdByUserId: Id<'users'>;
     createdAt: number;
@@ -106,10 +116,14 @@ async function buildSplitGroupForViewer(
 ): Promise<SplitGroup> {
   const memberRows = await loadMembers(ctx, groupDoc._id);
   const usernameByUserId = new Map<string, string | undefined>();
+  const avatarUriByUserId = new Map<string, string | undefined>();
   for (const m of memberRows) {
     if (m.userId) {
       const u = await ctx.db.get(m.userId);
-      usernameByUserId.set(m.userId as string, u?.username ?? undefined);
+      const idStr = m.userId as string;
+      usernameByUserId.set(idStr, u?.username ?? undefined);
+      const img = u?.image;
+      avatarUriByUserId.set(idStr, typeof img === 'string' && img.length > 0 ? img : undefined);
     }
   }
   const creatorMember = memberRows.find(
@@ -125,10 +139,11 @@ async function buildSplitGroupForViewer(
   return {
     id: groupDoc._id as string,
     name: groupDoc.name,
+    currency: normalizedGroupCurrency(groupDoc.currency),
     imageUri,
     inviteCode,
     members: memberRows.map((r: (typeof memberRows)[number]) =>
-      mapMemberToClient(r, viewerUserId, usernameByUserId)
+      mapMemberToClient(r, viewerUserId, usernameByUserId, avatarUriByUserId)
     ),
     createdByMemberId: creatorMember?._id as string | undefined,
     createdAt: isoFromMs(groupDoc.createdAt),
@@ -247,6 +262,7 @@ export const createGroup = mutation({
   args: {
     name: v.string(),
     memberNames: v.optional(v.array(v.string())),
+    currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -256,9 +272,11 @@ export const createGroup = mutation({
     const user = await ctx.db.get(userId);
     const displayName = user?.name?.trim() || 'You';
     const now = Date.now();
+    const currencyStored = normalizedGroupCurrency(args.currency);
 
     const groupId = await ctx.db.insert('splitGroups', {
       name: trimmed,
+      currency: currencyStored,
       createdByUserId: userId,
       createdAt: now,
       updatedAt: now,
@@ -278,6 +296,8 @@ export const createGroup = mutation({
         id: creatorMemberId as string,
         displayName,
         isCurrentUser: true,
+        avatarUri:
+          typeof user?.image === 'string' && user.image.length > 0 ? user.image : undefined,
         joinedAt: isoFromMs(now),
       },
     ];
@@ -359,12 +379,23 @@ export const joinByInviteCode = mutation({
     const now = Date.now();
     const nowIso = isoFromMs(now);
 
-    const rosterBefore: GroupMember[] = existing.map((r) => ({
-      id: r._id as string,
-      displayName: r.displayName,
-      isCurrentUser: r.userId === userId,
-      joinedAt: isoFromMs(r.joinedAt),
-    }));
+    const rosterBefore: GroupMember[] = await Promise.all(
+      existing.map(async (r) => {
+        let avatarUri: string | undefined;
+        if (r.userId) {
+          const uRow = await ctx.db.get(r.userId);
+          const img = uRow?.image;
+          avatarUri = typeof img === 'string' && img.length > 0 ? img : undefined;
+        }
+        return {
+          id: r._id as string,
+          displayName: r.displayName,
+          isCurrentUser: r.userId === userId,
+          avatarUri,
+          joinedAt: isoFromMs(r.joinedAt),
+        };
+      })
+    );
 
     const newMemberId = await ctx.db.insert('splitGroupMembers', {
       groupId,
@@ -505,6 +536,78 @@ export const updateGroup = mutation({
         });
       }
     }
+
+    return null;
+  },
+});
+
+export const generateGroupImageUploadUrl = mutation({
+  args: { groupId: v.id('splitGroups') },
+  handler: async (ctx, { groupId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const finalizeGroupImageUpload = mutation({
+  args: {
+    groupId: v.id('splitGroups'),
+    storageId: v.id('_storage'),
+  },
+  handler: async (ctx, { groupId, storageId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    const g = await ctx.db.get(groupId);
+    if (!g) throw new ConvexError('Group not found.');
+    const now = Date.now();
+    const nowIso = isoFromMs(now);
+    const actorId = await viewerMemberId(ctx, groupId, userId);
+
+    await ctx.db.patch(groupId, {
+      imageStorageId: storageId,
+      updatedAt: now,
+      version: g.version + 1,
+    });
+
+    await ctx.db.insert('splitGroupActivity', {
+      groupId,
+      kind: 'group_updated',
+      at: nowIso,
+      actorMemberId: actorId,
+      title: 'Group photo updated',
+      subtitle: 'Group updated',
+    });
+
+    return null;
+  },
+});
+
+export const clearGroupImage = mutation({
+  args: { groupId: v.id('splitGroups') },
+  handler: async (ctx, { groupId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    const g = await ctx.db.get(groupId);
+    if (!g) throw new ConvexError('Group not found.');
+    const now = Date.now();
+    const nowIso = isoFromMs(now);
+    const actorId = await viewerMemberId(ctx, groupId, userId);
+
+    await ctx.db.patch(groupId, {
+      imageStorageId: undefined,
+      updatedAt: now,
+      version: g.version + 1,
+    });
+
+    await ctx.db.insert('splitGroupActivity', {
+      groupId,
+      kind: 'group_updated',
+      at: nowIso,
+      actorMemberId: actorId,
+      title: 'Group photo removed',
+      subtitle: 'Group updated',
+    });
 
     return null;
   },
@@ -773,6 +876,9 @@ export const addExpense = mutation({
     const userId = await requireUserId(ctx);
     await assertMember(ctx, args.groupId, userId);
 
+    const groupRowForCurrency = await ctx.db.get(args.groupId);
+    if (!groupRowForCurrency) throw new ConvexError('Group not found.');
+
     const members = await loadMembers(ctx, args.groupId);
     const memberIds = new Set<string>(
       members.map((m: { _id: Id<'splitGroupMembers'> }) => m._id as string)
@@ -795,14 +901,18 @@ export const addExpense = mutation({
 
     const nowIso = isoFromMs(Date.now());
     const expenseDate = args.expenseDate ?? nowIso;
-    const currency = args.currency ?? 'USD';
+    const expenseCurrency =
+      typeof groupRowForCurrency.currency === 'string' &&
+      groupRowForCurrency.currency.trim().length >= 3
+        ? normalizedGroupCurrency(groupRowForCurrency.currency)
+        : normalizedGroupCurrency(args.currency);
     const actorId = await viewerMemberId(ctx, args.groupId, userId);
 
     const id = await ctx.db.insert('splitGroupExpenses', {
       groupId: args.groupId,
       title: args.title.trim(),
       amountMinor,
-      currency,
+      currency: expenseCurrency,
       paidByMemberId: args.paidByMemberId,
       splitMethod: args.splitMethod,
       shares,
@@ -1144,10 +1254,12 @@ export const recordAllViewerPairwiseSettlements = mutation({
     const vm = await ctx.db.get(args.viewerMemberId as Id<'splitGroupMembers'>);
     if (!vm || vm.userId !== userId) throw new ConvexError('Invalid viewer member.');
 
+    const grpHead = await ctx.db.get(args.groupId);
     const memberRows = await loadMembers(ctx, args.groupId);
     const splitGroup: SplitGroup = {
       id: args.groupId as string,
       name: '',
+      currency: normalizedGroupCurrency((grpHead as { currency?: string } | null)?.currency),
       inviteCode: '',
       members: memberRows.map((r: (typeof memberRows)[number]) => ({
         id: r._id as string,

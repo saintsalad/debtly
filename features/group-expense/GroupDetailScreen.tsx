@@ -27,9 +27,11 @@ import {
 } from '@/features/group-expense/RecordSettlementSheet';
 import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
-import { notifySuccess } from '@/lib/appToast';
+import { notifySuccess, notifyError } from '@/lib/appToast';
+import { isConvexConfigured } from '@/lib/convex/env';
+import { uploadLocalGroupImageToConvex } from '@/lib/convex/uploadGroupImageToConvex';
+import { compressImageToJpegForUpload } from '@/lib/profile/compressProfileAvatar';
 import { sansForWeight } from '@/lib/appFonts';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import {
@@ -38,7 +40,7 @@ import {
   StatusBarScrollFadeStrip,
   useStatusBarScrollFade,
 } from '@/lib/statusBarScrollFade';
-import { getCurrencyMeta } from '@/lib/utils';
+import { getCurrencyMeta, formatCurrency } from '@/lib/utils';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 import * as Haptics from 'expo-haptics';
@@ -52,7 +54,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useToast } from 'heroui-native';
 import { Camera, ChevronLeft, MoreHorizontal, Printer, Share2, Trash2, UserPlus } from 'lucide-react-native';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -199,11 +201,19 @@ export function GroupDetailScreen() {
   const colorScheme = useAppColorScheme();
   const styles = useMemo(() => createStyles(palette), [palette]);
   const cardShadow = useCardShadow();
-  const { fmt } = useCurrency();
-  const currency = useProfileStore((s) => s.currency);
-  const currencySymbol = getCurrencyMeta(currency).symbol;
+  const profileCurrency = useProfileStore((s) => s.currency);
 
   const group = useGroupExpenseStore((s) => s.getGroup(id ?? ''));
+  const displayCurrency = useMemo(() => {
+    if (!group) return profileCurrency;
+    const c = group.currency?.trim();
+    if (c && c.length >= 3) return c.toUpperCase().slice(0, 3);
+    return profileCurrency;
+  }, [group, profileCurrency]);
+
+  const currencySymbol = useMemo(() => getCurrencyMeta(displayCurrency).symbol, [displayCurrency]);
+  const fmt = useMemo(() => (amount: number) => formatCurrency(amount, displayCurrency), [displayCurrency]);
+
   const expenses = useGroupExpenseStore((s) => s.expenses);
   const settlements = useGroupExpenseStore((s) => s.settlements);
   const activityLog = useGroupExpenseStore((s) => s.activityLog);
@@ -217,6 +227,9 @@ export function GroupDetailScreen() {
   const convexDeleteGroup = useMutation(api.splitGroups.deleteGroup);
   const convexRecordSettlement = useMutation(api.splitGroups.recordSettlement);
   const convexVoidSettlements = useMutation(api.splitGroups.voidRecordedSettlementsWithMember);
+  const convexGenGroupImageUrl = useMutation(api.splitGroups.generateGroupImageUploadUrl);
+  const convexFinalizeGroupImage = useMutation(api.splitGroups.finalizeGroupImageUpload);
+  const convexClearGroupImage = useMutation(api.splitGroups.clearGroupImage);
 
   const expenseSheetRef = useRef<AddExpenseSheetHandle>(null);
   const settlementSheetRef = useRef<RecordSettlementSheetHandle>(null);
@@ -224,6 +237,7 @@ export function GroupDetailScreen() {
   const membersSheetRef = useRef<GroupMembersSheetHandle>(null);
   const moreMenuAnchorRef = useRef<View>(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [groupPhotoUploading, setGroupPhotoUploading] = useState(false);
   const { toast } = useToast();
 
   const summary = useMemo(
@@ -271,22 +285,54 @@ export function GroupDetailScreen() {
   }, [group, summary, toast]);
 
   const openGroupPhotoOptions = useCallback(() => {
-    if (!group) return;
+    if (!group || groupPhotoUploading) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const gid = group.id as Id<'splitGroups'>;
 
     const choosePhoto = async () => {
       if (isCloudSplitGroup(group)) {
-        Alert.alert(
-          'Cloud group',
-          'Changing the group photo on synced groups is not supported yet.'
-        );
+        if (!isConvexConfigured()) {
+          Alert.alert('Unavailable', 'Cloud group photos require Convex and an internet connection.');
+          return;
+        }
+        const raw = await pickGroupPhotoFromLibrary();
+        if (!raw) return;
+        setGroupPhotoUploading(true);
+        try {
+          const jpegUri = await compressImageToJpegForUpload(raw);
+          await uploadLocalGroupImageToConvex({
+            localFileUri: jpegUri,
+            contentType: 'image/jpeg',
+            groupId: gid,
+            generateGroupImageUploadUrl: () => convexGenGroupImageUrl({ groupId: gid }),
+            finalizeGroupImageUpload: (a) => convexFinalizeGroupImage(a),
+          });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Photo updated', 'Group cover synced for everyone.');
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Could not update photo.';
+          notifyError(toast, 'Upload failed', msg);
+        } finally {
+          setGroupPhotoUploading(false);
+        }
         return;
       }
+
       const uri = await pickGroupPhotoFromLibrary();
       if (uri) {
-        setGroupImage(group.id, uri);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        notifySuccess(toast, 'Photo updated');
+        try {
+          setGroupPhotoUploading(true);
+          const jpegUri = await compressImageToJpegForUpload(uri);
+          setGroupImage(group.id, jpegUri);
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess(toast, 'Photo updated');
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Could not update photo.';
+          notifyError(toast, 'Could not process image', msg);
+        } finally {
+          setGroupPhotoUploading(false);
+        }
       }
     };
 
@@ -294,18 +340,33 @@ export function GroupDetailScreen() {
       text: string;
       style?: 'destructive' | 'cancel';
       onPress?: () => void;
-    }[] = [
-        { text: 'Choose photo', onPress: () => void choosePhoto() },
-      ];
+    }[] = [{ text: 'Choose photo', onPress: () => void choosePhoto() }];
 
     if (group.imageUri) {
       buttons.push({
         text: 'Remove photo',
         style: 'destructive',
         onPress: () => {
-          setGroupImage(group.id, undefined);
-          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          notifySuccess(toast, 'Photo removed');
+          void (async () => {
+            if (isCloudSplitGroup(group)) {
+              if (!isConvexConfigured()) {
+                Alert.alert('Unavailable', 'Cloud group photos require Convex and an internet connection.');
+                return;
+              }
+              try {
+                await convexClearGroupImage({ groupId: gid });
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                notifySuccess(toast, 'Photo removed');
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : 'Could not remove photo.';
+                notifyError(toast, 'Remove failed', msg);
+              }
+              return;
+            }
+            setGroupImage(group.id, undefined);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            notifySuccess(toast, 'Photo removed');
+          })();
         },
       });
     }
@@ -313,7 +374,15 @@ export function GroupDetailScreen() {
     buttons.push({ text: 'Cancel', style: 'cancel' });
 
     Alert.alert('Group photo', 'Add or change the banner image for this group.', buttons);
-  }, [group, setGroupImage, toast]);
+  }, [
+    group,
+    groupPhotoUploading,
+    setGroupImage,
+    toast,
+    convexGenGroupImageUrl,
+    convexFinalizeGroupImage,
+    convexClearGroupImage,
+  ]);
 
   const closeMoreMenu = useCallback(() => setMoreMenuOpen(false), []);
 
@@ -519,9 +588,16 @@ export function GroupDetailScreen() {
                     onPress={openGroupPhotoOptions}
                     style={styles.heroCameraFab}
                     accessibilityRole="button"
-                    accessibilityLabel="Change group photo"
+                    accessibilityLabel={
+                      groupPhotoUploading ? 'Uploading group photo' : 'Change group photo'
+                    }
+                    disabled={groupPhotoUploading}
                   >
-                    <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
+                    {groupPhotoUploading ? (
+                      <ActivityIndicator color="rgba(255,255,255,0.95)" />
+                    ) : (
+                      <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
+                    )}
                   </Pressable>
 
                   <View style={styles.heroFooter}>
@@ -536,6 +612,7 @@ export function GroupDetailScreen() {
                         summary={summary}
                         totalSpendMinor={summary.totalSpendMinor}
                         groupId={group.id}
+                        currencyCode={group.currency}
                         currentUserId={group.members.find((m) => m.isCurrentUser)?.id}
                         settlements={settlements}
                         overlay
@@ -552,15 +629,23 @@ export function GroupDetailScreen() {
                       style={styles.heroNoPhotoTapArea}
                       accessibilityRole="button"
                       accessibilityLabel="Add group cover photo"
+                      disabled={groupPhotoUploading}
                     />
 
                     <Pressable
                       onPress={openGroupPhotoOptions}
                       style={[styles.heroCameraFab, styles.heroCameraFabPlain]}
                       accessibilityRole="button"
-                      accessibilityLabel="Add group photo"
+                      accessibilityLabel={
+                        groupPhotoUploading ? 'Uploading group photo' : 'Add group photo'
+                      }
+                      disabled={groupPhotoUploading}
                     >
-                      <Camera size={20} color={palette.label} strokeWidth={2} />
+                      {groupPhotoUploading ? (
+                        <ActivityIndicator color={palette.label} />
+                      ) : (
+                        <Camera size={20} color={palette.label} strokeWidth={2} />
+                      )}
                     </Pressable>
 
                     <Pressable
@@ -585,6 +670,7 @@ export function GroupDetailScreen() {
                       summary={summary}
                       totalSpendMinor={summary.totalSpendMinor}
                       groupId={group.id}
+                      currencyCode={group.currency}
                       currentUserId={group.members.find((m) => m.isCurrentUser)?.id}
                       settlements={settlements}
                       compact
@@ -615,6 +701,7 @@ export function GroupDetailScreen() {
                     <View key={bal.memberId}>
                       <MemberBalanceRow
                         balance={bal}
+                        currencyCode={group.currency}
                         hasRecordedSettlements={hasPair}
                         onSendMessage={() =>
                           openOwedBalanceSms(

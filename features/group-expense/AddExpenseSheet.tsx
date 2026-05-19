@@ -18,7 +18,7 @@ import {
 import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-expense/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { useCurrency } from '@/hooks/useCurrency';
+import { getCurrencyMeta, formatCurrency } from '@/lib/utils';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
@@ -303,7 +303,6 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const styles = useMemo(() => createSheetStyles(palette), [palette]);
   const keyboardAppearance = colorScheme === 'dark' ? 'dark' : 'light';
   const sheetRef = useRef<BottomSheetModal>(null);
-  const { symbol, fmt } = useCurrency();
   const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
   const addExpense = useGroupExpenseStore((s) => s.addExpense);
   const updateExpense = useGroupExpenseStore((s) => s.updateExpense);
@@ -330,6 +329,21 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
   const splitMethod = splitMethodFromIndex(splitIndex);
+
+  const existingExpenseOpen = expenseId ? expenses.find((e) => e.id === expenseId) : undefined;
+
+  const sheetCurrency = useMemo(() => {
+    const fromExpense = existingExpenseOpen?.currency?.trim();
+    if (fromExpense && fromExpense.length >= 3) {
+      return fromExpense.toUpperCase().slice(0, 3);
+    }
+    const c = group?.currency?.trim();
+    if (c && c.length >= 3) return c.toUpperCase().slice(0, 3);
+    return currencyProfile;
+  }, [existingExpenseOpen?.currency, group?.currency, currencyProfile]);
+
+  const symbol = useMemo(() => getCurrencyMeta(sheetCurrency).symbol, [sheetCurrency]);
+  const fmt = useMemo(() => (amount: number) => formatCurrency(amount, sheetCurrency), [sheetCurrency]);
 
   const resetForGroup = useCallback((g: SplitGroup, existing?: GroupExpense) => {
     const current = getCurrentUserMember(g.members);
@@ -494,7 +508,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             splitMethod: payload.splitMethod,
             includedMemberIds: payload.includedMemberIds,
             shares: payload.shares,
-            currency: currencyProfile,
+            currency: sheetCurrency,
           });
           notifySuccess(toast, 'Expense added');
         }

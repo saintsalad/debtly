@@ -277,6 +277,7 @@ export function selectGroupBalances(
         memberId: member.id,
         displayName: member.displayName,
         isCurrentUser: member.isCurrentUser,
+        avatarUri: member.avatarUri,
         netMinor: 0,
       };
     }
@@ -284,6 +285,7 @@ export function selectGroupBalances(
       memberId: member.id,
       displayName: member.displayName,
       isCurrentUser: member.isCurrentUser,
+      avatarUri: member.avatarUri,
       netMinor: netBetween(edges, currentUserId, member.id),
     };
   });
