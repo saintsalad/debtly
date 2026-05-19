@@ -4,6 +4,7 @@ import { getMemberSettlementsTotalMinor } from '@/features/group-expense/balance
 import type { GroupBalanceSummary, Settlement } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface GroupBalanceHeroProps {
@@ -56,6 +57,7 @@ function createStyles(palette: ColorPalette, compact: boolean, overlay: boolean)
       amountSettled: {
         color: 'rgba(255,255,255,0.72)',
         fontWeight: '600',
+        fontFamily: sansForWeight('600'),
         textDecorationLine: 'line-through',
       },
     });
@@ -89,6 +91,7 @@ function createStyles(palette: ColorPalette, compact: boolean, overlay: boolean)
     amountSettled: {
       color: palette.labelSecondary,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       textDecorationLine: 'line-through',
     },
   });

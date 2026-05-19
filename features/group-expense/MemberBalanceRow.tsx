@@ -4,6 +4,7 @@ import { minorToMajor } from '@/features/debts/money';
 import type { MemberBalance } from '@/features/group-expense/types';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
+import { sansForWeight } from '@/lib/appFonts';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
 import * as Haptics from 'expo-haptics';
 import { CheckCircle, MessageCircle, Undo2 } from 'lucide-react-native';
@@ -34,6 +35,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     name: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
     },
     sub: {
@@ -44,10 +46,12 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
       ...type.footnote,
       color: palette.labelTertiary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
     },
     amount: {
       ...type.callout,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
     amountSettled: {
       textDecorationLine: 'line-through',

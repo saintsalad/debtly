@@ -1,4 +1,5 @@
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { sansForWeight } from '@/lib/appFonts';
 import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -130,6 +131,7 @@ function createMenuStyles(palette: ColorPalette) {
     rowTitle: {
       ...type.body,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
     },
     rowTitleDestructive: {
@@ -153,6 +155,7 @@ function createMenuStyles(palette: ColorPalette) {
     submenuHeaderTitle: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
   });

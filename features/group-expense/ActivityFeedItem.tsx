@@ -7,6 +7,7 @@ import type { ActivityItem, ActivityKind } from '@/features/group-expense/types'
 import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface ActivityFeedItemProps {
@@ -185,6 +186,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     expenseLabel: {
       ...type.caption2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.tint,
       textTransform: 'uppercase',
       letterSpacing: 0.4,
@@ -192,16 +194,19 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     title: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
     },
     titleExpense: {
       ...type.headline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     titleMuted: {
       ...type.footnote,
       fontWeight: '400',
+      fontFamily: sansForWeight('400'),
       color: palette.labelSecondary,
     },
     meta: {
@@ -215,20 +220,24 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     amount: {
       ...type.callout,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     amountExpense: {
       ...type.headline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     amountMuted: {
       ...type.footnote,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.labelTertiary,
     },
     mentionBold: {
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
     },
     trailing: {
       flexDirection: 'row',

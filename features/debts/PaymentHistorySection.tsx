@@ -7,6 +7,7 @@ import {
 } from '@/features/debts/paymentHistory';
 import type { Debt } from '@/features/debts/types';
 import { useCurrency } from '@/hooks/useCurrency';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -42,6 +43,7 @@ function createStyles(palette: ColorPalette) {
     amount: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.positive,
     },
     date: {

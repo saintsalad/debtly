@@ -28,6 +28,7 @@ import {
 } from '@/lib/statusBarScrollFade';
 import { getComputedStatus, getTransactionDuePresentation } from '@/lib/utils';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { useDebtStore } from '@/stores/debtStore';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
@@ -128,6 +129,7 @@ function createStyles(palette: ColorPalette) {
     amountSettled: {
       color: palette.labelSecondary,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       textDecorationLine: 'line-through',
     },
     detailsCard: {
@@ -474,7 +476,7 @@ export function TransactionDetailScreen({ debtId, onClose }: TransactionDetailSc
                     <Text
                       style={[
                         styles.dueUrgencyBadgeText,
-                        { color: dueBadgeColors.fg, fontWeight: dueBadgeColors.fontWeight },
+                        { color: dueBadgeColors.fg, fontWeight: dueBadgeColors.fontWeight, fontFamily: dueBadgeColors.fontFamily },
                       ]}
                     >
                       {dueUI.label}

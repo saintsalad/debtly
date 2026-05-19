@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import { BanknoteArrowDown, BanknoteArrowUp } from 'lucide-react-native';
 import { getDiceBearSvg } from '@/lib/dicebearAvatar';
+import { sansForWeight } from '@/lib/appFonts';
 import { getAvatarColor, getInitials } from '@/lib/utils';
 import { useColors } from '@/lib/platform';
 
@@ -96,5 +97,5 @@ export function Avatar({
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center' },
-  initialsText: { fontWeight: '700', letterSpacing: 0.5 },
+  initialsText: { fontWeight: '700', fontFamily: sansForWeight('700'), letterSpacing: 0.5 },
 });

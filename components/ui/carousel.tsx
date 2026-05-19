@@ -23,6 +23,8 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
+
+import { APP_SANS_INTER } from '@/lib/appFonts';
 import { useColors } from '@/lib/platform';
 
 export const WHEEL_HEIGHT = 216;
@@ -364,9 +366,10 @@ export function CarouselItem({ children, index = 0, style }: CarouselItemProps) 
 
   const labelStyle = useAnimatedStyle(() => {
     const center = scrollOffset.value / itemSize;
-    return {
-      fontWeight: Math.abs(index - center) < 0.5 ? '600' : '400',
-    };
+    const semibold = Math.abs(index - center) < 0.5;
+    return semibold
+      ? { fontWeight: '600', fontFamily: APP_SANS_INTER.w600 }
+      : { fontWeight: '400', fontFamily: APP_SANS_INTER.w400 };
   });
 
   return (
@@ -405,5 +408,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
+    fontFamily: APP_SANS_INTER.w400,
   },
 });

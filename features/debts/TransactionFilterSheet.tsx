@@ -23,6 +23,7 @@ import { DebtStatus } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { glassBorderStyle } from '@/lib/glassBorder';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
 export interface TransactionFilterSheetHandle {
@@ -92,6 +93,7 @@ function createStyles(palette: ColorPalette, scheme: 'light' | 'dark') {
     sectionLabel: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     sectionHint: {
@@ -117,11 +119,13 @@ function createStyles(palette: ColorPalette, scheme: 'light' | 'dark') {
     chipLabel: {
       ...type.footnote,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.labelSecondary,
     },
     chipLabelActive: {
       color: palette.tint,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
     resetButton: {
       alignSelf: 'flex-start',
@@ -130,6 +134,7 @@ function createStyles(palette: ColorPalette, scheme: 'light' | 'dark') {
     resetLabel: {
       ...type.footnote,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.tint,
     },
     resetLabelDisabled: {

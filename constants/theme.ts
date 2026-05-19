@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { monoForWeight, sansForWeight } from '@/lib/appFonts';
 
 import { createPalette } from '@/lib/platform';
 
@@ -24,23 +24,15 @@ export const Colors = {
   dark: legacyColors('dark'),
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    sans: 'system-ui',
-    serif: 'ui-serif',
-    rounded: 'ui-rounded',
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace",
-  },
-});
+/**
+ * App typography families (Inter + JetBrains Mono), loaded via `appFontMap` in the root layout.
+ * Use `sansForWeight` / `monoForWeight` when changing `fontWeight` so the correct face is selected on React Native.
+ */
+export const Fonts = {
+  sans: sansForWeight('400'),
+  sansForWeight,
+  serif: sansForWeight('400'),
+  rounded: sansForWeight('400'),
+  mono: monoForWeight('400'),
+  monoForWeight,
+};

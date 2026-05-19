@@ -8,6 +8,7 @@ import { GroupCard } from '@/features/group-expense/GroupCard';
 import { buildGroupSections, filterGroups } from '@/features/group-expense/groupSections';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { glassBorderWidth } from '@/lib/glassBorder';
+import { sansForWeight } from '@/lib/appFonts';
 import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGlassSeparatorColor } from '@/lib/glassSurface';
 import {
@@ -92,6 +93,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     title: {
       ...type.title2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     subtitle: {
@@ -217,6 +219,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     sectionTitle: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.labelSecondary,
       marginBottom: space[2],
     },
@@ -248,6 +251,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     suggestionLabel: {
       ...type.body,
       fontWeight: '400',
+      fontFamily: sansForWeight('400'),
       color: palette.label,
       flex: 1,
     },

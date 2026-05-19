@@ -10,6 +10,7 @@ import { getRemainingBalance } from '@/features/debts/debtCalculations';
 import { Avatar } from '@/components/ui/Avatar';
 import { formatDate, getComputedStatus } from '@/lib/utils';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useDebtStore } from '@/stores/debtStore';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -43,12 +44,14 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     name: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
       flex: 1,
     },
     amount: {
       fontSize: 15,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       letterSpacing: -0.3,
     },
     note: {
@@ -81,6 +84,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
       ...type.caption2,
       color: '#fff',
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
   });
 }

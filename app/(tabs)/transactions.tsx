@@ -24,6 +24,7 @@ import { Debt } from '@/features/debts/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { glassBorderWidth } from '@/lib/glassBorder';
 import { useGlassSeparatorColor } from '@/lib/glassSurface';
+import { sansForWeight } from '@/lib/appFonts';
 import { layout, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
@@ -124,6 +125,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     title: {
       ...type.title2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     subtitle: {
@@ -255,6 +257,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     sectionTitle: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.labelSecondary,
       marginBottom: space[2],
     },
@@ -269,6 +272,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
       flex: 1,
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.labelSecondary,
       minWidth: 0,
     },
@@ -301,6 +305,7 @@ function createStyles(palette: ColorPalette, glassSeparator: string) {
     suggestionLabel: {
       ...type.body,
       fontWeight: '400',
+      fontFamily: sansForWeight('400'),
       color: palette.label,
       flex: 1,
     },
@@ -925,6 +930,7 @@ export default function TransactionsScreen() {
                                 section.dueMonthTier === 'past' && {
                                   color: palette.labelTertiary,
                                   fontWeight: '500' as const,
+                                  fontFamily: sansForWeight('500'),
                                 },
                               ]}
                               numberOfLines={1}
@@ -952,6 +958,7 @@ export default function TransactionsScreen() {
                               section.dueMonthTier === 'past' && {
                                 color: palette.labelTertiary,
                                 fontWeight: '500' as const,
+                                fontFamily: sansForWeight('500'),
                               },
                             ]}
                           >

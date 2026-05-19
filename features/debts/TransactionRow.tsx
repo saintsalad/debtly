@@ -14,6 +14,7 @@ import { dueUrgencyBadgeColors } from '@/features/debts/dueUrgencyBadge';
 import type { TransactionDueMonthTier } from '@/features/debts/transactionSections';
 import { formatDate, getTransactionDuePresentation } from '@/lib/utils';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
 
 interface TransactionRowProps {
@@ -54,21 +55,25 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     name: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
       flex: 1,
     },
     namePaid: {
       color: palette.labelSecondary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
     },
     amount: {
       ...type.callout,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     amountPaid: {
       color: palette.labelSecondary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       textDecorationLine: 'line-through',
     },
     note: {
@@ -89,6 +94,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     statusPaid: {
       color: palette.labelSecondary,
       fontWeight: '400',
+      fontFamily: sansForWeight('400'),
     },
     mutedStatusPill: {
       flexShrink: 0,
@@ -205,7 +211,7 @@ export function TransactionRow({
                 <Text
                   style={[
                     styles.statusBadgeLabel,
-                    { color: badgeColors.fg, fontWeight: badgeColors.fontWeight },
+                    { color: badgeColors.fg, fontWeight: badgeColors.fontWeight, fontFamily: badgeColors.fontFamily },
                   ]}
                   numberOfLines={2}
                 >

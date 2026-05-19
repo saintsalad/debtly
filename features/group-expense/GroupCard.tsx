@@ -15,6 +15,7 @@ import type { GroupExpense, Settlement, SplitGroup } from '@/features/group-expe
 import { useCurrency } from '@/hooks/useCurrency';
 import { useGlassSurfacePressed } from '@/lib/glassSurface';
 import { minorToMajor } from '@/features/debts/money';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 
 interface GroupCardProps {
@@ -48,12 +49,14 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     name: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
       flex: 1,
     },
     amount: {
       ...type.callout,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
     meta: {
       ...type.footnote,
@@ -65,6 +68,7 @@ function createStyles(palette: ColorPalette, rowPressedColor: string) {
     amountSettled: {
       color: palette.labelSecondary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       textDecorationLine: 'line-through',
     },
     groupThumb: {

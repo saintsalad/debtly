@@ -6,6 +6,7 @@ import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { useGlassInsetFill } from '@/lib/glassSurface';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useToast } from 'heroui-native';
 import { notifySuccess } from '@/lib/appToast';
@@ -87,6 +88,7 @@ function createStyles(palette: ColorPalette, insetFill: string) {
     participantAmount: {
       ...type.callout,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     participantAmountPaid: {

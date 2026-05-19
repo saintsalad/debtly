@@ -29,6 +29,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { minorToMajor } from '@/features/debts/money';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { layout, radius, space, type, useCardShadow, useColors, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
@@ -98,6 +99,7 @@ function createStyles(palette: ColorPalette) {
     sectionTitle: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.labelSecondary,
       marginBottom: space[1],
     },

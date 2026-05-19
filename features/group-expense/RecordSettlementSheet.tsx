@@ -30,6 +30,7 @@ import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 
@@ -99,6 +100,7 @@ function createSheetStyles(palette: ColorPalette) {
     mutedLead: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     mutedSub: {
@@ -115,6 +117,7 @@ function createSheetStyles(palette: ColorPalette) {
     },
     outstandingAmt: {
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
   });

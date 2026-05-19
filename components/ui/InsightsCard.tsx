@@ -5,6 +5,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { entriesThisYearWord } from '@/features/insights/copy';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useCardShadow } from '@/lib/platform';
 
 const GRADIENT_COLORS = ['#8F7DFF', '#6B5CE8', '#3D56C4', '#2A408F'] as const;
@@ -163,6 +164,7 @@ const styles = StyleSheet.create({
   metricValue: {
     ...type.callout,
     fontWeight: '600',
+    fontFamily: sansForWeight('600'),
     color: TEXT_PRIMARY,
     flexShrink: 1,
   },
@@ -174,6 +176,7 @@ const styles = StyleSheet.create({
   heroValue: {
     fontSize: 72,
     fontWeight: '700',
+    fontFamily: sansForWeight('700'),
     letterSpacing: -2.5,
     color: TEXT_PRIMARY,
     lineHeight: 76,
@@ -187,6 +190,7 @@ const styles = StyleSheet.create({
   heroLabelStrong: {
     color: TEXT_PRIMARY,
     fontWeight: '500',
+    fontFamily: sansForWeight('500'),
   },
   heroLabelMuted: {
     color: TEXT_MUTED,

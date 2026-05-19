@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import {
   scrollContentLayerStyle,
@@ -149,11 +150,13 @@ function createStyles(palette: ColorPalette) {
     streakBigNum: {
       fontSize: 28,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       fontVariant: ['tabular-nums'],
     },
     streakBigUnit: {
       ...type.caption2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       marginTop: 2,
     },
     streakHeroStrong: {
@@ -189,6 +192,7 @@ function createStyles(palette: ColorPalette) {
     yearlyHeroVal: {
       fontSize: 44,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       color: ON_GRADIENT,
       fontVariant: ['tabular-nums'],
       letterSpacing: -1.5,
@@ -308,33 +312,39 @@ function createStyles(palette: ColorPalette) {
     tileEyebrow: {
       ...type.caption2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: ON_GRADIENT_MUTED,
     },
     tileHero: {
       fontSize: 26,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       color: ON_GRADIENT,
       fontVariant: ['tabular-nums'],
     },
     tileFooter: {
       ...type.caption2,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: ON_GRADIENT_MUTED,
     },
     peopleTileEyebrow: {
       ...type.caption2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.labelSecondary,
     },
     peopleTileHero: {
       fontSize: 26,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       color: palette.label,
       fontVariant: ['tabular-nums'],
     },
     peopleTileFooter: {
       ...type.caption2,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.labelSecondary,
     },
   });

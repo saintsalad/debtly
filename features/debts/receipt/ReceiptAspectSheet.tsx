@@ -14,6 +14,7 @@ import {
   type ReceiptAspectPresetId,
 } from '@/features/debts/receipt/receiptAspectPresets';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
 export interface ReceiptAspectSheetHandle {
@@ -99,6 +100,7 @@ function createStyles(palette: ColorPalette) {
     labelActive: {
       color: palette.label,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
   });
 }

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useCardShadow, useColors, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useCurrency } from '@/hooks/useCurrency';
+import { sansForWeight } from '@/lib/appFonts';
 
 interface SummaryCardProps {
   label: string;
@@ -27,6 +28,7 @@ function createStyles(palette: ColorPalette, shadow: ReturnType<typeof useCardSh
     amount: {
       fontSize: 20,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       letterSpacing: -0.5,
       marginBottom: 2,
     },

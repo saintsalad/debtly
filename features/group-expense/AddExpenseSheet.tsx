@@ -22,6 +22,7 @@ import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -126,6 +127,7 @@ function createSheetStyles(palette: ColorPalette) {
     amountHero: {
       fontSize: 34,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       letterSpacing: -0.5,
       textAlign: 'center',
       paddingVertical: space[2],
@@ -162,6 +164,7 @@ function createSheetStyles(palette: ColorPalette) {
     adjustIntroTitle: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     adjustIntroHint: {
@@ -184,6 +187,7 @@ function createSheetStyles(palette: ColorPalette) {
     sectionLabel: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     splitMethodDescription: {
@@ -245,6 +249,7 @@ function createSheetStyles(palette: ColorPalette) {
     groupedMeta: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.labelSecondary,
     },
     groupedMetaOn: {
@@ -275,6 +280,7 @@ function createSheetStyles(palette: ColorPalette) {
     adjustmentNetText: {
       ...type.footnote,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.labelSecondary,
       textAlign: 'center',
     },

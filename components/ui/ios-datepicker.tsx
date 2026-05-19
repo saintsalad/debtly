@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WHEEL_HEIGHT, WHEEL_ITEM_SIZE } from '@/components/ui/carousel';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { IosDatePickerItem } from '@/components/ui/ios-datepicker-item';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, radius, space, type ColorPalette } from '@/lib/platform';
 
 const SHOW_DATE = 'd MMMM yyyy';
@@ -118,6 +119,7 @@ function createStyles(palette: ColorPalette) {
       flex: 1,
       fontSize: 16,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
       textAlign: 'center',
     },

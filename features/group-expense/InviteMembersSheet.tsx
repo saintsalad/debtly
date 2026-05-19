@@ -15,6 +15,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 
 export interface InviteMembersSheetHandle {
   present: (groupId: string) => void;
@@ -52,6 +53,7 @@ function createSheetStyles(palette: ColorPalette) {
     code: {
       ...type.title2,
       fontWeight: '700',
+      fontFamily: sansForWeight('700'),
       letterSpacing: 3,
       color: palette.label,
       textAlign: 'center',

@@ -26,6 +26,7 @@ import {
 } from '@/lib/statusBarScrollFade';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 
 const AnimatedBottomSheetScrollView = Animated.createAnimatedComponent(BottomSheetScrollView);
 
@@ -89,6 +90,7 @@ function createSheetStyles(palette: ColorPalette) {
     name: {
       ...type.subheadline,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       color: palette.label,
     },
     meta: {

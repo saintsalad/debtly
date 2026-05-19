@@ -21,6 +21,7 @@ import { useDebtSummary } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useCurrency } from '@/hooks/useCurrency';
 import { getComputedStatus } from '@/lib/utils';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, layout, type, space, type ColorPalette } from '@/lib/platform';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { useTransactionDetail } from '@/lib/transactionDetailContext';
@@ -59,6 +60,7 @@ function createStyles(palette: ColorPalette, scrollBottomPadding: number) {
     name: {
       ...type.largeTitle,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
 

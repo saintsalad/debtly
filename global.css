@@ -1,6 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
 @import 'tailwindcss';
 @import 'uniwind';
 @import 'heroui-native/styles';
+
+/*
+ * React Native does not pick Inter’s other weights from font-weight alone — each cut is a
+ * separate family name from expo-font. Map Tailwind font-* utilities on native to those names
+ * so Uniwind / HeroUI match iOS, Android, and web.
+ */
+@layer utilities {
+  @variant native {
+    .font-normal {
+      font-family: Inter_400Regular;
+      font-weight: 400;
+    }
+    .font-medium {
+      font-family: Inter_500Medium;
+      font-weight: 500;
+    }
+    .font-semibold {
+      font-family: Inter_600SemiBold;
+      font-weight: 600;
+    }
+    .font-bold {
+      font-family: Inter_700Bold;
+      font-weight: 700;
+    }
+  }
+}
+
+/* Uniwind: web uses Google-hosted names; native uses expo-font postscript names from lib/appFonts.ts */
+@layer theme {
+  :root {
+    @variant web {
+      --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    @variant native {
+      --font-sans: Inter_400Regular;
+      --font-mono: JetBrainsMono_400Regular;
+    }
+  }
+}
 
 /* Design tokens for RN StyleSheet live in lib/theme/tokens.ts (accent / semantic colors).
  * Override `@layer theme { :root { … } }` here when Uniwind / HeroUI surfaces must match. */

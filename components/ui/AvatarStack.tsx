@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '@/components/ui/Avatar';
+import { sansForWeight } from '@/lib/appFonts';
 import { useColors, type, type ColorPalette } from '@/lib/platform';
 
 const RING_WIDTH = 2;
@@ -68,6 +69,7 @@ function createStyles(palette: ColorPalette, size: number, overlay: boolean) {
     overflowText: {
       ...type.caption2,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: overlay ? 'rgba(255,255,255,0.95)' : palette.labelSecondary,
     },
   });

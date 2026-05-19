@@ -1,4 +1,4 @@
-import { Fonts } from '@/constants/theme';
+import { monoForWeight } from '@/lib/appFonts';
 
 /** Portrait story canvas (9:16). Export scales 3× to 1080×1920. */
 export const STORY_FRAME_WIDTH = 360;
@@ -13,7 +13,7 @@ export const RECEIPT_PAPER = '#FFFFFF';
 export const RECEIPT_INK = '#000000';
 export const RECEIPT_MUTED = '#8A8A8A';
 export const RECEIPT_SCRIM = '#F2D4D8';
-export const RECEIPT_MONO = Fonts.mono;
+export const RECEIPT_MONO = monoForWeight('400');
 export const RECEIPT_PAD_H = 22;
 /** Vertical space between receipt sections and cut lines. */
 export const RECEIPT_RULE_GAP = 10;
@@ -66,7 +66,7 @@ export const receiptType = {
   },
   /** Hero two-column */
   heroTitle: {
-    fontFamily: RECEIPT_MONO,
+    fontFamily: monoForWeight('700'),
     fontSize: 13,
     fontWeight: '700' as const,
     color: RECEIPT_INK,
@@ -96,7 +96,7 @@ export const receiptType = {
     flexShrink: 0,
   },
   rowValue: {
-    fontFamily: RECEIPT_MONO,
+    fontFamily: monoForWeight('700'),
     fontSize: 11,
     fontWeight: '700' as const,
     color: RECEIPT_INK,
@@ -105,7 +105,7 @@ export const receiptType = {
     marginLeft: 12,
   },
   footer: {
-    fontFamily: RECEIPT_MONO,
+    fontFamily: monoForWeight('700'),
     fontSize: 18,
     fontWeight: '700' as const,
     color: RECEIPT_INK,
@@ -122,7 +122,7 @@ export const receiptType = {
     marginTop: 8,
   },
   subsection: {
-    fontFamily: RECEIPT_MONO,
+    fontFamily: monoForWeight('600'),
     fontSize: 9,
     fontWeight: '600' as const,
     color: RECEIPT_MUTED,

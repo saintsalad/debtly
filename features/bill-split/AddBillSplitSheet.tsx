@@ -15,6 +15,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useColors, space, type ColorPalette } from '@/lib/platform';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { useCurrency } from '@/hooks/useCurrency';
 
 export interface AddBillSplitSheetHandle {
@@ -48,6 +49,7 @@ function createSheetStyles(palette: ColorPalette) {
     title: {
       fontSize: 17,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
     },
     formContent: {

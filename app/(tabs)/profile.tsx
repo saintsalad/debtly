@@ -41,6 +41,7 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useColors, layout, type, space, radius, type ColorPalette } from '@/lib/platform';
 import { useStatusBarScrollFade } from '@/lib/statusBarScrollFade';
 import { notifySuccess } from '@/lib/appToast';
+import { sansForWeight } from '@/lib/appFonts';
 import { useToast } from 'heroui-native';
 
 interface RowProps {
@@ -167,7 +168,7 @@ function createStyles(palette: ColorPalette) {
       backgroundColor: palette.positiveSoft,
     },
     offlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.positive },
-    offlineLabel: { ...type.caption2, color: palette.positive, fontWeight: '500' },
+    offlineLabel: { ...type.caption2, color: palette.positive, fontWeight: '500', fontFamily: sansForWeight('500') },
 
     section: { marginBottom: space[4], paddingHorizontal: space[5] },
     sectionTitle: {

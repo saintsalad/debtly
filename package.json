@@ -15,6 +15,8 @@
   "dependencies": {
     "@dicebear/core": "^9.4.2",
     "@dicebear/thumbs": "^9.4.2",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@react-native-async-storage/async-storage": "^3.0.2",

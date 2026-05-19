@@ -6,6 +6,7 @@ import {
   type ThermalizeOptions,
 } from '@/features/debts/receipt/thermalPortrait';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import {
   BottomSheetBackdrop,
@@ -98,6 +99,7 @@ function createStyles(palette: ColorPalette) {
     title: {
       ...type.subheadline,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       color: palette.label,
       textAlign: 'center',
     },
@@ -117,6 +119,7 @@ function createStyles(palette: ColorPalette) {
       ...type.caption2,
       color: palette.labelTertiary,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
       letterSpacing: 0.8,
       marginBottom: space[1],
       textTransform: 'uppercase',
@@ -143,10 +146,12 @@ function createStyles(palette: ColorPalette) {
       ...type.caption1,
       color: palette.labelSecondary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
     },
     segmentedLabelActive: {
       color: palette.label,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
     presetScroll: {
       marginLeft: -space[1],
@@ -169,10 +174,12 @@ function createStyles(palette: ColorPalette) {
       ...type.caption1,
       color: palette.labelSecondary,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
     },
     presetChipTextActive: {
       color: palette.label,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
     paletteHint: {
       ...type.caption1,
@@ -202,6 +209,7 @@ function createStyles(palette: ColorPalette) {
       ...type.caption1,
       color: palette.label,
       fontWeight: '500',
+      fontFamily: sansForWeight('500'),
       flexShrink: 0,
     },
   });

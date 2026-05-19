@@ -1,4 +1,6 @@
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
+
+import { sansForWeight } from '@/lib/appFonts';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import * as Tok from '@/lib/theme/tokens';
 
@@ -65,19 +67,25 @@ export function useColors(): ColorPalette {
   return createPalette(scheme);
 }
 
-/** iOS HIG type scale. Use these instead of ad-hoc font sizes. */
+function appTypeStyle<T extends Pick<TextStyle, 'fontSize' | 'fontWeight' | 'letterSpacing'>>(
+  spec: T
+): T & { fontFamily: string } {
+  return { ...spec, fontFamily: sansForWeight(spec.fontWeight) };
+}
+
+/** iOS HIG type scale + Inter (same metrics/weights on all platforms). Prefer these over ad-hoc font sizes. */
 export const type = {
-  largeTitle:   { fontSize: 34, fontWeight: '700' as const, letterSpacing: 0.37 },
-  title1:       { fontSize: 28, fontWeight: '700' as const, letterSpacing: 0.36 },
-  title2:       { fontSize: 22, fontWeight: '700' as const, letterSpacing: 0.35 },
-  title3:       { fontSize: 20, fontWeight: '600' as const, letterSpacing: 0.38 },
-  headline:     { fontSize: 17, fontWeight: '600' as const, letterSpacing: -0.41 },
-  body:         { fontSize: 17, fontWeight: '400' as const, letterSpacing: -0.41 },
-  callout:      { fontSize: 16, fontWeight: '400' as const, letterSpacing: -0.32 },
-  subheadline:  { fontSize: 15, fontWeight: '400' as const, letterSpacing: -0.24 },
-  footnote:     { fontSize: 13, fontWeight: '400' as const, letterSpacing: -0.08 },
-  caption1:     { fontSize: 12, fontWeight: '400' as const, letterSpacing: 0 },
-  caption2:     { fontSize: 11, fontWeight: '400' as const, letterSpacing: 0.07 },
+  largeTitle: appTypeStyle({ fontSize: 34, fontWeight: '700' as const, letterSpacing: 0.37 }),
+  title1: appTypeStyle({ fontSize: 28, fontWeight: '700' as const, letterSpacing: 0.36 }),
+  title2: appTypeStyle({ fontSize: 22, fontWeight: '700' as const, letterSpacing: 0.35 }),
+  title3: appTypeStyle({ fontSize: 20, fontWeight: '600' as const, letterSpacing: 0.38 }),
+  headline: appTypeStyle({ fontSize: 17, fontWeight: '600' as const, letterSpacing: -0.41 }),
+  body: appTypeStyle({ fontSize: 17, fontWeight: '400' as const, letterSpacing: -0.41 }),
+  callout: appTypeStyle({ fontSize: 16, fontWeight: '400' as const, letterSpacing: -0.32 }),
+  subheadline: appTypeStyle({ fontSize: 15, fontWeight: '400' as const, letterSpacing: -0.24 }),
+  footnote: appTypeStyle({ fontSize: 13, fontWeight: '400' as const, letterSpacing: -0.08 }),
+  caption1: appTypeStyle({ fontSize: 12, fontWeight: '400' as const, letterSpacing: 0 }),
+  caption2: appTypeStyle({ fontSize: 11, fontWeight: '400' as const, letterSpacing: 0.07 }),
 } as const;
 
 /** Strict 4pt spacing grid. */

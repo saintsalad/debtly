@@ -29,6 +29,7 @@ import {
   type ReceiptCanvasPresetId,
 } from '@/features/debts/receipt/receiptCanvasPresets';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 
 export interface ReceiptBackgroundSheetHandle {
@@ -145,6 +146,7 @@ function createStyles(palette: ColorPalette) {
     swatchLabelActive: {
       color: palette.label,
       fontWeight: '600',
+      fontFamily: sansForWeight('600'),
     },
   });
 }

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Debt } from '@/features/debts/types';
 import { summarizeMonthSectionDebts, type TransactionDueMonthTier } from '@/features/debts/transactionSections';
 import { useCurrency } from '@/hooks/useCurrency';
+import { sansForWeight } from '@/lib/appFonts';
 import { radius, space, type, useColors } from '@/lib/platform';
 
 interface TransactionMonthCollapsedSummaryProps {
@@ -73,6 +74,7 @@ export function TransactionMonthCollapsedSummary({
         headline: {
           ...type.subheadline,
           fontWeight: '600',
+          fontFamily: sansForWeight('600'),
           color: mutedPast ? palette.labelSecondary : palette.label,
         },
         subtitle: {
