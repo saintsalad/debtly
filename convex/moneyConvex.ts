@@ -11,3 +11,13 @@ export function majorToMinor(amount: number): number {
   if (!Number.isFinite(scaled)) return 0;
   return Math.round(scaled);
 }
+
+/** Human-readable minor amount for audit / activity subtitles (Convex-only; no Intl). */
+export function formatMinorAudit(amountMinor: number, currencyLike: string | undefined): string {
+  const code =
+    typeof currencyLike === 'string' && currencyLike.trim().length >= 3
+      ? currencyLike.trim().toUpperCase().slice(0, 3)
+      : 'USD';
+  const major = amountMinor / MINOR_UNIT_FACTOR;
+  return `${major.toFixed(2)} ${code}`;
+}

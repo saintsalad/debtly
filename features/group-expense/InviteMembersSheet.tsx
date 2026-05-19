@@ -1,5 +1,5 @@
 import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetBackdrop,
   BottomSheetModal,
@@ -8,9 +8,10 @@ import {
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
-import type { Id } from 'convex/values';
 import QRCode from 'react-native-qrcode-svg';
-import { useMutation } from 'convex/react';
+import { Copy } from 'lucide-react-native';
+import { useConvexAuth, useMutation } from 'convex/react';
+import type { Id } from '@/convex/_generated/dataModel';
 import { useRouter } from 'expo-router';
 
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -20,12 +21,13 @@ import {
 } from '@/features/group-expense/groupExpenseActions';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
+import { isViewerGroupHost } from '@/features/group-expense/activityLog';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
-import { useConvexAuth } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 
 export interface InviteMembersSheetHandle {
@@ -43,15 +45,15 @@ function createSheetStyles(palette: ColorPalette) {
     handle: { width: 40, backgroundColor: palette.opaqueSeparator },
     header: {
       paddingHorizontal: space[5],
-      paddingBottom: space[3],
+      paddingBottom: space[2],
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: palette.opaqueSeparator,
     },
     title: { ...type.headline, fontWeight: '600', color: palette.label },
     form: {
-      gap: space[4],
+      gap: space[3],
       paddingHorizontal: space[5],
-      paddingTop: space[4],
+      paddingTop: space[3],
     },
     input: {
       paddingHorizontal: space[4],
@@ -61,13 +63,48 @@ function createSheetStyles(palette: ColorPalette) {
       color: palette.label,
       fontSize: 17,
     },
+    inviteHero: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[4],
+    },
+    qrBox: {
+      padding: space[2],
+      borderRadius: 14,
+      backgroundColor: palette.fill,
+    },
+    inviteCodeColumn: {
+      flex: 1,
+      justifyContent: 'center',
+      minWidth: 0,
+      gap: space[1],
+    },
+    codeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space[2],
+      minHeight: Platform.OS === 'android' ? 36 : undefined,
+    },
+    codeTextOuter: {
+      flex: 1,
+      flexShrink: 1,
+      minWidth: 0,
+    },
     code: {
       ...type.title2,
       fontWeight: '700',
       fontFamily: sansForWeight('700'),
       color: palette.label,
-      textAlign: 'center',
-      flexWrap: 'wrap',
+      textAlign: 'left',
+    },
+    copyCodeButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      backgroundColor: palette.fill,
     },
     codeWideSpacing: {
       letterSpacing: 3,
@@ -75,15 +112,15 @@ function createSheetStyles(palette: ColorPalette) {
     codeCompactSpacing: {
       letterSpacing: 1,
     },
-    qrWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: space[2],
-      backgroundColor: palette.fill,
-      borderRadius: 16,
+    hint: {
+      ...type.footnote,
+      color: palette.labelSecondary,
     },
-    actionsRow: {
-      gap: space[2],
+    memberDivider: {
+      height: StyleSheet.hairlineWidth,
+      marginTop: space[1],
+      marginBottom: space[1],
+      backgroundColor: palette.opaqueSeparator,
     },
   });
 }
@@ -108,19 +145,23 @@ const InviteMembersSheetInner = forwardRef<
   const addMember = useGroupExpenseStore((s) => s.addMember);
   const getInviteLink = useGroupExpenseStore((s) => s.getInviteLink);
   const groups = useGroupExpenseStore((s) => s.groups);
+  const activityLog = useGroupExpenseStore((s) => s.activityLog);
 
   const addPlaceholderConvex = useMutation(api.splitGroups.addPlaceholderMember);
-  const regenerateInvite = useMutation(api.splitGroups.regenerateInvite);
 
   const [groupId, setGroupId] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [regenerateBusy, setRegenerateBusy] = useState(false);
   const { toast } = useToast();
+  const { busy: addMemberBusy, runGuarded } = useSubmitGuard();
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
   const isCloud = group?.syncMode === 'convex';
+  const viewerMemberId = group?.members.find((m) => m.isCurrentUser)?.id;
+  const isViewerHost = Boolean(
+    group && isViewerGroupHost(group, activityLog, viewerMemberId)
+  );
   const inviteLink = group ? getInviteLink(group.id) : '';
-  const codeStyleWide = group && group.inviteCode.length <= 12;
+  const codeStyleWide = group && group.inviteCode.length <= 8;
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -170,24 +211,16 @@ const InviteMembersSheetInner = forwardRef<
     void shareInviteLinkMessage(inviteLink);
   };
 
-  const handleRegenerateInvite = async () => {
-    if (!group || !isCloud) return;
-    if (requireAuthForCloudActions()) return;
-    setRegenerateBusy(true);
-    try {
-      await regenerateInvite({ groupId: group.id as Id<'splitGroups'> });
-      notifySuccess(toast, 'New invite code active', 'Share the updated QR or link with new guests.');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Could not refresh invite.';
-      Alert.alert('Invite', msg);
-    } finally {
-      setRegenerateBusy(false);
-    }
-  };
-
-  const handleAdd = async () => {
+  const submitAddMember = async () => {
     if (!groupId || !name.trim()) {
       Alert.alert('Name required', 'Enter a name to add.');
+      return;
+    }
+    if (!group) return;
+
+    const vid = group.members.find((m) => m.isCurrentUser)?.id;
+    if (!isViewerGroupHost(group, activityLog, vid)) {
+      Alert.alert('Host only', 'Only the group host can add name-only members.');
       return;
     }
 
@@ -214,6 +247,8 @@ const InviteMembersSheetInner = forwardRef<
     sheetRef.current?.dismiss();
   };
 
+  const handleAdd = () => void runGuarded(submitAddMember);
+
   if (!group) return null;
 
   return (
@@ -233,67 +268,86 @@ const InviteMembersSheetInner = forwardRef<
           contentContainerStyle={[styles.form, { paddingBottom: contentBottomPadding }]}
           keyboardShouldPersistTaps="handled"
         >
-          <Text
-            style={[
-              styles.code,
-              codeStyleWide ? styles.codeWideSpacing : styles.codeCompactSpacing,
-            ]}
-            selectable
-          >
-            {group.inviteCode}
-          </Text>
-
-          <View style={styles.qrWrap}>
-            <QRCode
-              value={inviteLink}
-              size={180}
-              color={palette.label}
-              backgroundColor={palette.fill}
-            />
+          <View style={styles.inviteHero} accessibilityLabel="Invite code and QR">
+            <View style={styles.qrBox}>
+              <QRCode
+                value={inviteLink}
+                size={112}
+                color={palette.label}
+                backgroundColor="transparent"
+              />
+            </View>
+            <View style={styles.inviteCodeColumn}>
+              <View style={styles.codeRow}>
+                <View style={styles.codeTextOuter}>
+                  <Text
+                    style={[
+                      styles.code,
+                      codeStyleWide ? styles.codeWideSpacing : styles.codeCompactSpacing,
+                    ]}
+                    {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
+                    selectable
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={codeStyleWide ? 1.25 : 1.12}
+                    ellipsizeMode="middle"
+                  >
+                    {group.inviteCode}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy invite code"
+                  onPress={() => void handleCopyCode()}
+                  style={({ pressed }) => [
+                    styles.copyCodeButton,
+                    pressed && { opacity: 0.76 },
+                  ]}
+                  hitSlop={6}
+                >
+                  <Copy size={22} color={palette.labelSecondary} />
+                </Pressable>
+              </View>
+              <Text style={styles.hint}>Scan QR or tap Share link.</Text>
+            </View>
           </View>
 
-          <Description>
-            Others can scan the QR or open the link on their phone. Cloud groups sync through your
-            Debtly account—guests need to sign in when sync is enabled.
-          </Description>
-
-          <View style={styles.actionsRow}>
-            <GlassButton variant="secondary" onPress={() => void handleCopyCode()}>
-              <GlassButton.Label>Copy code</GlassButton.Label>
-            </GlassButton>
-            <GlassButton variant="secondary" onPress={() => void handleCopyLink()}>
-              <GlassButton.Label>Copy link</GlassButton.Label>
-            </GlassButton>
-          </View>
-
-          <GlassButton variant="secondary" onPress={handleShareLink}>
+          <GlassButton variant="primary" onPress={handleShareLink}>
             <GlassButton.Label>Share link</GlassButton.Label>
           </GlassButton>
 
-          {isCloud ? (
-            <GlassButton
-              variant="secondary"
-              onPress={() => void handleRegenerateInvite()}
-              disabled={regenerateBusy}
-            >
-              <GlassButton.Label>{regenerateBusy ? 'Refreshing…' : 'New invite code'}</GlassButton.Label>
-            </GlassButton>
-          ) : null}
-
-          <TextField>
-            <Label>Add placeholder by name</Label>
-            <BottomSheetTextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Alex, Mia…"
-              placeholderTextColor={palette.labelTertiary}
-              keyboardAppearance={keyboardAppearance}
-            />
-          </TextField>
-          <GlassButton variant="primary" onPress={() => void handleAdd()}>
-            <GlassButton.Label>Add member</GlassButton.Label>
+          <GlassButton variant="secondary" onPress={() => void handleCopyLink()}>
+            <GlassButton.Label>Copy link</GlassButton.Label>
           </GlassButton>
+
+          <View style={styles.memberDivider} />
+
+          {isViewerHost ? (
+            <>
+              <TextField>
+                <Label>Placeholder name</Label>
+                <Description>
+                  Someone not on Debtly yet? Add their name here so bills can split to them—they can claim
+                  the spot later with invite.
+                </Description>
+                <BottomSheetTextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Alex, Mia…"
+                  placeholderTextColor={palette.labelTertiary}
+                  keyboardAppearance={keyboardAppearance}
+                />
+              </TextField>
+              <GlassButton variant="primary" onPress={handleAdd} isDisabled={addMemberBusy}>
+                <GlassButton.Label>{addMemberBusy ? 'Adding…' : 'Add member'}</GlassButton.Label>
+              </GlassButton>
+            </>
+          ) : (
+            <Text style={styles.hint}>
+              Only the host can add name-only members for people who are not on Debtly yet. Share the invite
+              link so they can join with their account.
+            </Text>
+          )}
         </BottomSheetScrollView>
       </HeroUINativeProvider>
     </BottomSheetModal>

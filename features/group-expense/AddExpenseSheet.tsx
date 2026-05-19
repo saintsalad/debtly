@@ -18,6 +18,7 @@ import {
 import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import type { GroupExpense, SplitGroup, SplitMethod } from '@/features/group-expense/types';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { getCurrencyMeta, formatCurrency } from '@/lib/utils';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
@@ -316,6 +317,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
   const convexDeleteExpense = useMutation(api.splitGroups.deleteExpense);
 
   const { toast } = useToast();
+  const { busy: expenseSaving, runGuarded } = useSubmitGuard();
 
   const [groupId, setGroupId] = useState<string | null>(null);
   const [expenseId, setExpenseId] = useState<string | undefined>();
@@ -417,7 +419,8 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
     });
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = () =>
+    void runGuarded(async () => {
     if (!groupId || !group) return;
     const parsed = parseFloat(amount.replace(/,/g, ''));
     if (!title.trim() || !Number.isFinite(parsed) || parsed <= 0) {
@@ -531,7 +534,7 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
       notifySuccess(toast, 'Expense added');
     }
     sheetRef.current?.dismiss();
-  };
+  });
 
   const splitSummaryLine = useMemo(() => {
     const n = includedIds.length;
@@ -862,8 +865,10 @@ export const AddExpenseSheet = forwardRef<AddExpenseSheetHandle>(function AddExp
             </View>
           ) : null}
 
-          <GlassButton variant="primary" onPress={handleSave}>
-            <GlassButton.Label>{expenseId ? 'Save' : 'Add expense'}</GlassButton.Label>
+          <GlassButton variant="primary" onPress={handleSave} isDisabled={expenseSaving}>
+            <GlassButton.Label>
+              {expenseSaving ? 'Saving…' : expenseId ? 'Save' : 'Add expense'}
+            </GlassButton.Label>
           </GlassButton>
 
           {expenseId ? (

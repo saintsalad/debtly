@@ -17,6 +17,7 @@ import {
 import { Check, X } from 'lucide-react-native';
 import { Description, HeroUINativeProvider, Label, TextField } from 'heroui-native';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
@@ -119,6 +120,8 @@ export const PartialPaymentSheet = forwardRef<PartialPaymentSheetHandle, Partial
     const [amount, setAmount] = useState('');
     const [remainingBalance, setRemainingBalance] = useState(0);
 
+    const { busy: submittingPayment, runGuarded } = useSubmitGuard();
+
     const reset = useCallback(() => {
       setAmount('');
       setRemainingBalance(0);
@@ -154,23 +157,24 @@ export const PartialPaymentSheet = forwardRef<PartialPaymentSheetHandle, Partial
       []
     );
 
-    const handleSubmit = () => {
-      const parsed = parseFloat(amount.replace(/[^0-9.]/g, ''));
-      if (!parsed || parsed <= 0) {
-        Alert.alert('Invalid amount', 'Enter a payment greater than 0.');
-        return;
-      }
-      if (parsed > remainingBalance + 0.009) {
-        Alert.alert('Amount too high', `Enter up to ${fmt(remainingBalance)}.`);
-        return;
-      }
+    const handleSubmit = () =>
+      void runGuarded(async () => {
+        const parsed = parseFloat(amount.replace(/[^0-9.]/g, ''));
+        if (!parsed || parsed <= 0) {
+          Alert.alert('Invalid amount', 'Enter a payment greater than 0.');
+          return;
+        }
+        if (parsed > remainingBalance + 0.009) {
+          Alert.alert('Amount too high', `Enter up to ${fmt(remainingBalance)}.`);
+          return;
+        }
 
-      if (!onSubmit(parsed)) {
-        return;
-      }
+        if (!onSubmit(parsed)) {
+          return;
+        }
 
-      dismiss();
-    };
+        dismiss();
+      });
 
     return (
       <BottomSheetModal
@@ -198,6 +202,7 @@ export const PartialPaymentSheet = forwardRef<PartialPaymentSheetHandle, Partial
                 accessibilityLabel="Record payment"
                 onPress={handleSubmit}
                 variant="tint"
+                disabled={submittingPayment}
               />
             </View>
 

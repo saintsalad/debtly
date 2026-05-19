@@ -8,7 +8,7 @@ import type {
   SplitGroup,
 } from '@/features/group-expense/types';
 
-export { actorLabel } from '@/features/group-expense/activityLog';
+export { actorLabel, auditActorName } from '@/features/group-expense/activityLog';
 
 export function buildGroupActivity(
   group: SplitGroup,

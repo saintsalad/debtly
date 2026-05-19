@@ -13,12 +13,14 @@ const sampleState: GroupExpenseState = {
           id: 'm1',
           displayName: 'You',
           isCurrentUser: true,
+          isPlaceholder: false,
           joinedAt: '2025-01-01T00:00:00.000Z',
         },
         {
           id: 'm2',
           displayName: 'Sam',
           isCurrentUser: false,
+          isPlaceholder: true,
           joinedAt: '2025-01-01T00:00:00.000Z',
         },
       ],
@@ -63,6 +65,8 @@ describe('group mapper', () => {
 
     expect(restored.groups).toHaveLength(1);
     expect(restored.groups[0].members).toHaveLength(2);
+    expect(restored.groups[0].members[0].isPlaceholder).toBe(false);
+    expect(restored.groups[0].members[1].isPlaceholder).toBe(true);
     expect(restored.expenses[0].title).toBe('Dinner');
     expect(restored.expenses[0].includedMemberIds).toEqual(['m1', 'm2']);
   });

@@ -79,6 +79,20 @@ async function ensureGroupMemberAvatarUriColumn(sqliteDb: SQLiteDatabase): Promi
   }
 }
 
+async function ensureGroupMemberPlaceholderColumn(sqliteDb: SQLiteDatabase): Promise<void> {
+  const cols = await sqliteDb.getAllAsync<{ name: string }>(
+    "PRAGMA table_info('group_members')"
+  );
+  if (!cols.some((c) => c.name === 'is_placeholder')) {
+    await sqliteDb.execAsync(
+      'ALTER TABLE `group_members` ADD COLUMN `is_placeholder` integer NOT NULL DEFAULT 1;'
+    );
+    await sqliteDb.execAsync(
+      'UPDATE `group_members` SET `is_placeholder` = 0 WHERE `is_current_user` = 1;'
+    );
+  }
+}
+
 async function hasCoreSchema(sqliteDb: SQLiteDatabase): Promise<boolean> {
   const row = await sqliteDb.getFirstAsync<{ cnt: number }>(
     "SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table' AND name='debts'"
@@ -103,4 +117,5 @@ export async function runMigrations(
   await ensureGroupsSyncModeColumn(sqliteDb);
   await ensureGroupCurrencyColumn(sqliteDb);
   await ensureGroupMemberAvatarUriColumn(sqliteDb);
+  await ensureGroupMemberPlaceholderColumn(sqliteDb);
 }

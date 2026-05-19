@@ -339,7 +339,7 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
                     autoCorrect={false}
                   />
                 </TextField>
-                <GlassButton variant="primary" onPress={onSubmitManual} disabled={busy}>
+                <GlassButton variant="primary" onPress={onSubmitManual} isDisabled={busy}>
                   <GlassButton.Label>{busy ? 'Joining…' : 'Join group'}</GlassButton.Label>
                 </GlassButton>
               </>

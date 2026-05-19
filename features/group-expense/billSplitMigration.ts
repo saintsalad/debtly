@@ -1,6 +1,6 @@
 import { getGroupCreatorMemberId, rebuildActivityLogFromState } from '@/features/group-expense/activityLog';
 import { majorToMinor } from '@/features/debts/money';
-import { generateId } from '@/lib/utils';
+import { generateInviteCode } from '@/features/group-expense/generateInviteCode';
 import type {
   GroupExpense,
   GroupExpenseState,
@@ -8,10 +8,7 @@ import type {
   LegacyBillSplit,
   SplitGroup,
 } from '@/features/group-expense/types';
-
-function generateInviteCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
+import { generateId } from '@/lib/utils';
 
 export function migrateBillSplitsToGroups(
   legacySplits: LegacyBillSplit[],

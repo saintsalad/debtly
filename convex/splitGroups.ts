@@ -1,7 +1,13 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { ConvexError, v } from 'convex/values';
 
-import type { GroupExpense, GroupMember, Settlement, SplitGroup } from './groupDomain';
+import type {
+  GroupExpense,
+  GroupMember,
+  Settlement,
+  SplitGroup,
+  SplitMethod,
+} from './groupDomain';
 import {
   amountToMinor,
   createDefaultShares,
@@ -10,9 +16,9 @@ import {
   validateExpenseShares,
 } from './balanceEngine';
 import { reconcileExpenseSplitsWhenMemberJoins } from './memberJoinExpenseSplit';
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query } from './_generated/server';
-import { MAX_INPUT_AMOUNT_MINOR } from './moneyConvex';
+import { formatMinorAudit, MAX_INPUT_AMOUNT_MINOR } from './moneyConvex';
 
 const splitMethodValidator = v.union(
   v.literal('equal'),
@@ -30,14 +36,58 @@ const expenseShareValidator = v.object({
   adjustmentMinor: v.optional(v.number()),
 });
 
-function secureInviteCode(): string {
-  const buf = new Uint8Array(16);
+const INVITE_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function randomSixCharInviteCode(): string {
+  const buf = new Uint8Array(6);
   crypto.getRandomValues(buf);
-  return [...buf].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  let s = '';
+  for (let i = 0; i < 6; i++) {
+    s += INVITE_CODE_ALPHABET[buf[i]! % INVITE_CODE_ALPHABET.length]!;
+  }
+  return s;
+}
+
+async function allocateUniqueInviteCode(ctx: any): Promise<string> {
+  for (let attempt = 0; attempt < 32; attempt++) {
+    const code = randomSixCharInviteCode();
+    const existing = await ctx.db
+      .query('splitGroupInvites')
+      .withIndex('by_code', (q: any) => q.eq('code', code))
+      .first();
+    if (!existing) return code;
+  }
+  throw new ConvexError('Could not allocate invite code.');
 }
 
 function isoFromMs(ms: number): string {
   return new Date(ms).toISOString();
+}
+
+function convexMemberDisplayName(row: { displayName?: string } | null | undefined): string {
+  const t = row?.displayName?.trim();
+  return t && t.length > 0 ? t : 'Someone';
+}
+
+function convexMemberSettledName(rows: readonly { _id: unknown; displayName: string }[], id: string): string {
+  const r = rows.find((m) => (m._id as string) === id);
+  return convexMemberDisplayName(r ?? null);
+}
+
+function splitMethodConvexLabel(method: SplitMethod): string {
+  switch (method) {
+    case 'exact':
+      return 'Custom split';
+    case 'percentage':
+      return 'Percent split';
+    case 'shares':
+      return 'Share split';
+    case 'adjustment':
+      return 'Adjustment split';
+    case 'equal':
+    default:
+      return 'Equal split';
+  }
 }
 
 async function requireUserId(ctx: { auth: unknown }): Promise<Id<'users'>> {
@@ -70,6 +120,14 @@ async function assertMember(ctx: any, groupId: Id<'splitGroups'>, userId: Id<'us
   if (!ok) throw new ConvexError('Not a member of this group.');
 }
 
+async function assertGroupHost(ctx: any, groupId: Id<'splitGroups'>, userId: Id<'users'>): Promise<void> {
+  const g = await ctx.db.get(groupId);
+  if (!g) throw new ConvexError('Group not found.');
+  if (g.createdByUserId !== userId) {
+    throw new ConvexError('Only the group host can do that.');
+  }
+}
+
 async function viewerMemberId(ctx: any, groupId: Id<'splitGroups'>, userId: Id<'users'>): Promise<string> {
   const members = await loadMembers(ctx, groupId);
   const row = members.find((m: { userId?: Id<'users'> }) => m.userId === userId);
@@ -77,8 +135,110 @@ async function viewerMemberId(ctx: any, groupId: Id<'splitGroups'>, userId: Id<'
   return row._id as string;
 }
 
+function dedupePreserveOrder(ids: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function remapIdForPlaceholderMerge(memberId: string, viewerMemberId: string, placeholderMemberId: string): string {
+  return memberId === viewerMemberId ? placeholderMemberId : memberId;
+}
+
+type ShareRowForMerge = NonNullable<GroupExpense['shares']>[number];
+
+function consolidateExpenseSharesAfterIdMerge(splitMethod: SplitMethod, mapped: ShareRowForMerge[]): ShareRowForMerge[] {
+  const byMember = new Map<string, ShareRowForMerge>();
+
+  const mergeTwo = (a: ShareRowForMerge, b: ShareRowForMerge): ShareRowForMerge => {
+    switch (splitMethod) {
+      case 'equal':
+        return { memberId: a.memberId };
+      case 'exact':
+        return {
+          memberId: a.memberId,
+          valueMinor: (a.valueMinor ?? 0) + (b.valueMinor ?? 0),
+        };
+      case 'percentage':
+        return {
+          memberId: a.memberId,
+          percentBps: (a.percentBps ?? 0) + (b.percentBps ?? 0),
+        };
+      case 'shares':
+        return {
+          memberId: a.memberId,
+          shareParts: (a.shareParts ?? 1) + (b.shareParts ?? 1),
+        };
+      case 'adjustment':
+        return {
+          memberId: a.memberId,
+          adjustmentMinor: (a.adjustmentMinor ?? 0) + (b.adjustmentMinor ?? 0),
+        };
+      default:
+        return { memberId: a.memberId };
+    }
+  };
+
+  for (const row of mapped) {
+    const existing = byMember.get(row.memberId);
+    byMember.set(row.memberId, existing ? mergeTwo(existing, row) : { ...row });
+  }
+
+  const list = [...byMember.values()].sort((x, y) => x.memberId.localeCompare(y.memberId));
+  return list;
+}
+
+function patchExpenseDocsForPlaceholderMerge(params: {
+  expense: Doc<'splitGroupExpenses'>;
+  viewerMemberId: string;
+  placeholderMemberId: string;
+  nowIso: string;
+}) {
+  const { expense: e, viewerMemberId: vm, placeholderMemberId: ph, nowIso } = params;
+
+  const rid = (mid: string) => remapIdForPlaceholderMerge(mid, vm, ph);
+  const included = dedupePreserveOrder(e.includedMemberIds.map(rid));
+
+  let paidBy = rid(e.paidByMemberId);
+  if (!included.some((id) => id === paidBy) && included.length > 0) paidBy = included[0];
+
+  let shares = consolidateExpenseSharesAfterIdMerge(
+    e.splitMethod as SplitMethod,
+    e.shares.map((s) => ({ ...s, memberId: rid(s.memberId) }))
+  ).filter((s) => included.includes(s.memberId));
+
+  let validation = validateExpenseShares(e.amountMinor, e.splitMethod, included, shares);
+  if (validation !== null) {
+    shares = createDefaultShares(e.splitMethod, included, e.amountMinor);
+    validation = validateExpenseShares(e.amountMinor, e.splitMethod, included, shares);
+    if (validation !== null) {
+      throw new ConvexError(`Could not reconcile expense "${e.title ?? ''}" after merging members: ${validation}`);
+    }
+  }
+
+  const next = {
+    paidByMemberId: paidBy,
+    includedMemberIds: included,
+    shares,
+    updatedAt: nowIso,
+    version: e.version + 1,
+  };
+  return next;
+}
+
 function mapMemberToClient(
-  row: { _id: Id<'splitGroupMembers'>; userId?: Id<'users'>; displayName: string; joinedAt: number },
+  row: {
+    _id: Id<'splitGroupMembers'>;
+    userId?: Id<'users'>;
+    displayName: string;
+    joinedAt: number;
+    isPlaceholder: boolean;
+  },
   viewerUserId: Id<'users'>,
   usernameByUserId: Map<string, string | undefined>,
   avatarUriByUserId: Map<string, string | undefined>
@@ -91,6 +251,7 @@ function mapMemberToClient(
     username: uid ? usernameByUserId.get(uid) : undefined,
     avatarUri: uid ? avatarUriByUserId.get(uid) : undefined,
     joinedAt: isoFromMs(row.joinedAt),
+    isPlaceholder: row.isPlaceholder,
   };
 }
 
@@ -326,12 +487,12 @@ export const createGroup = mutation({
         at: isoFromMs(now),
         actorMemberId: creatorMemberId as string,
         targetMemberId: mid as string,
-        title: `${n} joined`,
-        subtitle: 'Added to group',
+        title: `${convexMemberDisplayName({ displayName })} added ${n}`,
+        subtitle: 'Placeholder (not linked yet)',
       });
     }
 
-    const code = secureInviteCode();
+    const code = await allocateUniqueInviteCode(ctx);
     await ctx.db.insert('splitGroupInvites', {
       groupId,
       code,
@@ -343,7 +504,7 @@ export const createGroup = mutation({
       kind: 'group_created',
       at: isoFromMs(now),
       actorMemberId: creatorMemberId as string,
-      title: `You created ${trimmed}`,
+      title: `${convexMemberDisplayName({ displayName })} created ${trimmed}`,
     });
 
     return { groupId: groupId as string, inviteCode: code };
@@ -464,7 +625,7 @@ export const joinByInviteCode = mutation({
       actorMemberId: newMemberId as string,
       targetMemberId: newMemberId as string,
       title: `${displayName} joined`,
-      subtitle: 'Joined via invite',
+      subtitle: `${displayName} accepted the invite`,
     });
 
     return { groupId: groupId as string };
@@ -487,7 +648,7 @@ export const regenerateInvite = mutation({
         await ctx.db.patch(inv._id, { revokedAt: now });
       }
     }
-    const code = secureInviteCode();
+    const code = await allocateUniqueInviteCode(ctx);
     await ctx.db.insert('splitGroupInvites', {
       groupId,
       code,
@@ -526,13 +687,15 @@ export const updateGroup = mutation({
           updatedAt: now,
           version: g.version + 1,
         });
+        const memberRows = await loadMembers(ctx, groupId);
+        const actorName = convexMemberSettledName(memberRows, actorId);
         await ctx.db.insert('splitGroupActivity', {
           groupId,
           kind: 'group_updated',
           at: nowIso,
           actorMemberId: actorId,
-          title: `Name: ${g.name} → ${t}`,
-          subtitle: 'Group updated',
+          title: `${actorName} updated the group name`,
+          subtitle: `${g.name} → ${t}`,
         });
       }
     }
@@ -546,6 +709,7 @@ export const generateGroupImageUploadUrl = mutation({
   handler: async (ctx, { groupId }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -558,11 +722,14 @@ export const finalizeGroupImageUpload = mutation({
   handler: async (ctx, { groupId, storageId }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
     const g = await ctx.db.get(groupId);
     if (!g) throw new ConvexError('Group not found.');
     const now = Date.now();
     const nowIso = isoFromMs(now);
     const actorId = await viewerMemberId(ctx, groupId, userId);
+    const memberRowsPhoto = await loadMembers(ctx, groupId);
+    const actorPhoto = convexMemberSettledName(memberRowsPhoto, actorId);
 
     await ctx.db.patch(groupId, {
       imageStorageId: storageId,
@@ -575,8 +742,8 @@ export const finalizeGroupImageUpload = mutation({
       kind: 'group_updated',
       at: nowIso,
       actorMemberId: actorId,
-      title: 'Group photo updated',
-      subtitle: 'Group updated',
+      title: `${actorPhoto} updated cover photo`,
+      subtitle: 'Photo saved for everyone in the group.',
     });
 
     return null;
@@ -588,11 +755,14 @@ export const clearGroupImage = mutation({
   handler: async (ctx, { groupId }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
     const g = await ctx.db.get(groupId);
     if (!g) throw new ConvexError('Group not found.');
     const now = Date.now();
     const nowIso = isoFromMs(now);
     const actorId = await viewerMemberId(ctx, groupId, userId);
+    const memberRowsClear = await loadMembers(ctx, groupId);
+    const actorClear = convexMemberSettledName(memberRowsClear, actorId);
 
     await ctx.db.patch(groupId, {
       imageStorageId: undefined,
@@ -605,8 +775,8 @@ export const clearGroupImage = mutation({
       kind: 'group_updated',
       at: nowIso,
       actorMemberId: actorId,
-      title: 'Group photo removed',
-      subtitle: 'Group updated',
+      title: `${actorClear} removed cover photo`,
+      subtitle: 'Photo removed for everyone in the group.',
     });
 
     return null;
@@ -666,6 +836,7 @@ export const addPlaceholderMember = mutation({
   handler: async (ctx, { groupId, displayName }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
     const trimmed = displayName.trim();
     if (!trimmed) throw new ConvexError('Name required.');
 
@@ -739,14 +910,16 @@ export const addPlaceholderMember = mutation({
       await ctx.db.patch(groupId, { updatedAt: now, version: g.version + 1 });
     }
 
+    const actorAddPh = convexMemberSettledName(existing, actorId);
+
     await ctx.db.insert('splitGroupActivity', {
       groupId,
       kind: 'member_joined',
       at: nowIso,
       actorMemberId: actorId,
       targetMemberId: mid as string,
-      title: `${trimmed} joined`,
-      subtitle: 'Added to group',
+      title: `${actorAddPh} added ${trimmed}`,
+      subtitle: 'Placeholder (not linked yet)',
     });
 
     return { memberId: mid as string };
@@ -766,6 +939,10 @@ export const renameMember = mutation({
     const row = await ctx.db.get(args.memberId as Id<'splitGroupMembers'>);
     if (!row || row.groupId !== args.groupId) throw new ConvexError('Member not found.');
     if (row.userId === userId) throw new ConvexError('Cannot rename yourself here.');
+    await assertGroupHost(ctx, args.groupId, userId);
+    if (row.userId != null) {
+      throw new ConvexError('Members with a Debtly account cannot be renamed.');
+    }
 
     const trimmed = args.displayName.trim();
     if (!trimmed) throw new ConvexError('Name required.');
@@ -790,17 +967,143 @@ export const renameMember = mutation({
       });
     }
 
+    const actorRename = convexMemberSettledName(members, actorId);
+    const previousDisplay = row.displayName;
+
     await ctx.db.insert('splitGroupActivity', {
       groupId: args.groupId,
       kind: 'member_renamed',
       at: nowIso,
       actorMemberId: actorId,
       targetMemberId: row._id as string,
-      title: `Renamed member`,
-      subtitle: `${row.displayName} → ${trimmed}`,
+      title: `${actorRename} renamed ${previousDisplay}`,
+      subtitle: `${previousDisplay} → ${trimmed}`,
     });
 
     return null;
+  },
+});
+
+/** Invited member merges their Convex account into an existing placeholder row they were meant to be. */
+export const claimPlaceholderSeat = mutation({
+  args: {
+    groupId: v.id('splitGroups'),
+    placeholderMemberId: v.string(),
+  },
+  handler: async (ctx, { groupId, placeholderMemberId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+
+    const ph = await ctx.db.get(placeholderMemberId as Id<'splitGroupMembers'>);
+    if (!ph || ph.groupId !== groupId) throw new ConvexError('Member not found.');
+    if (!ph.isPlaceholder || ph.userId != null) {
+      throw new ConvexError('This row is already a linked Debtly member, not a name-only placeholder.');
+    }
+
+    const members = await loadMembers(ctx, groupId);
+    const viewerRow = members.find((m: { userId?: Id<'users'> }) => m.userId === userId);
+    if (!viewerRow) throw new ConvexError('Not a member of this group.');
+
+    const vmId = viewerRow._id as string;
+    const phId = ph._id as string;
+    if (vmId === phId) throw new ConvexError('Nothing to merge.');
+
+    const now = Date.now();
+    const nowIso = isoFromMs(now);
+
+    const expenseRows = await ctx.db
+      .query('splitGroupExpenses')
+      .withIndex('by_group', (q: any) => q.eq('groupId', groupId))
+      .collect();
+
+    for (const e of expenseRows) {
+      if (e.deletedAt) continue;
+      const touches =
+        e.paidByMemberId === vmId ||
+        e.paidByMemberId === phId ||
+        e.includedMemberIds.some((id) => id === vmId || id === phId) ||
+        e.shares.some((s) => s.memberId === vmId || s.memberId === phId);
+      if (!touches) continue;
+      const patch = patchExpenseDocsForPlaceholderMerge({
+        expense: e,
+        viewerMemberId: vmId,
+        placeholderMemberId: phId,
+        nowIso,
+      });
+      await ctx.db.patch(e._id, patch);
+    }
+
+    const settlementRows = await ctx.db
+      .query('splitGroupSettlements')
+      .withIndex('by_group', (q: any) => q.eq('groupId', groupId))
+      .collect();
+
+    for (const s of settlementRows) {
+      const nextFrom = remapIdForPlaceholderMerge(s.fromMemberId, vmId, phId);
+      const nextTo = remapIdForPlaceholderMerge(s.toMemberId, vmId, phId);
+      if (nextFrom === nextTo) {
+        await ctx.db.delete(s._id);
+        continue;
+      }
+      await ctx.db.patch(s._id, {
+        fromMemberId: nextFrom,
+        toMemberId: nextTo,
+        version: s.version + 1,
+      });
+    }
+
+    const activityRows = await ctx.db
+      .query('splitGroupActivity')
+      .withIndex('by_group', (q: any) => q.eq('groupId', groupId))
+      .collect();
+
+    for (const a of activityRows) {
+      const nextActor = a.actorMemberId === vmId ? phId : a.actorMemberId;
+      const rawTarget = a.targetMemberId;
+      const nextTarget = rawTarget === vmId ? phId : rawTarget;
+      if (nextActor === a.actorMemberId && nextTarget === a.targetMemberId) continue;
+      await ctx.db.patch(a._id, {
+        actorMemberId: nextActor,
+        ...(nextTarget !== undefined ? { targetMemberId: nextTarget } : {}),
+      });
+    }
+
+    const user = await ctx.db.get(userId);
+    const mergedName =
+      viewerRow.displayName?.trim() || user?.name?.trim() || ph.displayName;
+
+    await ctx.db.patch(ph._id, {
+      userId,
+      displayName: mergedName.trim() || ph.displayName,
+      isPlaceholder: false,
+      joinedAt: Math.max(ph.joinedAt, viewerRow.joinedAt, now),
+    });
+
+    await ctx.db.delete(viewerRow._id);
+
+    const gRow = await ctx.db.get(groupId);
+    if (gRow) {
+      await ctx.db.patch(groupId, {
+        updatedAt: now,
+        version: gRow.version + 1,
+      });
+    }
+
+    const mergedDisplay =
+      (mergedName.trim() || ph.displayName)?.trim() || convexMemberDisplayName(ph);
+    const placeholderLabel = ph.displayName;
+
+    await ctx.db.insert('splitGroupActivity', {
+      groupId,
+      kind: 'member_removed',
+      at: nowIso,
+      actorMemberId: phId,
+      targetMemberId: vmId,
+      title: `${mergedDisplay} linked their Debtly account`,
+      subtitle: `Merged into the "${placeholderLabel}" seat; past splits stay on that member.`,
+    });
+
+    return { linkedMemberId: phId };
   },
 });
 
@@ -812,6 +1115,7 @@ export const removeMember = mutation({
   handler: async (ctx, { groupId, memberId }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
 
     const row = await ctx.db.get(memberId as Id<'splitGroupMembers'>);
     if (!row || row.groupId !== groupId) throw new ConvexError('Member not found.');
@@ -835,6 +1139,20 @@ export const removeMember = mutation({
       });
     }
 
+    const rosterForRemoval = await loadMembers(ctx, groupId);
+    const removerName = convexMemberSettledName(rosterForRemoval, actorId);
+    const removedMemberName = convexMemberDisplayName(row);
+
+    await ctx.db.insert('splitGroupActivity', {
+      groupId,
+      kind: 'member_removed',
+      at: nowIso,
+      actorMemberId: actorId,
+      targetMemberId: memberId,
+      title: `${removerName} removed ${removedMemberName}`,
+      subtitle: `${removedMemberName} was removed from the group.`,
+    });
+
     await ctx.db.delete(row._id);
 
     const g = await ctx.db.get(groupId);
@@ -844,15 +1162,6 @@ export const removeMember = mutation({
         version: g.version + 1,
       });
     }
-
-    await ctx.db.insert('splitGroupActivity', {
-      groupId,
-      kind: 'member_removed',
-      at: nowIso,
-      actorMemberId: actorId,
-      targetMemberId: memberId,
-      title: `${row.displayName} removed`,
-    });
 
     return null;
   },
@@ -928,6 +1237,7 @@ export const addExpense = mutation({
     const payerName =
       members.find((m: { _id: Id<'splitGroupMembers'> }) => (m._id as string) === args.paidByMemberId)
         ?.displayName ?? 'Someone';
+    const recorderName = convexMemberSettledName(members, actorId);
 
     await ctx.db.insert('splitGroupActivity', {
       groupId: args.groupId,
@@ -936,7 +1246,7 @@ export const addExpense = mutation({
       actorMemberId: actorId,
       expenseId: id as string,
       title: args.title.trim(),
-      subtitle: `${payerName} paid`,
+      subtitle: `${recorderName} added · Paid by ${payerName} · ${splitMethodConvexLabel(args.splitMethod)}`,
       amountMinor,
     });
 
@@ -1012,14 +1322,17 @@ export const updateExpense = mutation({
       version: existing.version + 1,
     });
 
+    const editorName = convexMemberSettledName(members, actorId);
+    const expenseTitleNext = args.title?.trim() ?? existing.title;
+
     await ctx.db.insert('splitGroupActivity', {
       groupId: existing.groupId,
       kind: 'expense_edited',
       at: nowIso,
       actorMemberId: actorId,
       expenseId: args.expenseId as string,
-      title: args.title?.trim() ?? existing.title,
-      subtitle: 'Expense updated',
+      title: expenseTitleNext,
+      subtitle: `${editorName} updated this expense`,
       amountMinor,
     });
 
@@ -1046,6 +1359,9 @@ export const deleteExpense = mutation({
     const nowIso = isoFromMs(Date.now());
     const actorId = await viewerMemberId(ctx, existing.groupId, userId);
 
+    const memberRowsDel = await loadMembers(ctx, existing.groupId);
+    const deleterName = convexMemberSettledName(memberRowsDel, actorId);
+
     await ctx.db.patch(expenseId, {
       deletedAt: nowIso,
       updatedAt: nowIso,
@@ -1059,7 +1375,7 @@ export const deleteExpense = mutation({
       actorMemberId: actorId,
       expenseId: expenseId as string,
       title: existing.title,
-      subtitle: 'Expense deleted',
+      subtitle: `${deleterName} deleted this expense`,
       amountMinor: existing.amountMinor,
     });
 
@@ -1152,8 +1468,28 @@ export const recordSettlement = mutation({
       throw new ConvexError('That amount is more than what is still owed for this payer and recipient.');
     }
 
+    const groupHead = await ctx.db.get(args.groupId);
+    if (!groupHead) throw new ConvexError('Group not found.');
+    const groupCurrency = normalizedGroupCurrency(groupHead.currency);
+
     const nowIso = isoFromMs(Date.now());
     const actorId = await viewerMemberId(ctx, args.groupId, userId);
+
+    const rosterSt = await loadMembers(ctx, args.groupId);
+    const fromNm = convexMemberSettledName(rosterSt, args.fromMemberId);
+    const toNm = convexMemberSettledName(rosterSt, args.toMemberId);
+    const markerNm = convexMemberSettledName(rosterSt, actorId);
+    const noteTrim = args.note?.trim();
+
+    const settlementSubtitle = (() => {
+      const partial = amountMinor < cap && cap > 0;
+      if (partial) {
+        let s = `Partial payment: ${formatMinorAudit(amountMinor, groupCurrency)} of ${formatMinorAudit(cap, groupCurrency)} still owed · Recorded by ${markerNm}`;
+        if (noteTrim) s += ` · ${noteTrim}`;
+        return s;
+      }
+      return noteTrim ? `Recorded by ${markerNm} · ${noteTrim}` : `Recorded by ${markerNm}`;
+    })();
 
     const sid = await ctx.db.insert('splitGroupSettlements', {
       groupId: args.groupId,
@@ -1171,8 +1507,8 @@ export const recordSettlement = mutation({
       at: nowIso,
       actorMemberId: actorId,
       settlementId: sid as string,
-      title: 'Settlement recorded',
-      subtitle: undefined,
+      title: `${fromNm} paid ${toNm}`,
+      subtitle: settlementSubtitle,
       amountMinor,
     });
 
@@ -1217,6 +1553,10 @@ export const voidRecordedSettlementsWithMember = mutation({
     const nowIso = isoFromMs(Date.now());
     const actorId = await viewerMemberId(ctx, args.groupId, userId);
 
+    const rosterVoid = await loadMembers(ctx, args.groupId);
+    const voidActor = convexMemberSettledName(rosterVoid, actorId);
+    const voidOther = convexMemberSettledName(rosterVoid, args.otherMemberId);
+
     for (const s of removed) {
       await ctx.db.delete(s._id);
     }
@@ -1227,7 +1567,11 @@ export const voidRecordedSettlementsWithMember = mutation({
       at: nowIso,
       actorMemberId: actorId,
       targetMemberId: args.otherMemberId,
-      title: `Voided ${removed.length} settlement(s)`,
+      title: `${voidActor} voided settlements with ${voidOther}`,
+      subtitle:
+        removed.length === 1
+          ? 'One recorded payment was removed.'
+          : `${removed.length} recorded payments were removed.`,
     });
 
     const g = await ctx.db.get(args.groupId);
@@ -1350,13 +1694,23 @@ export const recordAllViewerPairwiseSettlements = mutation({
       };
       settlements = [st, ...settlements];
 
+      const fromLabel = convexMemberSettledName(memberRows, fromMemberId);
+      const toLabel = convexMemberSettledName(memberRows, toMemberId);
+      const recorderLabel = convexMemberSettledName(memberRows, actorId);
+      const cur = splitGroup.currency;
+      const isPartialBulk = amountMinor < capMinor && capMinor > 0;
+      const bulkSubtitle = isPartialBulk
+        ? `Partial payment: ${formatMinorAudit(amountMinor, cur)} of ${formatMinorAudit(capMinor, cur)} still owed · Recorded by ${recorderLabel} · Settle all`
+        : `Recorded by ${recorderLabel} · Settle all`;
+
       await ctx.db.insert('splitGroupActivity', {
         groupId: args.groupId,
         kind: 'settlement_recorded',
         at: nowIso,
         actorMemberId: actorId,
         settlementId: sid as string,
-        title: 'Settlement recorded',
+        title: `${fromLabel} paid ${toLabel}`,
+        subtitle: bulkSubtitle,
         amountMinor,
       });
     }

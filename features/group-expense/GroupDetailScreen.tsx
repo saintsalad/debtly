@@ -7,7 +7,7 @@ import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
 import { ListDivider } from '@/components/ui/ListDivider';
 import { buildGroupActivity } from '@/features/group-expense/activityFeed';
 import { ActivityFeedItem } from '@/features/group-expense/ActivityFeedItem';
-import { getGroupCreatorMemberId, isExpenseTappable } from '@/features/group-expense/activityLog';
+import { isExpenseTappable, isViewerGroupHost } from '@/features/group-expense/activityLog';
 import { AddExpenseSheet, type AddExpenseSheetHandle } from '@/features/group-expense/AddExpenseSheet';
 import { selectGroupBalances, settlementsExistBetweenMembers } from '@/features/group-expense/balanceEngine';
 import { GroupBalanceHero } from '@/features/group-expense/GroupBalanceHero';
@@ -255,6 +255,16 @@ export function GroupDetailScreen() {
     [group]
   );
 
+  const viewerMemberIdForHost = useMemo(
+    () => group?.members.find((m) => m.isCurrentUser)?.id,
+    [group]
+  );
+  const isViewerHost = useMemo(
+    () =>
+      Boolean(group && isViewerGroupHost(group, activityLog, viewerMemberIdForHost)),
+    [group, activityLog, viewerMemberIdForHost]
+  );
+
   const openSettle = useCallback(() => {
     if (!group || !summary) return;
     const currentUser = group.members.find((m) => m.isCurrentUser);
@@ -286,6 +296,12 @@ export function GroupDetailScreen() {
 
   const openGroupPhotoOptions = useCallback(() => {
     if (!group || groupPhotoUploading) return;
+    const viewerMemberId = group.members.find((m) => m.isCurrentUser)?.id;
+    if (!isViewerGroupHost(group, activityLog, viewerMemberId)) {
+      Alert.alert('Host only', 'Only the group host can change the cover photo.');
+      return;
+    }
+
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const gid = group.id as Id<'splitGroups'>;
@@ -377,6 +393,7 @@ export function GroupDetailScreen() {
   }, [
     group,
     groupPhotoUploading,
+    activityLog,
     setGroupImage,
     toast,
     convexGenGroupImageUrl,
@@ -388,19 +405,19 @@ export function GroupDetailScreen() {
 
   const groupMoreMenuSections = useMemo((): ContextMenuSection[] => {
     if (!group) return [];
-    const viewerMemberId = group.members.find((m) => m.isCurrentUser)?.id;
-    const creatorMemberId = getGroupCreatorMemberId(group, activityLog);
-    const canDeleteGroup = Boolean(
-      viewerMemberId && creatorMemberId && viewerMemberId === creatorMemberId
-    );
+    const canDeleteGroup = isViewerHost;
 
     const mainItems: ContextMenuSection['items'] = [
-      {
-        id: 'photo',
-        title: 'Group photo',
-        icon: Camera,
-        onPress: () => openGroupPhotoOptions(),
-      },
+      ...(isViewerHost
+        ? [
+            {
+              id: 'photo',
+              title: 'Group photo',
+              icon: Camera,
+              onPress: () => openGroupPhotoOptions(),
+            },
+          ]
+        : []),
       {
         id: 'share',
         title: 'Share summary',
@@ -473,6 +490,7 @@ export function GroupDetailScreen() {
     deleteGroup,
     router,
     closeMoreMenu,
+    isViewerHost,
   ]);
 
   const currentUserId = useMemo(
@@ -584,21 +602,23 @@ export function GroupDetailScreen() {
                     />
                   </Pressable>
 
-                  <Pressable
-                    onPress={openGroupPhotoOptions}
-                    style={styles.heroCameraFab}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      groupPhotoUploading ? 'Uploading group photo' : 'Change group photo'
-                    }
-                    disabled={groupPhotoUploading}
-                  >
-                    {groupPhotoUploading ? (
-                      <ActivityIndicator color="rgba(255,255,255,0.95)" />
-                    ) : (
-                      <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
-                    )}
-                  </Pressable>
+                  {isViewerHost ? (
+                    <Pressable
+                      onPress={openGroupPhotoOptions}
+                      style={styles.heroCameraFab}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        groupPhotoUploading ? 'Uploading group photo' : 'Change group photo'
+                      }
+                      disabled={groupPhotoUploading}
+                    >
+                      {groupPhotoUploading ? (
+                        <ActivityIndicator color="rgba(255,255,255,0.95)" />
+                      ) : (
+                        <Camera size={20} color="rgba(255,255,255,0.95)" strokeWidth={2} />
+                      )}
+                    </Pressable>
+                  ) : null}
 
                   <View style={styles.heroFooter}>
                     <LinearGradient
@@ -624,29 +644,25 @@ export function GroupDetailScreen() {
               ) : (
                 <View style={[styles.heroFullBleed, styles.heroFullBleedColumn]}>
                   <View style={styles.heroNoPhotoTop}>
-                    <Pressable
-                      onPress={openGroupPhotoOptions}
-                      style={styles.heroNoPhotoTapArea}
-                      accessibilityRole="button"
-                      accessibilityLabel="Add group cover photo"
-                      disabled={groupPhotoUploading}
-                    />
+                    <View style={styles.heroNoPhotoTapArea} />
 
-                    <Pressable
-                      onPress={openGroupPhotoOptions}
-                      style={[styles.heroCameraFab, styles.heroCameraFabPlain]}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        groupPhotoUploading ? 'Uploading group photo' : 'Add group photo'
-                      }
-                      disabled={groupPhotoUploading}
-                    >
-                      {groupPhotoUploading ? (
-                        <ActivityIndicator color={palette.label} />
-                      ) : (
-                        <Camera size={20} color={palette.label} strokeWidth={2} />
-                      )}
-                    </Pressable>
+                    {isViewerHost ? (
+                      <Pressable
+                        onPress={openGroupPhotoOptions}
+                        style={[styles.heroCameraFab, styles.heroCameraFabPlain]}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          groupPhotoUploading ? 'Uploading group photo' : 'Add group photo'
+                        }
+                        disabled={groupPhotoUploading}
+                      >
+                        {groupPhotoUploading ? (
+                          <ActivityIndicator color={palette.label} />
+                        ) : (
+                          <Camera size={20} color={palette.label} strokeWidth={2} />
+                        )}
+                      </Pressable>
+                    ) : null}
 
                     <Pressable
                       onPress={() => {

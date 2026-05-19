@@ -15,6 +15,7 @@ interface HeaderIconButtonProps {
   variant?: HeaderIconButtonVariant;
   appearance?: HeaderIconButtonAppearance;
   iconSize?: number;
+  disabled?: boolean;
 }
 
 export function HeaderIconButton({
@@ -25,6 +26,7 @@ export function HeaderIconButton({
   variant = 'secondary',
   appearance = 'default',
   iconSize = 20,
+  disabled = false,
 }: HeaderIconButtonProps) {
   const palette = useColors();
   const glassBorder = useGlassBorder(appearance === 'onDark' ? 'surface' : variant);
@@ -55,15 +57,18 @@ export function HeaderIconButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       accessibilityLabel={accessibilityLabel}
       hitSlop={8}
       onPressIn={onPressIn}
       onPress={onPress}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.button,
         glassBorder,
         { backgroundColor },
-        pressed && styles.pressed,
+        disabled && styles.disabled,
+        pressed && !disabled && styles.pressed,
       ]}
       android_ripple={{ color: rippleColor, borderless: true }}
     >
@@ -82,5 +87,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.82,
+  },
+  disabled: {
+    opacity: 0.38,
   },
 });

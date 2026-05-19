@@ -58,6 +58,7 @@ import {
   useStatusBarScrollFade,
 } from '@/lib/statusBarScrollFade';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { IosDatePicker } from '@/components/ui/ios-datepicker';
 
 interface AddDebtScreenProps {
@@ -333,8 +334,11 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
     onClose();
   };
 
+  const { busy: savingDebt, runGuarded } = useSubmitGuard();
+
   // ── Submit ───────────────────────────────────────────────────────────────
-  const handleSubmit = () => {
+  const handleSubmit = () =>
+    void runGuarded(async () => {
     if (!isSplitWithOthers && !personName.trim()) {
       Alert.alert('Name required', ENTER_DEBT_NAME);
       return;
@@ -464,7 +468,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
     if (error) { Alert.alert('Unable to save debt', error); return; }
     notifySuccess(toast, 'Debt added', 'Transaction saved.');
     close();
-  };
+  });
 
   if (isEditing && !existingDebt) return null;
 
@@ -758,6 +762,7 @@ export function AddDebtScreen({ onClose, debtId }: AddDebtScreenProps) {
                 accessibilityLabel={isEditing ? 'Save changes' : 'Save'}
                 onPress={handleSubmit}
                 variant="tint"
+                disabled={savingDebt}
               />
             </View>
           </View>

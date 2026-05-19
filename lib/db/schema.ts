@@ -100,6 +100,8 @@ export const groupMembers = sqliteTable('group_members', {
   username: text('username'),
   avatarUri: text('avatar_uri'),
   color: text('color'),
+  /** Host-added labels vs someone who joined (local/offline heuristic). */
+  isPlaceholder: integer('is_placeholder', { mode: 'boolean' }).notNull().default(true),
   joinedAt: text('joined_at').notNull(),
 });
 

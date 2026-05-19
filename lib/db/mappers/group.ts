@@ -47,6 +47,7 @@ export function memberToRow(member: GroupMember, groupId: string): GroupMemberRo
     username: member.username ?? null,
     avatarUri: member.avatarUri ?? null,
     color: member.color ?? null,
+    isPlaceholder: member.isPlaceholder ?? (member.isCurrentUser ? false : true),
     joinedAt: member.joinedAt,
   };
 }
@@ -137,6 +138,7 @@ export function rowToMember(row: GroupMemberRow): GroupMember {
     username: row.username ?? undefined,
     avatarUri: row.avatarUri ?? undefined,
     color: row.color ?? undefined,
+    isPlaceholder: row.isPlaceholder,
     joinedAt: row.joinedAt,
   };
 }

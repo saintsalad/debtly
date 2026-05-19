@@ -9,6 +9,11 @@ export interface GroupMember {
   avatarUri?: string;
   color?: string;
   joinedAt: string;
+  /**
+   * When set: `false` means the row is backed by an Auth user (invite join);
+   * `true` means a host-added label only (“placeholder”).
+   */
+  isPlaceholder?: boolean;
 }
 
 export interface ExpenseShare {

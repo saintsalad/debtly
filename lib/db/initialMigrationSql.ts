@@ -87,6 +87,7 @@ CREATE TABLE \`group_members\` (
 	\`username\` text,
 	\`avatar_uri\` text,
 	\`color\` text,
+	\`is_placeholder\` integer NOT NULL DEFAULT 1,
 	\`joined_at\` text NOT NULL,
 	FOREIGN KEY (\`group_id\`) REFERENCES \`groups\`(\`id\`) ON UPDATE no action ON DELETE cascade
 );

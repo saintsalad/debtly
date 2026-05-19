@@ -144,7 +144,12 @@ export async function copyStringToClipboard(text: string): Promise<boolean> {
 /** Opens the system share sheet with the join URL/message. */
 export async function shareInviteLinkMessage(link: string): Promise<void> {
   try {
-    await Share.share({ message: link, title: 'Join my Debtly group' });
+    // Android: including `title` often surfaces as extra text in previews / choosers vs iOS.
+    if (Platform.OS === 'android') {
+      await Share.share({ message: link });
+    } else {
+      await Share.share({ message: link, title: 'Join my Debtly group' });
+    }
   } catch {
     Alert.alert('Could not share link', 'Try again in a moment.');
   }

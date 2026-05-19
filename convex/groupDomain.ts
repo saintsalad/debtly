@@ -11,6 +11,8 @@ export interface GroupMember {
   avatarUri?: string;
   color?: string;
   joinedAt: string;
+  /** Convex: false for backed users, true for placeholders */
+  isPlaceholder?: boolean;
 }
 
 export interface ExpenseShare {

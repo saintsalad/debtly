@@ -16,6 +16,16 @@ function memberName(group: SplitGroup, memberId?: string): string {
   return group.members.find((m) => m.id === memberId)?.displayName ?? 'Someone';
 }
 
+/**
+ * Roster display name for activity / audit rows. Never maps to \"You\", so logs read clearly for every member.
+ */
+export function auditActorName(group: SplitGroup, memberId: string): string {
+  const raw = memberName(group, memberId);
+  const t = raw.trim();
+  return t.length > 0 ? t : 'Someone';
+}
+
+/** Viewer-relative label (may show \"You\"). Prefer {@link auditActorName} when writing shared activity copy. */
 export function actorLabel(group: SplitGroup, actorMemberId: string): string {
   const current = getCurrentUserMember(group.members);
   if (current && actorMemberId === current.id) return 'You';
@@ -97,7 +107,7 @@ export function logExpenseAdded(
   expense: GroupExpense,
   actorMemberId: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   const payer = memberName(group, expense.paidByMemberId);
   return createLogEntry({
     groupId: group.id,
@@ -106,7 +116,7 @@ export function logExpenseAdded(
     actorMemberId,
     expenseId: expense.id,
     title: expense.title,
-    subtitle: `${actor === 'You' && payer === 'You' ? 'You paid' : payer === actor ? `${actor} paid` : `Paid by ${payer}`} · ${splitMethodLabel(expense.splitMethod)}`,
+    subtitle: `${actor} added · Paid by ${payer} · ${splitMethodLabel(expense.splitMethod)}`,
     amountMinor: expense.amountMinor,
   });
 }
@@ -118,7 +128,7 @@ export function logExpenseEdited(
   actorMemberId: string,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'expense_edited',
@@ -136,7 +146,7 @@ export function logExpenseDeleted(
   actorMemberId: string,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'expense_deleted',
@@ -151,10 +161,31 @@ export function logExpenseDeleted(
 export function logSettlement(
   group: SplitGroup,
   settlement: Settlement,
-  actorMemberId: string
+  actorMemberId: string,
+  options?: { directedOutstandingBeforeMinor?: number }
 ): ActivityLogEntry {
-  const from = actorLabel(group, settlement.fromMemberId);
-  const to = memberName(group, settlement.toMemberId);
+  const from = auditActorName(group, settlement.fromMemberId);
+  const to = auditActorName(group, settlement.toMemberId);
+  const recorder = auditActorName(group, actorMemberId);
+  const note = settlement.note?.trim();
+  const currency =
+    typeof group.currency === 'string' && group.currency.trim().length >= 3
+      ? group.currency.trim().toUpperCase().slice(0, 3)
+      : 'USD';
+  const cap = options?.directedOutstandingBeforeMinor;
+  const paid = settlement.amountMinor;
+  const isPartial =
+    cap != null && cap > 0 && paid > 0 && paid < cap;
+
+  const paidStr = fmtMinor(paid, currency);
+  const subtitle = isPartial
+    ? `Partial payment: ${paidStr} of ${fmtMinor(cap, currency)} still owed · Recorded by ${recorder}${
+        note ? ` · ${note}` : ''
+      }`
+    : note
+      ? `Recorded by ${recorder} · ${note}`
+      : `Recorded by ${recorder}`;
+
   return createLogEntry({
     groupId: group.id,
     kind: 'settlement_recorded',
@@ -162,7 +193,7 @@ export function logSettlement(
     actorMemberId,
     settlementId: settlement.id,
     title: `${from} paid ${to}`,
-    subtitle: settlement.note,
+    subtitle,
     amountMinor: settlement.amountMinor,
   });
 }
@@ -174,8 +205,8 @@ export function logSettlementsVoidedBetween(
   removedCount: number,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
-  const other = memberName(group, otherMemberId);
+  const actor = auditActorName(group, actorMemberId);
+  const other = auditActorName(group, otherMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'settlements_voided',
@@ -185,8 +216,8 @@ export function logSettlementsVoidedBetween(
     title: `${actor} marked ${other} as unpaid again`,
     subtitle:
       removedCount > 1
-        ? `${removedCount} recorded payments between you were removed.`
-        : 'The recorded payment between you was removed.',
+        ? `${removedCount} recorded payments between ${actor} and ${other} were removed.`
+        : `Recorded payment between ${actor} and ${other} was removed.`,
   });
 }
 
@@ -196,7 +227,7 @@ export function logMemberJoined(
   actorMemberId: string,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   const joined = memberName(group, memberId);
   return createLogEntry({
     groupId: group.id,
@@ -214,7 +245,7 @@ export function logMemberRemoved(
   actorMemberId: string,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'member_removed',
@@ -232,7 +263,7 @@ export function logMemberRenamed(
   actorMemberId: string,
   at: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'member_renamed',
@@ -245,7 +276,7 @@ export function logMemberRenamed(
 }
 
 export function logGroupCreated(group: SplitGroup, actorMemberId: string): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'group_created',
@@ -276,13 +307,24 @@ export function getGroupCreatorMemberId(
   return [...group.members].sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))[0]?.id;
 }
 
+/** True when the viewer’s member row matches the group creator (invite host). */
+export function isViewerGroupHost(
+  group: SplitGroup,
+  activityLog: readonly ActivityLogEntry[],
+  viewerMemberId: string | undefined
+): boolean {
+  if (!viewerMemberId) return false;
+  const creatorId = getGroupCreatorMemberId(group, activityLog);
+  return creatorId !== undefined && creatorId === viewerMemberId;
+}
+
 export function logGroupUpdated(
   group: SplitGroup,
   actorMemberId: string,
   at: string,
   detail: string
 ): ActivityLogEntry {
-  const actor = actorLabel(group, actorMemberId);
+  const actor = auditActorName(group, actorMemberId);
   return createLogEntry({
     groupId: group.id,
     kind: 'group_updated',

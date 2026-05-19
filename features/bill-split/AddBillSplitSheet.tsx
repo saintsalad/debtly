@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useBillSplitStore } from '@/stores/billSplitStore';
 import { useColors, space, type ColorPalette } from '@/lib/platform';
 import { notifySuccess } from '@/lib/appToast';
@@ -106,6 +107,8 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
   const [total, setTotal] = useState('');
   const [participants, setParticipants] = useState('');
 
+  const { busy: savingSplit, runGuarded } = useSubmitGuard();
+
   const snapPoints = useMemo(() => ['72%'], []);
 
   const reset = useCallback(() => {
@@ -123,31 +126,32 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
     dismiss: close,
   }));
 
-  const handleSubmit = () => {
-    const amount = Number.parseFloat(total);
-    const participantNames = participants
-      .split(/[\n,]+/)
-      .map((name) => name.trim())
-      .filter(Boolean);
+  const handleSubmit = () =>
+    void runGuarded(async () => {
+      const amount = Number.parseFloat(total);
+      const participantNames = participants
+        .split(/[\n,]+/)
+        .map((name) => name.trim())
+        .filter(Boolean);
 
-    if (!title.trim()) {
-      Alert.alert('Missing title', 'Add a name for this bill.');
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert('Invalid total', 'Enter a total greater than zero.');
-      return;
-    }
-    if (participantNames.length === 0) {
-      Alert.alert('Missing people', 'Add at least one person to split with.');
-      return;
-    }
+      if (!title.trim()) {
+        Alert.alert('Missing title', 'Add a name for this bill.');
+        return;
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        Alert.alert('Invalid total', 'Enter a total greater than zero.');
+        return;
+      }
+      if (participantNames.length === 0) {
+        Alert.alert('Missing people', 'Add at least one person to split with.');
+        return;
+      }
 
-    addSplit({ title: title.trim(), total: amount, participantNames });
-    notifySuccess(toast, 'Split added');
-    close();
-    reset();
-  };
+      addSplit({ title: title.trim(), total: amount, participantNames });
+      notifySuccess(toast, 'Split added');
+      close();
+      reset();
+    });
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -179,8 +183,13 @@ export const AddBillSplitSheet = forwardRef<AddBillSplitSheetHandle>(function Ad
               <GlassButton.Label>Cancel</GlassButton.Label>
             </GlassButton>
             <Text style={styles.title}>New split</Text>
-            <GlassButton variant="primary" size="sm" onPress={handleSubmit}>
-              <GlassButton.Label>Save</GlassButton.Label>
+            <GlassButton
+              variant="primary"
+              size="sm"
+              onPress={handleSubmit}
+              isDisabled={savingSplit}
+            >
+              <GlassButton.Label>{savingSplit ? 'Saving…' : 'Save'}</GlassButton.Label>
             </GlassButton>
           </View>
 

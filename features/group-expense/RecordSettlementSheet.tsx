@@ -29,6 +29,7 @@ import type {
 import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useCurrency } from '@/hooks/useCurrency';
 import { notifySuccess } from '@/lib/appToast';
 import { sansForWeight } from '@/lib/appFonts';
@@ -165,6 +166,8 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
     const convexVoidSettlements = useMutation(api.splitGroups.voidRecordedSettlementsWithMember);
 
     const { toast } = useToast();
+
+    const { busy: recordingSettlement, runGuarded } = useSubmitGuard();
 
     const [groupId, setGroupId] = useState<string | null>(null);
     const [fromMemberId, setFromMemberId] = useState('');
@@ -366,7 +369,7 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
       setToMemberId((prev) => (nextRecipients.some((r) => r.id === prev) ? prev : nextRecipients[0]?.id ?? ''));
     };
 
-    const handleSaveSettlement = async () => {
+    const submitSettlement = async () => {
       if (!groupId || !showRecordFlow || !group) return;
       const parsed = parseFloat(amount.replace(/,/g, ''));
       if (!Number.isFinite(parsed) || parsed <= 0) {
@@ -410,6 +413,8 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
       notifySuccess(toast, 'Settlement recorded');
       sheetRef.current?.dismiss();
     };
+
+    const handleSaveSettlement = () => void runGuarded(submitSettlement);
 
     const handleMarkUnpaid = () => {
       if (!groupId || !viewerMember || !showVoidFlow || !group) return;
@@ -550,8 +555,14 @@ export const RecordSettlementSheet = forwardRef<RecordSettlementSheetHandle>(
                     keyboardAppearance={keyboardAppearance}
                   />
                 </TextField>
-                <GlassButton variant="primary" onPress={handleSaveSettlement}>
-                  <GlassButton.Label>Record settlement</GlassButton.Label>
+                <GlassButton
+                  variant="primary"
+                  onPress={handleSaveSettlement}
+                  isDisabled={recordingSettlement}
+                >
+                  <GlassButton.Label>
+                    {recordingSettlement ? 'Recording…' : 'Record settlement'}
+                  </GlassButton.Label>
                 </GlassButton>
               </>
             ) : null}

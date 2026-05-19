@@ -15,9 +15,11 @@ import { Avatar } from '@/components/ui/Avatar';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { ListDivider } from '@/components/ui/ListDivider';
 import type { GroupMember } from '@/features/group-expense/types';
+import { isViewerGroupHost } from '@/features/group-expense/activityLog';
 import { isCloudSplitGroup } from '@/features/group-expense/mergeConvexSplitSnapshot';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
 import {
   screenHeaderLayerStyle,
@@ -50,6 +52,20 @@ function sortMembers(members: GroupMember[]): GroupMember[] {
     if (b.isCurrentUser) return 1;
     return a.displayName.localeCompare(b.displayName);
   });
+}
+
+/** One-line status for placeholders vs Convex-linked seats vs offline-only roster. */
+function memberSubtitle(member: GroupMember, groupIsCloud: boolean): string {
+  if (member.isCurrentUser) {
+    return groupIsCloud ? 'You · Debtly account' : 'You';
+  }
+  if (groupIsCloud) {
+    return member.isPlaceholder === true
+      ? 'Name only · not linked yet'
+      : 'Joined · Debtly account';
+  }
+  if (member.isPlaceholder === false) return 'Joined on this device';
+  return 'Added on this device';
 }
 
 function createSheetStyles(palette: ColorPalette) {
@@ -137,12 +153,27 @@ function createSheetStyles(palette: ColorPalette) {
       paddingHorizontal: space[5],
       paddingTop: space[2],
     },
+    claimSeatPressable: {
+      marginTop: space[2],
+      alignSelf: 'flex-start',
+    },
+    claimSeatText: {
+      ...type.caption1,
+      fontFamily: sansForWeight('600'),
+      fontWeight: '600',
+      color: palette.tint,
+    },
+    claimSeatTextDisabled: {
+      color: palette.labelTertiary,
+    },
   });
 }
 
 interface MemberRowProps {
   member: GroupMember;
-  canManage: boolean;
+  canRenameMember: boolean;
+  canRemoveMember: boolean;
+  groupIsCloud: boolean;
   isRenaming: boolean;
   renameDraft: string;
   onRenameDraftChange: (value: string) => void;
@@ -150,14 +181,19 @@ interface MemberRowProps {
   onSaveRename: () => void;
   onCancelRename: () => void;
   onRemove: () => void;
+  onClaimSeat?: (member: GroupMember) => void;
+  claimSeatBusy: boolean;
   styles: ReturnType<typeof createSheetStyles>;
   palette: ColorPalette;
   keyboardAppearance: 'light' | 'dark';
+  renameSaveBusy: boolean;
 }
 
 function MemberRow({
   member,
-  canManage,
+  canRenameMember,
+  canRemoveMember,
+  groupIsCloud,
   isRenaming,
   renameDraft,
   onRenameDraftChange,
@@ -165,9 +201,12 @@ function MemberRow({
   onSaveRename,
   onCancelRename,
   onRemove,
+  onClaimSeat,
+  claimSeatBusy,
   styles,
   palette,
   keyboardAppearance,
+  renameSaveBusy,
 }: MemberRowProps) {
   if (isRenaming) {
     return (
@@ -186,13 +225,25 @@ function MemberRow({
           <GlassButton variant="secondary" onPress={onCancelRename} style={{ flex: 1 }}>
             <GlassButton.Label>Cancel</GlassButton.Label>
           </GlassButton>
-          <GlassButton variant="primary" onPress={onSaveRename} style={{ flex: 1 }}>
-            <GlassButton.Label>Save</GlassButton.Label>
+          <GlassButton
+            variant="primary"
+            onPress={onSaveRename}
+            style={{ flex: 1 }}
+            isDisabled={renameSaveBusy}
+          >
+            <GlassButton.Label>{renameSaveBusy ? 'Saving…' : 'Save'}</GlassButton.Label>
           </GlassButton>
         </View>
       </View>
     );
   }
+
+  const subtitle = memberSubtitle(member, groupIsCloud);
+  const showClaimSeat =
+    groupIsCloud &&
+    member.isPlaceholder === true &&
+    !member.isCurrentUser &&
+    typeof onClaimSeat === 'function';
 
   return (
     <View style={styles.row}>
@@ -206,32 +257,55 @@ function MemberRow({
         <Text style={styles.name} numberOfLines={1}>
           {member.displayName}
         </Text>
-        <Text style={styles.meta}>
-          {member.isCurrentUser ? 'You' : 'Named member · not signed in'}
-        </Text>
-      </View>
-      {canManage ? (
-        <View style={styles.actions}>
-          <Pressable
-            style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]}
-            onPress={onStartRename}
-            accessibilityRole="button"
-            accessibilityLabel={`Rename ${member.displayName}`}
-          >
-            <Pencil size={18} color={palette.labelSecondary} />
-          </Pressable>
+        <Text style={styles.meta}>{subtitle}</Text>
+        {showClaimSeat ? (
           <Pressable
             style={({ pressed }) => [
-              styles.iconButton,
-              styles.iconButtonDanger,
-              pressed && { opacity: 0.7 },
+              styles.claimSeatPressable,
+              pressed && !claimSeatBusy && { opacity: 0.7 },
             ]}
-            onPress={onRemove}
+            onPress={() => onClaimSeat(member)}
+            disabled={claimSeatBusy}
             accessibilityRole="button"
-            accessibilityLabel={`Remove ${member.displayName}`}
+            accessibilityLabel={`Link your Debtly account to the seat "${member.displayName}"`}
           >
-            <Trash2 size={18} color={palette.negative} />
+            <Text
+              style={[
+                styles.claimSeatText,
+                claimSeatBusy ? styles.claimSeatTextDisabled : undefined,
+              ]}
+            >
+              {claimSeatBusy ? 'Linking seat…' : 'This is my seat — link account'}
+            </Text>
           </Pressable>
+        ) : null}
+      </View>
+      {canRenameMember || canRemoveMember ? (
+        <View style={styles.actions}>
+          {canRenameMember ? (
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.7 }]}
+              onPress={onStartRename}
+              accessibilityRole="button"
+              accessibilityLabel={`Rename ${member.displayName}`}
+            >
+              <Pencil size={18} color={palette.labelSecondary} />
+            </Pressable>
+          ) : null}
+          {canRemoveMember ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.iconButton,
+                styles.iconButtonDanger,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={onRemove}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${member.displayName}`}
+            >
+              <Trash2 size={18} color={palette.negative} />
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -247,13 +321,18 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
   const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
   const groups = useGroupExpenseStore((s) => s.groups);
   const expenses = useGroupExpenseStore((s) => s.expenses);
+  const activityLog = useGroupExpenseStore((s) => s.activityLog);
   const renameMember = useGroupExpenseStore((s) => s.renameMember);
   const removeMember = useGroupExpenseStore((s) => s.removeMember);
 
   const convexRenameMember = useMutation(api.splitGroups.renameMember);
   const convexRemoveMember = useMutation(api.splitGroups.removeMember);
+  const convexClaimPlaceholderSeat = useMutation(api.splitGroups.claimPlaceholderSeat);
 
   const { toast } = useToast();
+
+  const { busy: renameSaveBusy, runGuarded } = useSubmitGuard();
+  const { busy: claimSeatBusy, runGuarded: runClaimGuarded } = useSubmitGuard();
 
   const { scrollY, onScroll, resetScrollY } = useSheetSurfaceScrollFade();
 
@@ -263,7 +342,16 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
   const members = useMemo(() => (group ? sortMembers(group.members) : []), [group]);
-  const isHost = Boolean(group?.members.some((m) => m.isCurrentUser));
+  const viewerMemberId = group?.members.find((m) => m.isCurrentUser)?.id;
+  const isGroupHost = Boolean(group && isViewerGroupHost(group, activityLog, viewerMemberId));
+  const groupIsCloud = Boolean(group && isCloudSplitGroup(group));
+  const viewerMember = group?.members.find((m) => m.isCurrentUser);
+  /** Cloud groups only: viewer may merge into a placeholder row if they joined as their own duplicate seat. */
+  const canOfferClaimSeat =
+    groupIsCloud &&
+    Boolean(viewerMember) &&
+    viewerMember != null &&
+    viewerMember.isPlaceholder !== true;
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
@@ -326,7 +414,11 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
                 }
                 return;
               }
-              removeMember(groupId, member.id);
+              const rmErr = removeMember(groupId, member.id);
+              if (rmErr) {
+                Alert.alert('Could not remove', rmErr);
+                return;
+              }
               void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               notifySuccess(toast, 'Member removed');
               if (renamingId === member.id) {
@@ -345,9 +437,42 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
     setRenameDraft(member.displayName);
   };
 
-  const saveRename = () => {
-    if (!groupId || !renamingId || !group) return;
-    void (async () => {
+  const executeClaimSeat = (placeholderMember: GroupMember) =>
+    void runClaimGuarded(async () => {
+      if (!groupId || !group) return;
+      if (!groupIsCloud) return;
+      try {
+        await convexClaimPlaceholderSeat({
+          groupId: groupId as Id<'splitGroups'>,
+          placeholderMemberId: placeholderMember.id,
+        });
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        notifySuccess(toast, 'Seat linked');
+        setRenamingId(null);
+        setRenameDraft('');
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Could not link this seat.';
+        Alert.alert('Could not link seat', msg);
+      }
+    });
+
+  const promptClaimSeat = (placeholderMember: GroupMember) => {
+    Alert.alert(
+      'Use this seat for your account?',
+      `Splits and balances for "${placeholderMember.displayName}" will move onto your Debtly member. Your other member row will be removed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Link here',
+          onPress: () => executeClaimSeat(placeholderMember),
+        },
+      ]
+    );
+  };
+
+  const saveRename = () =>
+    void runGuarded(async () => {
+      if (!groupId || !renamingId || !group) return;
       if (isCloudSplitGroup(group)) {
         try {
           await convexRenameMember({
@@ -374,8 +499,7 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
       notifySuccess(toast, 'Name updated');
       setRenamingId(null);
       setRenameDraft('');
-    })();
-  };
+    });
 
   if (!group) return null;
 
@@ -412,7 +536,11 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
               <View key={member.id}>
                 <MemberRow
                   member={member}
-                  canManage={isHost && !member.isCurrentUser}
+                  canRenameMember={
+                    isGroupHost && !member.isCurrentUser && member.isPlaceholder !== false
+                  }
+                  canRemoveMember={isGroupHost && !member.isCurrentUser}
+                  groupIsCloud={groupIsCloud}
                   isRenaming={renamingId === member.id}
                   renameDraft={renameDraft}
                   onRenameDraftChange={setRenameDraft}
@@ -423,9 +551,12 @@ export const GroupMembersSheet = forwardRef<GroupMembersSheetHandle>(function Gr
                     setRenameDraft('');
                   }}
                   onRemove={() => confirmRemove(member)}
+                  onClaimSeat={canOfferClaimSeat ? promptClaimSeat : undefined}
+                  claimSeatBusy={claimSeatBusy}
                   styles={styles}
                   palette={palette}
                   keyboardAppearance={keyboardAppearance}
+                  renameSaveBusy={renameSaveBusy}
                 />
                 {index < members.length - 1 &&
                 renamingId !== member.id &&

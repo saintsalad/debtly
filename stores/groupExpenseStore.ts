@@ -11,6 +11,7 @@ import {
   logMemberRenamed,
   logSettlement,
   logSettlementsVoidedBetween,
+  getGroupCreatorMemberId,
 } from '@/features/group-expense/activityLog';
 import {
   amountToMinor,
@@ -34,13 +35,10 @@ import type {
   SplitGroup,
 } from '@/features/group-expense/types';
 import { EMPTY_GROUP_EXPENSE_STATE } from '@/features/group-expense/emptyGroupExpenseState';
+import { generateInviteCode } from '@/features/group-expense/generateInviteCode';
 import { generateId } from '@/lib/utils';
 import { useDebtStore } from '@/stores/debtStore';
 import { useProfileStore } from '@/stores/profileStore';
-
-function generateInviteCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
 
 function bumpVersion(version: number): number {
   return version + 1;
@@ -69,9 +67,14 @@ interface GroupExpenseStore extends GroupExpenseState {
   updateGroup: (id: string, updates: Partial<Pick<SplitGroup, 'name' | 'imageUri'>>) => void;
   deleteGroup: (id: string) => void;
   setGroupImage: (id: string, imageUri: string | undefined) => void;
-  addMember: (groupId: string, displayName: string, username?: string) => string | null;
+  addMember: (
+    groupId: string,
+    displayName: string,
+    username?: string,
+    options?: { isPlaceholder?: boolean }
+  ) => string | null;
   renameMember: (groupId: string, memberId: string, displayName: string) => string | null;
-  removeMember: (groupId: string, memberId: string) => void;
+  removeMember: (groupId: string, memberId: string) => string | null;
   addExpense: (input: AddExpenseInput) => string | null;
   updateExpense: (id: string, input: Partial<AddExpenseInput>) => string | null;
   deleteExpense: (id: string) => void;
@@ -99,6 +102,7 @@ function createCurrentUserMember(name: string): GroupMember {
     id: generateId(),
     displayName: name,
     isCurrentUser: true,
+    isPlaceholder: false,
     joinedAt: now,
   };
 }
@@ -122,6 +126,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
             id: generateId(),
             displayName,
             isCurrentUser: false,
+            isPlaceholder: true,
             joinedAt: now,
           }));
 
@@ -278,7 +283,11 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
           };
           newSettlements.push(settlement);
           pendingSettlements.unshift(settlement);
-          auditEntries.push(logSettlement(group, settlement, actorId));
+          auditEntries.push(
+            logSettlement(group, settlement, actorId, {
+              directedOutstandingBeforeMinor: capMinor,
+            })
+          );
         }
 
         if (newSettlements.length === 0) return null;
@@ -295,12 +304,13 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         return null;
       },
 
-      addMember: (groupId, displayName, username) => {
+      addMember: (groupId, displayName, username, options) => {
         const trimmed = displayName.trim();
         if (!trimmed) return null;
 
         const now = new Date().toISOString();
         const memberId = generateId();
+        const seatIsPlaceholder = options?.isPlaceholder ?? true;
 
         const groupBefore = get().groups.find((g) => g.id === groupId);
         if (!groupBefore) return null;
@@ -309,6 +319,12 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
           (m) => m.displayName.toLowerCase() === trimmed.toLowerCase()
         );
         if (duplicate) return duplicate.id;
+
+        if (seatIsPlaceholder) {
+          const creatorId = getGroupCreatorMemberId(groupBefore, get().activityLog);
+          const viewer = groupBefore.members.find((m) => m.isCurrentUser);
+          if (!viewer || viewer.id !== creatorId) return null;
+        }
 
         const actorId = getActorMemberId(groupBefore);
         const auditEntry = logMemberJoined(groupBefore, memberId, actorId, now);
@@ -324,6 +340,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
                       id: memberId,
                       displayName: trimmed,
                       isCurrentUser: false,
+                      isPlaceholder: seatIsPlaceholder,
                       username,
                       joinedAt: now,
                     },
@@ -355,6 +372,15 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         const group = get().groups.find((g) => g.id === groupId);
         const member = group?.members.find((m) => m.id === memberId);
         if (!member || member.isCurrentUser || !group) return 'Cannot rename this member.';
+
+        const creatorId = getGroupCreatorMemberId(group, get().activityLog);
+        const viewer = group.members.find((m) => m.isCurrentUser);
+        if (!viewer || viewer.id !== creatorId) {
+          return 'Only the host can rename members.';
+        }
+        if (!member.isCurrentUser && member.isPlaceholder === false) {
+          return 'Members with a Debtly account cannot be renamed.';
+        }
 
         const duplicate = group.members.find(
           (m) => m.id !== memberId && m.displayName.toLowerCase() === trimmed.toLowerCase()
@@ -398,7 +424,13 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
       removeMember: (groupId, memberId) => {
         const group = get().groups.find((g) => g.id === groupId);
         const member = group?.members.find((m) => m.id === memberId);
-        if (!member || member.isCurrentUser || !group) return;
+        if (!member || member.isCurrentUser || !group) return 'Cannot remove this member.';
+
+        const creatorId = getGroupCreatorMemberId(group, get().activityLog);
+        const viewer = group.members.find((m) => m.isCurrentUser);
+        if (!viewer || viewer.id !== creatorId) {
+          return 'Only the host can remove members.';
+        }
 
         const now = new Date().toISOString();
         const actorId = getActorMemberId(group);
@@ -429,6 +461,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
 
         const { groups, expenses, settlements } = get();
         syncLedgerForGroup(groupId, groups, expenses, settlements);
+        return null;
       },
 
       addExpense: (input) => {
@@ -607,7 +640,9 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         };
 
         const actorId = getActorMemberId(group);
-        const auditEntry = logSettlement(group, settlement, actorId);
+        const auditEntry = logSettlement(group, settlement, actorId, {
+          directedOutstandingBeforeMinor: capMinor,
+        });
 
         set((state) => ({
           settlements: [settlement, ...state.settlements],
@@ -639,7 +674,7 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         );
         if (existing) return group.id;
 
-        get().addMember(group.id, trimmed);
+        get().addMember(group.id, trimmed, undefined, { isPlaceholder: false });
         return group.id;
       },
 

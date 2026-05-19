@@ -20,6 +20,7 @@ import { useConvexAuth } from 'convex/react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { isConvexConfigured } from '@/lib/convex/env';
+import { useSubmitGuard } from '@/hooks/use-submit-guard';
 
 export interface CreateGroupSheetHandle {
   present: () => void;
@@ -79,6 +80,8 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
   const convexReady =
     isConvexConfigured() && !isLoading && isAuthenticated;
 
+  const { busy: creatingGroup, runGuarded } = useSubmitGuard();
+
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop {...props} disappearsOnIndex={-1} pressBehavior="close" />
@@ -94,40 +97,41 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleCreate = async () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      Alert.alert('Name required', 'Give your group a name to continue.');
-      return;
-    }
-
-    if (convexReady) {
-      try {
-        const r = await convexCreateGroup({
-          name: trimmed,
-          memberNames: [],
-          currency: profileCurrency,
-        });
-        notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
-        sheetRef.current?.dismiss();
-        router.push({ pathname: '/group/[id]', params: { id: r.groupId } });
-        return;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Could not create group.';
-        Alert.alert('Could not create group', msg);
+  const handleCreate = () =>
+    void runGuarded(async () => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        Alert.alert('Name required', 'Give your group a name to continue.');
         return;
       }
-    }
 
-    const id = createGroup({ name });
-    if (!id) {
-      Alert.alert('Name required', 'Give your group a name to continue.');
-      return;
-    }
-    notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
-    sheetRef.current?.dismiss();
-    router.push({ pathname: '/group/[id]', params: { id } });
-  };
+      if (convexReady) {
+        try {
+          const r = await convexCreateGroup({
+            name: trimmed,
+            memberNames: [],
+            currency: profileCurrency,
+          });
+          notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
+          sheetRef.current?.dismiss();
+          router.push({ pathname: '/group/[id]', params: { id: r.groupId } });
+          return;
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : 'Could not create group.';
+          Alert.alert('Could not create group', msg);
+          return;
+        }
+      }
+
+      const id = createGroup({ name: trimmed });
+      if (!id) {
+        Alert.alert('Name required', 'Give your group a name to continue.');
+        return;
+      }
+      notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
+      sheetRef.current?.dismiss();
+      router.push({ pathname: '/group/[id]', params: { id } });
+    });
 
   return (
     <BottomSheetModal
@@ -163,8 +167,8 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
             />
             <Description>You can invite members after creating the group.</Description>
           </TextField>
-          <GlassButton variant="primary" onPress={handleCreate}>
-            <GlassButton.Label>Create group</GlassButton.Label>
+          <GlassButton variant="primary" onPress={handleCreate} isDisabled={creatingGroup}>
+            <GlassButton.Label>{creatingGroup ? 'Creating…' : 'Create group'}</GlassButton.Label>
           </GlassButton>
         </BottomSheetScrollView>
       </HeroUINativeProvider>
