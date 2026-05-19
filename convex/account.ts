@@ -1,7 +1,23 @@
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { ConvexError, v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
-import { mutation, type MutationCtx } from './_generated/server';
+import { mutation, query, type MutationCtx } from './_generated/server';
+
+/** Public signup helper: true when no user row claims this username (indexed). */
+export const isUsernameAvailable = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const slug = args.username.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(slug)) {
+      return { available: false as const };
+    }
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('username', (q) => q.eq('username', slug))
+      .first();
+    return { available: existing === null };
+  },
+});
 
 function assertDevAccountDeletionEnabled(): void {
   if (process.env.DEBTLY_ALLOW_ACCOUNT_DELETE !== 'true') {
