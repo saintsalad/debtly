@@ -70,6 +70,7 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
   const sheetRef = useRef<BottomSheetModal>(null);
   const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
   const createGroup = useGroupExpenseStore((s) => s.createGroup);
+  const setGroupInviteCode = useGroupExpenseStore((s) => s.setGroupInviteCode);
   const profileCurrency = useProfileStore((s) => s.currency);
   const router = useRouter();
   const [name, setName] = useState('');
@@ -112,6 +113,7 @@ export const CreateGroupSheet = forwardRef<CreateGroupSheetHandle>(function Crea
             memberNames: [],
             currency: profileCurrency,
           });
+          setGroupInviteCode(r.groupId, r.inviteCode);
           notifySuccess(toast, 'Group created', 'You can add expenses and invite others.');
           sheetRef.current?.dismiss();
           router.push({ pathname: '/group/[id]', params: { id: r.groupId } });

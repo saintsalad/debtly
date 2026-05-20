@@ -64,4 +64,17 @@ describe('joinLinkParse', () => {
   it('accepts http URLs', () => {
     expect(parseInviteCodeFromLinkOrRaw('http://host/join?code=aa')).toBe('AA');
   });
+
+  it('extracts code via regex when queryParams are empty', () => {
+    expect(parseInviteCodeFromUrl('debtly://group/join?code=ab12cd')).toBe('AB12CD');
+  });
+
+  it('does not treat an unparseable URL as a raw invite code', () => {
+    expect(parseInviteCodeFromLinkOrRaw('debtly://group/other?code=x')).toBeNull();
+  });
+
+  it('parses hex invite codes from join links', () => {
+    const hex = 'A1B2C3D4E5F60718293A4B5C6D7E8F90';
+    expect(parseInviteCodeFromLinkOrRaw(`debtly://group/join?code=${hex}`)).toBe(hex);
+  });
 });

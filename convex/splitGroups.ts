@@ -36,21 +36,15 @@ const expenseShareValidator = v.object({
   adjustmentMinor: v.optional(v.number()),
 });
 
-const INVITE_CODE_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-function randomSixCharInviteCode(): string {
-  const buf = new Uint8Array(6);
+function secureInviteCode(): string {
+  const buf = new Uint8Array(16);
   crypto.getRandomValues(buf);
-  let s = '';
-  for (let i = 0; i < 6; i++) {
-    s += INVITE_CODE_ALPHABET[buf[i]! % INVITE_CODE_ALPHABET.length]!;
-  }
-  return s;
+  return [...buf].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }
 
 async function allocateUniqueInviteCode(ctx: any): Promise<string> {
   for (let attempt = 0; attempt < 32; attempt++) {
-    const code = randomSixCharInviteCode();
+    const code = secureInviteCode();
     const existing = await ctx.db
       .query('splitGroupInvites')
       .withIndex('by_code', (q: any) => q.eq('code', code))
@@ -303,7 +297,7 @@ async function buildSplitGroupForViewer(
   const creatorMember = memberRows.find(
     (m: { userId?: Id<'users'> }) => m.userId === groupDoc.createdByUserId
   );
-  const inviteCode = await ensureActiveInviteCode(ctx, groupDoc._id);
+  const inviteCode = (await getActiveInviteCode(ctx, groupDoc._id)) ?? '';
 
   let imageUri: string | undefined;
   if (groupDoc.imageStorageId) {
@@ -521,6 +515,29 @@ export const createGroup = mutation({
     });
 
     return { groupId: groupId as string, inviteCode: code };
+  },
+});
+
+export const getGroupInvite = query({
+  args: { groupId: v.id('splitGroups') },
+  handler: async (ctx, { groupId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    await assertMember(ctx, groupId, userId);
+    const inviteCode = await getActiveInviteCode(ctx, groupId);
+    return { inviteCode };
+  },
+});
+
+/** Backfill a missing invite row for legacy cloud groups (host only). */
+export const ensureGroupInvite = mutation({
+  args: { groupId: v.id('splitGroups') },
+  handler: async (ctx, { groupId }) => {
+    const userId = await requireUserId(ctx);
+    await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
+    const inviteCode = await ensureActiveInviteCode(ctx, groupId);
+    return { inviteCode };
   },
 });
 

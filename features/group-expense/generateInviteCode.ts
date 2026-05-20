@@ -1,11 +1,12 @@
-const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const INVITE_CODE_LENGTH = 6;
-
-/** Uppercase alphanumeric code for offline / on-device split groups. */
+/** 32-char hex invite code (matches Convex `secureInviteCode`). */
 export function generateInviteCode(): string {
-  let code = '';
-  for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
-    code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)]!;
+  const buf = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(buf);
+  } else {
+    for (let i = 0; i < buf.length; i++) {
+      buf[i] = Math.floor(Math.random() * 256);
+    }
   }
-  return code;
+  return [...buf].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 }

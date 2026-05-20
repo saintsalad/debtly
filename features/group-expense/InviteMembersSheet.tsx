@@ -6,12 +6,20 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackdropProps,
 } from '@gorhom/bottom-sheet';
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
 import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
-import { Copy, RefreshCw } from 'lucide-react-native';
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { RefreshCw } from 'lucide-react-native';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { GlassButton } from '@/components/ui/GlassButton';
@@ -25,7 +33,6 @@ import {
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useSubmitGuard } from '@/hooks/use-submit-guard';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
-import { sansForWeight } from '@/lib/appFonts';
 import { notifyError, notifySuccess } from '@/lib/appToast';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { space, type, useColors, type ColorPalette } from '@/lib/platform';
@@ -65,53 +72,17 @@ function createSheetStyles(palette: ColorPalette) {
       fontSize: 17,
     },
     inviteHero: {
-      flexDirection: 'row',
       alignItems: 'center',
-      gap: space[4],
+      gap: space[2],
     },
     qrBox: {
       padding: space[2],
       borderRadius: 14,
       backgroundColor: palette.fill,
     },
-    inviteCodeColumn: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 0,
+    inviteActions: {
+      alignItems: 'center',
       gap: space[1],
-    },
-    codeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: space[2],
-      minHeight: Platform.OS === 'android' ? 36 : undefined,
-    },
-    codeTextOuter: {
-      flex: 1,
-      flexShrink: 1,
-      minWidth: 0,
-    },
-    code: {
-      ...type.title2,
-      fontWeight: '700',
-      fontFamily: sansForWeight('700'),
-      color: palette.label,
-      textAlign: 'left',
-    },
-    copyCodeButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-      backgroundColor: palette.fill,
-    },
-    codeWideSpacing: {
-      letterSpacing: 3,
-    },
-    codeCompactSpacing: {
-      letterSpacing: 1,
     },
     hint: {
       ...type.footnote,
@@ -162,6 +133,7 @@ const InviteMembersSheetInner = forwardRef<
 
   const addPlaceholderConvex = useMutation(api.splitGroups.addPlaceholderMember);
   const regenerateInviteConvex = useMutation(api.splitGroups.regenerateInvite);
+  const ensureGroupInviteConvex = useMutation(api.splitGroups.ensureGroupInvite);
 
   const [groupId, setGroupId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -171,12 +143,28 @@ const InviteMembersSheetInner = forwardRef<
 
   const group = useMemo(() => groups.find((g) => g.id === groupId), [groups, groupId]);
   const isCloud = group?.syncMode === 'convex';
+  const serverInvite = useQuery(
+    api.splitGroups.getGroupInvite,
+    isCloud && groupId && authReadyForShare
+      ? { groupId: groupId as Id<'splitGroups'> }
+      : 'skip'
+  );
   const viewerMemberId = group?.members.find((m) => m.isCurrentUser)?.id;
   const isViewerHost = Boolean(
     group && isViewerGroupHost(group, activityLog, viewerMemberId)
   );
-  const inviteLink = group ? getInviteLink(group.id) : '';
-  const codeStyleWide = group && group.inviteCode.length <= 8;
+  /** Cloud groups: only show invite from Convex, never stale SQLite/Zustand codes. */
+  const displayInviteCode = isCloud
+    ? serverInvite === undefined
+      ? ''
+      : (serverInvite.inviteCode ?? '')
+    : (group?.inviteCode ?? '');
+  const inviteLink = group
+    ? displayInviteCode
+      ? `debtly://group/join?code=${displayInviteCode}`
+      : getInviteLink(group.id)
+    : '';
+  const inviteCodeLoading = isCloud && authReadyForShare && serverInvite === undefined;
 
   const inviteConvexSessionLoading = Boolean(accountGateConvex && convexAuthLoading);
   /** Convex configured + unsigned: hide QR / link unless signed in */
@@ -213,22 +201,39 @@ const InviteMembersSheetInner = forwardRef<
     dismiss: () => sheetRef.current?.dismiss(),
   }));
 
-  const handleCopyCode = async () => {
-    if (!group || inviteRequiresConvexAuth) return;
-    const ok = await copyStringToClipboard(group.inviteCode);
-    if (ok) notifySuccess(toast, 'Invite code copied');
-    else Alert.alert('Clipboard', 'Could not copy the code.');
-  };
+  useEffect(() => {
+    if (!isCloud || !groupId || !authReadyForShare || serverInvite === undefined) return;
+    const serverCode = serverInvite?.inviteCode?.trim().toUpperCase();
+    if (serverCode && group && serverCode !== group.inviteCode) {
+      setGroupInviteCode(groupId, serverCode);
+      return;
+    }
+    if (serverCode || !isViewerHost) return;
+    void ensureGroupInviteConvex({ groupId: groupId as Id<'splitGroups'> })
+      .then(({ inviteCode }) => setGroupInviteCode(groupId, inviteCode))
+      .catch(() => {
+        /* Host can use "New QR & link" if backfill fails. */
+      });
+  }, [
+    authReadyForShare,
+    ensureGroupInviteConvex,
+    group,
+    groupId,
+    isCloud,
+    isViewerHost,
+    serverInvite,
+    setGroupInviteCode,
+  ]);
 
   const handleCopyLink = async () => {
-    if (!group || inviteRequiresConvexAuth) return;
+    if (!group || inviteRequiresConvexAuth || inviteCodeLoading || !displayInviteCode) return;
     const ok = await copyStringToClipboard(inviteLink);
     if (ok) notifySuccess(toast, 'Invite link copied');
     else Alert.alert('Clipboard', 'Could not copy the link.');
   };
 
   const handleShareLink = () => {
-    if (!group || inviteRequiresConvexAuth) return;
+    if (!group || inviteRequiresConvexAuth || inviteCodeLoading || !displayInviteCode) return;
     void shareInviteLinkMessage(inviteLink);
   };
 
@@ -247,7 +252,7 @@ const InviteMembersSheetInner = forwardRef<
           groupId: groupId as Id<'splitGroups'>,
         });
         setGroupInviteCode(groupId, nextCode);
-        notifySuccess(toast, 'Invite refreshed', 'Share the new code or QR.');
+        notifySuccess(toast, 'Invite refreshed', 'Share the new QR or link.');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Could not refresh invite.';
         notifyError(toast, 'Refresh failed', msg);
@@ -259,7 +264,7 @@ const InviteMembersSheetInner = forwardRef<
       Alert.alert('Could not refresh', err);
       return;
     }
-    notifySuccess(toast, 'Invite refreshed', 'Share the new code or QR.');
+    notifySuccess(toast, 'Invite refreshed', 'Share the new QR or link.');
   }, [
     accountGateConvex,
     authReadyForShare,
@@ -276,7 +281,7 @@ const InviteMembersSheetInner = forwardRef<
   const handleRefreshInvite = useCallback(() => {
     Alert.alert(
       'Refresh invite?',
-      'The current code and QR will stop working. Share the new ones with anyone who still needs to join.',
+      'The current QR and link will stop working. Share the new ones with anyone who still needs to join.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -381,69 +386,56 @@ const InviteMembersSheetInner = forwardRef<
             </>
           ) : (
             <>
-              <View style={styles.inviteHero} accessibilityLabel="Invite code and QR">
+              <View style={styles.inviteHero} accessibilityLabel="Invite QR code">
                 <View style={styles.qrBox}>
-                  <QRCode
-                    key={group.inviteCode}
-                    value={inviteLink}
-                    size={112}
-                    color={palette.label}
-                    backgroundColor="transparent"
-                  />
-                </View>
-                <View style={styles.inviteCodeColumn}>
-                  <View style={styles.codeRow}>
-                    <View style={styles.codeTextOuter}>
-                      <Text
-                        style={[
-                          styles.code,
-                          codeStyleWide ? styles.codeWideSpacing : styles.codeCompactSpacing,
-                        ]}
-                        {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
-                        selectable
-                        numberOfLines={1}
-                        maxFontSizeMultiplier={codeStyleWide ? 1.25 : 1.12}
-                        ellipsizeMode="middle"
-                      >
-                        {group.inviteCode}
-                      </Text>
+                  {inviteCodeLoading || !displayInviteCode ? (
+                    <View style={{ width: 160, height: 160, alignItems: 'center', justifyContent: 'center' }}>
+                      <ActivityIndicator color={palette.tint} />
                     </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Copy invite code"
-                      onPress={() => void handleCopyCode()}
-                      style={({ pressed }) => [
-                        styles.copyCodeButton,
-                        pressed && { opacity: 0.76 },
-                      ]}
-                      hitSlop={6}
-                    >
-                      <Copy size={22} color={palette.labelSecondary} />
-                    </Pressable>
-                  </View>
-                  <Text style={styles.hint}>Scan QR or tap Share link.</Text>
+                  ) : (
+                    <QRCode
+                      key={displayInviteCode}
+                      value={inviteLink}
+                      size={160}
+                      color={palette.label}
+                      backgroundColor="transparent"
+                    />
+                  )}
+                </View>
+                <View style={styles.inviteActions}>
+                  <Text style={[styles.hint, { textAlign: 'center' }]}>Scan the QR or share the link.</Text>
                   {isViewerHost ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Refresh invite code and QR"
+                      accessibilityLabel="Refresh invite QR and link"
                       onPress={handleRefreshInvite}
                       disabled={refreshingInvite}
-                      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: space[1], opacity: pressed ? 0.7 : 1 }]}
+                      style={({ pressed }) => [
+                        { flexDirection: 'row', alignItems: 'center', gap: space[1], opacity: pressed ? 0.7 : 1 },
+                      ]}
                     >
                       <RefreshCw size={14} color={palette.tint} />
                       <Text style={{ ...type.footnote, color: palette.tint, fontWeight: '600' }}>
-                        {refreshingInvite ? 'Refreshing…' : 'New code & QR'}
+                        {refreshingInvite ? 'Refreshing…' : 'New QR & link'}
                       </Text>
                     </Pressable>
                   ) : null}
                 </View>
               </View>
 
-              <GlassButton variant="primary" onPress={handleShareLink}>
+              <GlassButton
+                variant="primary"
+                onPress={handleShareLink}
+                isDisabled={inviteCodeLoading || !displayInviteCode}
+              >
                 <GlassButton.Label>Share link</GlassButton.Label>
               </GlassButton>
 
-              <GlassButton variant="secondary" onPress={() => void handleCopyLink()}>
+              <GlassButton
+                variant="secondary"
+                onPress={() => void handleCopyLink()}
+                isDisabled={inviteCodeLoading || !displayInviteCode}
+              >
                 <GlassButton.Label>Copy link</GlassButton.Label>
               </GlassButton>
 
