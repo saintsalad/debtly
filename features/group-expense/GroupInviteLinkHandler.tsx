@@ -11,7 +11,7 @@ import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
-/** Join when allowed; stash invite + open signup when Convex requires an authenticated account. */
+/** Join when signed in; otherwise stash invite code and explain sign-in before account creation. */
 async function followInviteDeepLink(opts: {
   url: string;
   joinGroupByCode: (code: string, displayName: string) => string | null;
@@ -39,10 +39,7 @@ async function followInviteDeepLink(opts: {
 
   if (gated && !authReady) {
     setPendingCode(code);
-    router.push({
-      pathname: '/create-account',
-      params: { returnTo: 'pending-invite' },
-    });
+    router.push({ pathname: '/sign-in-required' });
     return;
   }
 

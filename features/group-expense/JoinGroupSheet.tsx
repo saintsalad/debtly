@@ -31,6 +31,7 @@ import { useConvexAuth } from 'convex/react';
 
 import { GlassButton } from '@/components/ui/GlassButton';
 import { api } from '@/convex/_generated/api';
+import { ConvexAccountPromptCard } from '@/features/group-expense/ConvexAccountPromptCard';
 import { joinSplitGroupFromInvite } from '@/features/group-expense/joinSplitGroupFlow';
 import { parseInviteCodeFromLinkOrRaw } from '@/features/group-expense/joinLinkParse';
 import { useAppBottomSheetLayout } from '@/lib/appBottomSheet';
@@ -38,7 +39,6 @@ import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { notifySuccess } from '@/lib/appToast';
 import { isConvexConfigured } from '@/lib/convex/env';
 import { useColors, space, type, type ColorPalette } from '@/lib/platform';
-import { useAccountInviteStore } from '@/stores/accountInviteStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
 import { useProfileStore } from '@/stores/profileStore';
 
@@ -129,17 +129,23 @@ function createSheetStyles(palette: ColorPalette) {
       borderWidth: 2,
       borderColor: palette.label,
     },
+    authChecking: {
+      paddingVertical: space[10],
+      alignItems: 'center',
+      gap: space[3],
+    },
   });
 }
 
 interface JoinGroupSheetInnerProps {
   router: ReturnType<typeof useRouter>;
   accountGateConvex: boolean;
-  authReady: boolean;
+  convexAuthenticated: boolean;
+  convexAuthLoading: boolean;
 }
 
 const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInnerProps>(
-  function JoinGroupSheetInner({ router, accountGateConvex, authReady }, ref) {
+  function JoinGroupSheetInner({ router, accountGateConvex, convexAuthenticated, convexAuthLoading }, ref) {
     const palette = useColors();
     const colorScheme = useAppColorScheme();
     const styles = useMemo(() => createSheetStyles(palette), [palette]);
@@ -148,7 +154,6 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
     const { contentBottomPadding, containerComponent, presentSheet } = useAppBottomSheetLayout();
     const joinGroupByCode = useGroupExpenseStore((s) => s.joinGroupByCode);
     const profileName = useProfileStore((s) => s.name);
-    const setPendingInviteCode = useAccountInviteStore((s) => s.setPendingInviteCode);
     const joinConvexMutation = useMutation(api.splitGroups.joinByInviteCode);
     const [permission, requestPermission] = useCameraPermissions();
 
@@ -159,7 +164,15 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
     const { toast } = useToast();
 
     const convexConfigured = isConvexConfigured();
-    const preferConvex = convexConfigured && authReady;
+    const preferConvex =
+      convexConfigured && convexAuthenticated && !convexAuthLoading;
+    const gatedJoinUx = convexConfigured && accountGateConvex;
+
+    const openSignInFromJoinSheet = useCallback(() => {
+      router.push({ pathname: '/create-account', params: { returnTo: 'join-sheet' } });
+      sheetRef.current?.dismiss();
+    }, [router]);
+
     const canScan = Platform.OS !== 'web';
 
     const renderBackdrop = useCallback(
@@ -214,12 +227,10 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
               return;
             }
             if (accountGateConvex && convexConfigured) {
-              setPendingInviteCode(code);
-              sheetRef.current?.dismiss();
-              router.push({
-                pathname: '/create-account',
-                params: { returnTo: 'pending-invite' },
-              });
+              Alert.alert(
+                JOIN_FAIL_TITLE,
+                'Synced groups require a Debtly account. Open Join group again after signing in.'
+              );
               return;
             }
             Alert.alert(
@@ -259,7 +270,6 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
         preferConvex,
         profileName,
         router,
-        setPendingInviteCode,
       ]
     );
 
@@ -298,12 +308,25 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
             contentContainerStyle={[styles.form, { paddingBottom: contentBottomPadding }]}
             keyboardShouldPersistTaps="handled"
           >
-            <Description>
-              Enter an invite code or scan a QR code. Cloud groups require an account when sync is
-              enabled.
-            </Description>
+            {gatedJoinUx && convexAuthLoading ? (
+              <View style={styles.authChecking}>
+                <ActivityIndicator accessibilityLabel="Checking session" color={palette.tint} />
+                <Text style={{ ...type.footnote, color: palette.labelSecondary, textAlign: 'center' }}>
+                  Checking your session…
+                </Text>
+              </View>
+            ) : gatedJoinUx && !convexAuthenticated ? (
+              <ConvexAccountPromptCard
+                variant="join"
+                onContinueToSignIn={openSignInFromJoinSheet}
+              />
+            ) : (
+              <>
+                <Description>
+                  Enter an invite code or scan a QR code for this device.
+                </Description>
 
-            {canScan ? (
+                {canScan ? (
               <View style={styles.modeRow}>
                 <Pressable
                   style={[styles.modeChip, mode === 'manual' && styles.modeChipActive]}
@@ -375,6 +398,9 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
                 ) : null}
               </>
             )}
+
+              </>
+            )}
           </BottomSheetScrollView>
         </HeroUINativeProvider>
       </BottomSheetModal>
@@ -385,9 +411,14 @@ const JoinGroupSheetInner = forwardRef<JoinGroupSheetHandle, JoinGroupSheetInner
 const JoinGroupSheetWithConvexGate = forwardRef<JoinGroupSheetHandle>((_, ref) => {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const authReady = !isLoading && isAuthenticated;
   return (
-    <JoinGroupSheetInner ref={ref} router={router} accountGateConvex authReady={authReady} />
+    <JoinGroupSheetInner
+      ref={ref}
+      router={router}
+      accountGateConvex
+      convexAuthenticated={!isLoading && isAuthenticated}
+      convexAuthLoading={isLoading}
+    />
   );
 });
 
@@ -399,7 +430,8 @@ export const JoinGroupSheet = forwardRef<JoinGroupSheetHandle>(function JoinGrou
         ref={ref}
         router={router}
         accountGateConvex={false}
-        authReady={false}
+        convexAuthenticated={false}
+        convexAuthLoading={false}
       />
     );
   }

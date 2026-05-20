@@ -9,11 +9,15 @@ import { useWindowDimensions, View } from 'react-native';
 import 'react-native-reanimated';
 import '../global.css';
 
-import '@/lib/nativeTextDefaults';
-import { appFontMap } from '@/lib/appFonts';
+import { DatabaseProvider } from '@/components/DatabaseProvider';
+import { ConvexSplitGroupSync } from '@/features/group-expense/ConvexSplitGroupSync';
+import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
 import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import { useSyncUniwindTheme } from '@/hooks/use-sync-uniwind-theme';
 import { AddDebtProvider } from '@/lib/addDebtContext';
+import { appFontMap } from '@/lib/appFonts';
+import { ConvexGate } from '@/lib/convex/ConvexGate';
+import '@/lib/nativeTextDefaults';
 import { StatusBarScrollFadeProvider } from '@/lib/statusBarScrollFade';
 import { TransactionDetailProvider } from '@/lib/transactionDetailContext';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -21,10 +25,6 @@ import { HeroUINativeProvider } from 'heroui-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScopedTheme } from 'uniwind';
-import { GroupInviteLinkHandler } from '@/features/group-expense/GroupInviteLinkHandler';
-import { ConvexSplitGroupSync } from '@/features/group-expense/ConvexSplitGroupSync';
-import { DatabaseProvider } from '@/components/DatabaseProvider';
-import { ConvexGate } from '@/lib/convex/ConvexGate';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -84,67 +84,71 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: 'transparent' }}>
       <ConvexGate>
         <DatabaseProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <HeroUINativeProvider config={heroUiNativeConfig}>
-            <BottomSheetModalProvider>
-              <AddDebtProvider>
-                <TransactionDetailProvider>
-                  <StatusBarScrollFadeProvider>
-                    <GroupInviteLinkHandler />
-                    <ConvexSplitGroupSync />
-                    <Stack>
-                    <Stack.Screen
-                      name="(tabs)"
-                      options={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: 'transparent' },
-                      }}
-                    />
-                    <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-                    <Stack.Screen
-                      name="add-transaction"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="add-group-expense"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="transaction/[id]"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="transaction-receipt/[id]"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="edit-transaction/[id]"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="insights"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="group/[id]"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="create-account"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    <Stack.Screen
-                      name="group-receipt/[id]"
-                      options={{ presentation: 'fullScreenModal', headerShown: false }}
-                    />
-                    </Stack>
-                  </StatusBarScrollFadeProvider>
-                </TransactionDetailProvider>
-              </AddDebtProvider>
-            </BottomSheetModalProvider>
-          </HeroUINativeProvider>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        </ThemeProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <HeroUINativeProvider config={heroUiNativeConfig}>
+              <BottomSheetModalProvider>
+                <AddDebtProvider>
+                  <TransactionDetailProvider>
+                    <StatusBarScrollFadeProvider>
+                      <GroupInviteLinkHandler />
+                      <ConvexSplitGroupSync />
+                      <Stack>
+                        <Stack.Screen
+                          name="(tabs)"
+                          options={{
+                            headerShown: false,
+                            contentStyle: { backgroundColor: 'transparent' },
+                          }}
+                        />
+                        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                        <Stack.Screen
+                          name="add-transaction"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="add-group-expense"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="transaction/[id]"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="transaction-receipt/[id]"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="edit-transaction/[id]"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="insights"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="group/[id]"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="create-account"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="sign-in-required"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="group-receipt/[id]"
+                          options={{ presentation: 'fullScreenModal', headerShown: false }}
+                        />
+                      </Stack>
+                    </StatusBarScrollFadeProvider>
+                  </TransactionDetailProvider>
+                </AddDebtProvider>
+              </BottomSheetModalProvider>
+            </HeroUINativeProvider>
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          </ThemeProvider>
         </DatabaseProvider>
       </ConvexGate>
     </GestureHandlerRootView>

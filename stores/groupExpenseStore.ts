@@ -83,6 +83,10 @@ interface GroupExpenseStore extends GroupExpenseState {
   /** Propagate Convex/local username onto every `isCurrentUser` row (for receipts / invites). */
   syncViewerUsernameInGroups: (username: string | null) => void;
   getInviteLink: (groupId: string) => string;
+  /** Replace invite code (e.g. after Convex `regenerateInvite` or local refresh). */
+  setGroupInviteCode: (groupId: string, inviteCode: string) => void;
+  /** New on-device invite code for local-only groups. */
+  regenerateLocalInviteCode: (groupId: string) => string | null;
   getGroup: (id: string) => SplitGroup | undefined;
   getGroupExpenses: (groupId: string) => GroupExpense[];
   getGroupSettlements: (groupId: string) => Settlement[];
@@ -703,6 +707,30 @@ export const useGroupExpenseStore = create<GroupExpenseStore>()((set, get) => ({
         const group = get().groups.find((g) => g.id === groupId);
         if (!group) return 'debtly://group/join';
         return `debtly://group/join?code=${group.inviteCode}`;
+      },
+
+      setGroupInviteCode: (groupId, inviteCode) => {
+        const normalized = inviteCode.trim().toUpperCase();
+        if (!normalized) return;
+        const now = new Date().toISOString();
+        set((state) => ({
+          groups: state.groups.map((g) =>
+            g.id === groupId
+              ? { ...g, inviteCode: normalized, updatedAt: now, version: bumpVersion(g.version) }
+              : g
+          ),
+        }));
+      },
+
+      regenerateLocalInviteCode: (groupId) => {
+        const group = get().groups.find((g) => g.id === groupId);
+        if (!group) return 'Group not found.';
+        if (group.syncMode === 'convex') {
+          return 'Use refresh on a synced group while signed in.';
+        }
+        const newCode = generateInviteCode();
+        get().setGroupInviteCode(groupId, newCode);
+        return null;
       },
 
       getGroup: (id) => get().groups.find((g) => g.id === id),

@@ -1,3 +1,6 @@
+import * as Haptics from 'expo-haptics';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -20,14 +23,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Description, HeroUINativeProvider, Label, TextField, useToast } from 'heroui-native';
-import * as Haptics from 'expo-haptics';
 
+import { Avatar } from '@/components/ui/Avatar';
 import { GlassButton } from '@/components/ui/GlassButton';
 import { HeaderIconButton } from '@/components/ui/HeaderIconButton';
-import { Avatar } from '@/components/ui/Avatar';
-import { ChevronLeft, X } from 'lucide-react-native';
+import { api } from '@/convex/_generated/api';
+import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
 import {
   isValidUsernameSlug,
   normalizeUsernameSlug,
@@ -35,14 +36,13 @@ import {
 } from '@/lib/account/accountConstants';
 import { notifySuccess } from '@/lib/appToast';
 import { isConvexConfigured } from '@/lib/convex/env';
-import { useAppColorScheme } from '@/hooks/use-app-color-scheme';
-import { layout, useColors, radius, space, type, type ColorPalette } from '@/lib/platform';
+import { layout, radius, space, type, useColors, type ColorPalette } from '@/lib/platform';
 import { useAccountInviteStore } from '@/stores/accountInviteStore';
-import { useAuthActions } from '@convex-dev/auth/react';
-import { useProfileStore } from '@/stores/profileStore';
 import { useGroupExpenseStore } from '@/stores/groupExpenseStore';
-import { api } from '@/convex/_generated/api';
+import { useProfileStore } from '@/stores/profileStore';
+import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation, useQuery } from 'convex/react';
+import { ChevronLeft, X } from 'lucide-react-native';
 
 const PIN_LEN = 6;
 
@@ -349,7 +349,7 @@ export default function CreateAccountScreen() {
   const palette = useColors();
   const colorScheme = useAppColorScheme();
   const { toast } = useToast();
-  const params = useLocalSearchParams<{ returnTo?: string }>();
+  const params = useLocalSearchParams<{ returnTo?: string; groupId?: string }>();
   const { signIn } = useAuthActions();
 
   const presetName = useProfileStore((s) => s.name);
@@ -501,6 +501,20 @@ export default function CreateAccountScreen() {
         router.replace({ pathname: '/group/[id]', params: { id: gid } });
         return;
       }
+    }
+
+    if (
+      params.returnTo === 'invite-sheet' &&
+      typeof params.groupId === 'string' &&
+      params.groupId
+    ) {
+      router.replace({ pathname: '/group/[id]', params: { id: params.groupId } });
+      return;
+    }
+
+    if (params.returnTo === 'join-sheet') {
+      router.replace('/(tabs)/bill-split');
+      return;
     }
 
     goBackOrDismiss();

@@ -653,6 +653,7 @@ export const regenerateInvite = mutation({
   handler: async (ctx, { groupId }) => {
     const userId = await requireUserId(ctx);
     await assertMember(ctx, groupId, userId);
+    await assertGroupHost(ctx, groupId, userId);
 
     const invites = await ctx.db
       .query('splitGroupInvites')
